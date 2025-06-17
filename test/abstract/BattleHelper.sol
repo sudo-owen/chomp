@@ -79,4 +79,36 @@ abstract contract BattleHelper is Test {
         engine.startBattle(battleKey, "", 0);
         return battleKey;
     }
+
+    function _startBattle(
+        IValidator validator,
+        Engine engine,
+        IRandomnessOracle rngOracle,
+        ITeamRegistry defaultRegistry,
+        IEngineHook engineHook
+    ) internal returns (bytes32) {
+        // Start a battle
+        StartBattleArgs memory args = StartBattleArgs({
+            p0: ALICE,
+            p1: BOB,
+            validator: validator,
+            rngOracle: rngOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: defaultRegistry,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            engineHook: engineHook
+        });
+        vm.startPrank(ALICE);
+        bytes32 battleKey = engine.proposeBattle(args);
+        bytes32 battleIntegrityHash = keccak256(
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash)
+        );
+        vm.startPrank(BOB);
+        engine.acceptBattle(battleKey, 0, battleIntegrityHash);
+        vm.startPrank(ALICE);
+        engine.startBattle(battleKey, "", 0);
+        return battleKey;
+    }
 }

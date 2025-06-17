@@ -1,27 +1,9 @@
 # TODO
 
-1) Progression system:
-- figure out NOMs
-- figure out gacha
-- figure out post-game hook
-
-2) Go from mon stat csv to actual deploy script
-- do rest of deploy script
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- Look into why RNG for special stuff is failing
+- (Simplify it for now)
+- emit event for registry
+- add way for forge tracer to filter for just events
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES

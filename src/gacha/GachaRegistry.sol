@@ -14,10 +14,8 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     uint256 constant public ROLL_COST = 300;
     uint256 constant public POINTS_PER_WIN = 50;
     uint256 constant public POINTS_PER_LOSS = 20;
-    uint256 constant public POINTS_MULTIPLIER_1 = 2;
-    uint256 constant public POINTS_MULTIPLIER_1_CHANCE_DENOM = 5;
-    uint256 constant public POINTS_MULTIPLIER_2 = 3;
-    uint256 constant public POINTS_MULTIPLIER_2_CHANCE_DENOM = 10;
+    uint256 constant public POINTS_MULTIPLIER = 3;
+    uint256 constant public POINTS_MULTIPLIER_CHANCE_DENOM = 10;
     uint256 constant public BATTLE_COOLDOWN = 23 hours;
 
     IMonRegistry public immutable MON_REGISTRY;
@@ -33,6 +31,9 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     error NotEngine();
 
     event MonRoll(address indexed player, uint256[] monIds);
+    event PointsAwarded(address indexed player, uint256 points);
+    event PointsSpent(address indexed player, uint256 points);
+    event BonusPoints(bytes32 indexed battleKey);
 
     constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE) ERC721Soulbound("MONS", "MONS") {
         MON_REGISTRY = _MON_REGISTRY;
@@ -55,6 +56,7 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
         }
         else {
             pointsBalance[msg.sender] -= numRolls * ROLL_COST;
+            emit PointsSpent(msg.sender, numRolls * ROLL_COST);
         }
         return _roll(numRolls);
     }
@@ -102,24 +104,23 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
             p0Points = POINTS_PER_LOSS;
             p1Points = POINTS_PER_WIN;
         }
-        uint256 rng = uint256(blockhash(block.number - 1)) % POINTS_MULTIPLIER_2_CHANCE_DENOM;
+        uint256 rng = uint256(blockhash(block.number - 1)) % POINTS_MULTIPLIER_CHANCE_DENOM;
         uint256 pointScale = 1; 
         if (rng == 0) {
-            pointScale = POINTS_MULTIPLIER_2;
-        }
-        else {
-            rng = uint256(keccak256(abi.encodePacked(rng))) % POINTS_MULTIPLIER_1_CHANCE_DENOM;
-            if (rng == 0) {
-                pointScale = POINTS_MULTIPLIER_1;
-            }
+            pointScale = POINTS_MULTIPLIER;
+            emit BonusPoints(ENGINE.battleKeyForWrite());
         }
         if (lastBattleTimestamp[players[0]] + BATTLE_COOLDOWN < block.timestamp) {
-            pointsBalance[players[0]] += p0Points * pointScale;
+            uint256 pointsAwarded = p0Points * pointScale;
+            pointsBalance[players[0]] += pointsAwarded;
             lastBattleTimestamp[players[0]] = block.timestamp;
+            emit PointsAwarded(players[0], pointsAwarded);
         }
         if (lastBattleTimestamp[players[1]] + BATTLE_COOLDOWN < block.timestamp) {
-            pointsBalance[players[1]] += p1Points * pointScale;
+            uint256 pointsAwarded = p1Points * pointScale;
+            pointsBalance[players[1]] += pointsAwarded;
             lastBattleTimestamp[players[1]] = block.timestamp;
+            emit PointsAwarded(players[1], pointsAwarded);
         }
     }
 
