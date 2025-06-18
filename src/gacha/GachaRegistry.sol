@@ -6,6 +6,7 @@ import "../lib/ERC721Soulbound.sol";
 import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 import {IEngine} from "../IEngine.sol";
 import {IEngineHook} from "../IEngineHook.sol";
+import {IRandomnessOracle} from "../rng/IRandomnessOracle.sol";
 
 contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     using EnumerableSetLib for EnumerableSetLib.Uint256Set;
@@ -20,6 +21,7 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
 
     IMonRegistry public immutable MON_REGISTRY;
     IEngine public immutable ENGINE;
+    IRandomnessOracle public immutable RNG;
 
     mapping(address => EnumerableSetLib.Uint256Set) private monsOwned;
     mapping(address => uint256) public pointsBalance;
@@ -35,9 +37,10 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     event PointsSpent(address indexed player, uint256 points);
     event BonusPoints(bytes32 indexed battleKey);
 
-    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE) ERC721Soulbound("MONS", "MONS") {
+    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IRandomnessOracle _RNG) ERC721Soulbound("MONS", "MONS") {
         MON_REGISTRY = _MON_REGISTRY;
         ENGINE = _ENGINE;
+        RNG = _RNG;
     }
 
     function firstRoll() external returns (uint256[] memory monIds) {
@@ -64,9 +67,10 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     function _roll(uint256 numRolls) internal returns (uint256[] memory monIds) {
         monIds = new uint256[](numRolls);
         uint256 numMons = MON_REGISTRY.getMonCount();
-        bytes32 prng = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender));
+        bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender));
+        uint256 prng = RNG.getRNG(seed, bytes32(0));
         for (uint256 i; i < numRolls; ++i) {
-            uint256 monId = uint256(prng) % numMons;
+            uint256 monId = prng % numMons;
             // Linear probing to solve for duplicate mons
             while (monsOwned[msg.sender].contains(monId)) {
                 monId = (monId + 1) % numMons;
@@ -74,7 +78,8 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
             monIds[i] = monId;
             _mint(msg.sender, monId);
             monsOwned[msg.sender].add(monId);
-            prng = keccak256(abi.encodePacked(prng));
+            seed = keccak256(abi.encodePacked(seed));
+            prng = RNG.getRNG(seed, bytes32(0));
         }
         emit MonRoll(msg.sender, monIds);
     }
@@ -104,7 +109,7 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
             p0Points = POINTS_PER_LOSS;
             p1Points = POINTS_PER_WIN;
         }
-        uint256 rng = uint256(blockhash(block.number - 1)) % POINTS_MULTIPLIER_CHANCE_DENOM;
+        uint256 rng = uint256(RNG.getRNG(blockhash(block.number - 1), bytes32(0))) % POINTS_MULTIPLIER_CHANCE_DENOM;
         uint256 pointScale = 1; 
         if (rng == 0) {
             pointScale = POINTS_MULTIPLIER;

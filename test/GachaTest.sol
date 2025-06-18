@@ -19,6 +19,7 @@ import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {FastCommitManager} from "../src/FastCommitManager.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {FastValidator} from "../src/FastValidator.sol";
+import {MockRandomnessOracle} from "./mocks/MockRandomnessOracle.sol";
 
 import "./mocks/TestTeamRegistry.sol";
 
@@ -30,6 +31,7 @@ contract GachaTest is Test, BattleHelper {
     TestTeamRegistry defaultRegistry;
     DefaultMonRegistry monRegistry;
     GachaRegistry gachaRegistry;
+    MockRandomnessOracle mockOracle;
 
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
@@ -38,7 +40,8 @@ contract GachaTest is Test, BattleHelper {
         engine.setCommitManager(address(commitManager));
         defaultRegistry = new TestTeamRegistry();
         monRegistry = new DefaultMonRegistry();
-        gachaRegistry = new GachaRegistry(monRegistry, engine);
+        mockOracle = new MockRandomnessOracle();
+        gachaRegistry = new GachaRegistry(monRegistry, engine, mockOracle);
     }
 
     function test_firstRoll() public {
@@ -96,6 +99,7 @@ contract GachaTest is Test, BattleHelper {
         commitManager.commitMove(battleKey, keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, "", abi.encode(0))));
 
         // Alice wins the battle (inactivity for Bob), we skip ahead
+        mockOracle.setRNG(1); // No extra bonus for points
         vm.warp(block.timestamp + 1);
         engine.end(battleKey);
 
@@ -124,9 +128,11 @@ contract GachaTest is Test, BattleHelper {
             }), new IMoveSet[](0), new IAbility[](0), new bytes32[](0), new bytes32[](0));
         }
 
+        mockOracle.setRNG(1); // No extra bonus for points
+
         // Start battle (do it 6 times so Alice has enough to spend on a roll)
         for (uint256 i = 0; i < 6; i++) {
-            vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + i);
+            vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + (i+1));
             FastValidator validator = new FastValidator(
                 engine, FastValidator.Args({MONS_PER_TEAM: 0, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
             );

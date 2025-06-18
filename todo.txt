@@ -1,9 +1,9 @@
 # TODO
 
-- Look into why RNG for special stuff is failing
-- (Simplify it for now)
-- emit event for registry
-- add way for forge tracer to filter for just events
+- Add a test to make sure the prng works (e.g. using blockhash works as intended)
+- Or add another version that can read from the prng state
+
+
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES
