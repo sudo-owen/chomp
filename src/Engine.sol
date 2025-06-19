@@ -971,6 +971,13 @@ contract Engine is IEngine {
         return battleStates[battleKey].winner;
     }
 
+    function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256) {
+        if (index == type(uint256).max) {
+            return battleStates[battleKey].pRNGStream[battleStates[battleKey].pRNGStream.length - 1];
+        }
+        return battleStates[battleKey].pRNGStream[index];
+    }
+
     // To be called once (after CommitManager is deployed and set to the Engine)
     function setCommitManager(address a) external {
         if (address(commitManager) != address(0)) {

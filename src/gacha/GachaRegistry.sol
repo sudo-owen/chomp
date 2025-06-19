@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import "../teams/IMonRegistry.sol";
 import "../lib/ERC721Soulbound.sol";
+import "../teams/IMonRegistry.sol";
 import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 import {IEngine} from "../IEngine.sol";
 import {IEngineHook} from "../IEngineHook.sol";
-import {IRandomnessOracle} from "../rng/IRandomnessOracle.sol";
+import {IGachaRNG} from "../rng/IGachaRNG.sol";
 
 contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     using EnumerableSetLib for EnumerableSetLib.Uint256Set;
@@ -21,7 +21,7 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
 
     IMonRegistry public immutable MON_REGISTRY;
     IEngine public immutable ENGINE;
-    IRandomnessOracle public immutable RNG;
+    IGachaRNG public immutable RNG;
 
     mapping(address => EnumerableSetLib.Uint256Set) private monsOwned;
     mapping(address => uint256) public pointsBalance;
@@ -37,10 +37,14 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     event PointsSpent(address indexed player, uint256 points);
     event BonusPoints(bytes32 indexed battleKey);
 
-    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IRandomnessOracle _RNG) ERC721Soulbound("MONS", "MONS") {
+    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG) ERC721Soulbound("MONS", "MONS") {
         MON_REGISTRY = _MON_REGISTRY;
         ENGINE = _ENGINE;
-        RNG = _RNG;
+        if (address(_RNG) == address(0)) {
+            RNG = IGachaRNG(address(this));
+        } else {
+            RNG = _RNG;
+        }
     }
 
     function firstRoll() external returns (uint256[] memory monIds) {
@@ -68,7 +72,8 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
         monIds = new uint256[](numRolls);
         uint256 numMons = MON_REGISTRY.getMonCount();
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender));
-        uint256 prng = RNG.getRNG(seed, bytes32(0));
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        uint256 prng = RNG.getRNG(seed, battleKey);
         for (uint256 i; i < numRolls; ++i) {
             uint256 monId = prng % numMons;
             // Linear probing to solve for duplicate mons
@@ -79,9 +84,13 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
             _mint(msg.sender, monId);
             monsOwned[msg.sender].add(monId);
             seed = keccak256(abi.encodePacked(seed));
-            prng = RNG.getRNG(seed, bytes32(0));
+            prng = RNG.getRNG(seed, battleKey);
         }
         emit MonRoll(msg.sender, monIds);
+    }
+
+    function getRNG(bytes32 seed, bytes32 battleKey) public view returns (uint256) {
+        return uint256(keccak256(abi.encode(blockhash(block.number - 1), seed, ENGINE.getRNG(battleKey, type(uint256).max))));
     }
 
     // IEngineHook implementation
@@ -109,11 +118,11 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
             p0Points = POINTS_PER_LOSS;
             p1Points = POINTS_PER_WIN;
         }
-        uint256 rng = uint256(RNG.getRNG(blockhash(block.number - 1), bytes32(0))) % POINTS_MULTIPLIER_CHANCE_DENOM;
+        uint256 rng = uint256(RNG.getRNG(battleKey, battleKey)) % POINTS_MULTIPLIER_CHANCE_DENOM;
         uint256 pointScale = 1; 
-        if (rng == 0) {
+        if (rng == (POINTS_MULTIPLIER_CHANCE_DENOM - 1)) {
             pointScale = POINTS_MULTIPLIER;
-            emit BonusPoints(ENGINE.battleKeyForWrite());
+            emit BonusPoints(battleKey);
         }
         if (lastBattleTimestamp[players[0]] + BATTLE_COOLDOWN < block.timestamp) {
             uint256 pointsAwarded = p0Points * pointScale;
