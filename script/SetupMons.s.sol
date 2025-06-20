@@ -316,21 +316,21 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        FirstResort firstresort = new FirstResort(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(vm.envAddress("BASELIGHT")));
+        FirstResort firstresort = new FirstResort(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
         deployedContracts[contractIndex] = DeployData({
             name: "First Resort",
             contractAddress: address(firstresort)
         });
         contractIndex++;
 
-        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(vm.envAddress("BASELIGHT")));
+        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
         deployedContracts[contractIndex] = DeployData({
             name: "Brightback",
             contractAddress: address(brightback)
         });
         contractIndex++;
 
-        IntrinsicValue intrinsicvalue = new IntrinsicValue(IEngine(vm.envAddress("ENGINE")), Baselight(vm.envAddress("BASELIGHT")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        IntrinsicValue intrinsicvalue = new IntrinsicValue(IEngine(vm.envAddress("ENGINE")), Baselight(address(baselight)), StatBoosts(vm.envAddress("STAT_BOOSTS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Intrinsic Value",
             contractAddress: address(intrinsicvalue)
@@ -508,7 +508,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        DeepFreeze deepfreeze = new DeepFreeze(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("FROSTBITE")));
+        DeepFreeze deepfreeze = new DeepFreeze(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("FROSTBITE_STATUS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Deep Freeze",
             contractAddress: address(deepfreeze)

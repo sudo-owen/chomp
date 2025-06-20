@@ -33,10 +33,10 @@ class MonData:
 
 class ContractInfo:
     """Represents information about a contract to be deployed"""
-    def __init__(self, name: str, contract_path: str, dependencies: List[str], import_paths: List[str] = None):
+    def __init__(self, name: str, contract_path: str, dependencies: List[Dict], import_paths: List[str] = None):
         self.name = name
         self.contract_path = contract_path
-        self.dependencies = dependencies
+        self.dependencies = dependencies  # Now expects list of dicts with name, type, param_name
         self.import_paths = import_paths or []  # File paths of contracts that need to be imported
         self.variable_name = self._generate_variable_name()
 
@@ -312,14 +312,15 @@ def analyze_contract_dependencies(contract_path: str, base_path: str) -> Tuple[L
                     env_name = env_name[1:]
                 dependencies.append({
                     "name": env_name,
-                    "type": param_type
+                    "type": param_type,
+                    "param_name": param_name  # Keep original parameter name for intra-mon resolution
                 })
                 contracts_imported.add(param_type)
 
         # Parse import statements to get the contracts that need to be imported
         import_pattern = r'import\s+\{([^}]+)\}\s+from\s+"([^"]+)"'
         import_matches = re.findall(import_pattern, content)
-        for contracts_str, import_path in import_matches:    
+        for contracts_str, import_path in import_matches:
             if contracts_str not in contracts_imported:
                 continue
             # Convert relative import path to absolute file path
@@ -337,6 +338,59 @@ def analyze_contract_dependencies(contract_path: str, base_path: str) -> Tuple[L
         print(f"Warning: Error analyzing contract {contract_path}: {e}")
 
     return dependencies, import_paths
+
+
+def analyze_intra_mon_dependencies(mon_contracts: Dict[str, ContractInfo]) -> Tuple[List[str], Dict[str, List[str]]]:
+    """Analyze dependencies within a mon's contract set and determine deployment order
+
+    Args:
+        mon_contracts: Dictionary of contract_name -> ContractInfo for a specific mon
+
+    Returns:
+        tuple: (deployment_order, intra_dependencies) where:
+            - deployment_order is a list of contract names in the order they should be deployed
+            - intra_dependencies is a dict mapping contract_name -> list of intra-mon dependencies
+    """
+    # Build dependency graph for contracts within this mon
+    intra_dependencies = {}
+    all_contract_names = set(mon_contracts.keys())
+
+    for contract_name, contract_info in mon_contracts.items():
+        intra_deps = []
+        for dep in contract_info.dependencies:
+            dep_type = dep["type"]
+            # Check if this dependency type matches any contract name in this mon's set
+            if dep_type in all_contract_names:
+                intra_deps.append(dep_type)
+        intra_dependencies[contract_name] = intra_deps
+
+    # Topological sort to determine deployment order
+    deployment_order = []
+    visited = set()
+    temp_visited = set()
+
+    def visit(contract_name: str):
+        if contract_name in temp_visited:
+            raise ValueError(f"Circular dependency detected involving {contract_name}")
+        if contract_name in visited:
+            return
+
+        temp_visited.add(contract_name)
+
+        # Visit all dependencies first
+        for dep_contract in intra_dependencies.get(contract_name, []):
+            visit(dep_contract)
+
+        temp_visited.remove(contract_name)
+        visited.add(contract_name)
+        deployment_order.append(contract_name)
+
+    # Visit all contracts
+    for contract_name in mon_contracts.keys():
+        if contract_name not in visited:
+            visit(contract_name)
+
+    return deployment_order, intra_dependencies
 
 
 def get_contracts_for_mon(mon: MonData, base_path: str) -> Dict[str, ContractInfo]:
@@ -393,24 +447,44 @@ def generate_deploy_function_for_mon(mon: MonData, base_path: str, include_color
     lines.append("")
 
     if mon_contracts:
-        # Deploy contracts
-        for contract in mon_contracts.values():
-            contract_name = contract_name_from_move_or_ability(contract.name)
+        # Analyze intra-mon dependencies and get deployment order
+        deployment_order, intra_dependencies = analyze_intra_mon_dependencies(mon_contracts)
+
+        # Track deployed contract instances for intra-mon references
+        deployed_instances = {}
+
+        # Deploy contracts in dependency order
+        for contract_name in deployment_order:
+            contract = mon_contracts[contract_name]
+            contract_var_name = contract.variable_name
 
             # Build constructor arguments
             constructor_args = []
             for dep in contract.dependencies:
                 contract_type = dep["type"]
                 env_name = dep["name"]
-                constructor_args.append(f"{contract_type}(vm.envAddress(\"{env_name}\"))")
+
+                # Check if this is an intra-mon dependency
+                if contract_type in intra_dependencies.get(contract_name, []):
+                    # Use the deployed instance from this mon
+                    if contract_type in deployed_instances:
+                        constructor_args.append(f"{contract_type}(address({deployed_instances[contract_type]}))")
+                    else:
+                        raise ValueError(f"Intra-mon dependency {contract_type} not yet deployed for {contract_name}")
+                else:
+                    # Use environment variable for external dependencies
+                    constructor_args.append(f"{contract_type}(vm.envAddress(\"{env_name}\"))")
 
             args_str = ", ".join(constructor_args)
-            lines.append(f"        {contract_name} {contract.variable_name} = new {contract_name}({args_str});")
+            lines.append(f"        {contract_name} {contract_var_name} = new {contract_name}({args_str});")
+
+            # Track this deployed instance for future intra-mon references
+            deployed_instances[contract_name] = contract_var_name
 
             # Add to deployed contracts array
             lines.append(f"        deployedContracts[contractIndex] = DeployData({{")
             lines.append(f"            name: \"{contract.name}\",")
-            lines.append(f"            contractAddress: address({contract.variable_name})")
+            lines.append(f"            contractAddress: address({contract_var_name})")
             lines.append("        });")
             lines.append("        contractIndex++;")
             lines.append("")

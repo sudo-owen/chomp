@@ -19,9 +19,9 @@ contract DeepFreeze is IMoveSet {
     IEffect immutable FROSTBITE;
     ITypeCalculator immutable TYPE_CALCULATOR;
 
-    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, IEffect _FROSTBITE) {
+    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, IEffect _FROSTBITE_STATUS) {
         ENGINE = _ENGINE;
-        FROSTBITE = _FROSTBITE;
+        FROSTBITE = _FROSTBITE_STATUS;
         TYPE_CALCULATOR = _TYPE_CALCULATOR;
     }
 
