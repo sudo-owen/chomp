@@ -13,16 +13,16 @@ library HeatBeaconLib {
         return keccak256(abi.encode(playerIndex, "HEAT_BEACON"));
     }
 
-    function getPriorityBoost(IEngine engine, uint256 playerIndex) external view returns (uint32) {
+    function _getPriorityBoost(IEngine engine, uint256 playerIndex) internal view returns (uint32) {
         bytes32 value = engine.getGlobalKV(engine.battleKeyForWrite(), _getKey(playerIndex));
         return value == bytes32("1") ? 1 : 0;
     }
 
-    function setPriorityBoost(IEngine engine, uint256 playerIndex) external {
+    function _setPriorityBoost(IEngine engine, uint256 playerIndex) internal {
         engine.setGlobalKV(_getKey(playerIndex), bytes32("1"));
     }
 
-    function clearPriorityBoost(IEngine engine, uint256 playerIndex) external {
+    function _clearPriorityBoost(IEngine engine, uint256 playerIndex) internal {
         engine.setGlobalKV(_getKey(playerIndex), bytes32("0"));
     }
 }

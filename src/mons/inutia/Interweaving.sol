@@ -14,9 +14,9 @@ contract Interweaving is IAbility, BasicEffect {
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOST;
 
-    constructor(IEngine _ENGINE, StatBoosts _STAT_BOOST) {
+    constructor(IEngine _ENGINE, StatBoosts _STAT_BOOSTS) {
         ENGINE = _ENGINE;
-        STAT_BOOST = _STAT_BOOST;
+        STAT_BOOST = _STAT_BOOSTS;
     }
 
     function name() public pure override(IAbility, BasicEffect) returns (string memory) {

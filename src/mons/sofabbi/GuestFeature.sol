@@ -30,7 +30,7 @@ contract GuestFeature is IMoveSet {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng) external {
         uint256 monIndex = abi.decode(extraData, (uint256));
         Type guestType = Type(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, monIndex, MonStateIndexName.Type1));
-        AttackCalculator.calculateDamage(
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

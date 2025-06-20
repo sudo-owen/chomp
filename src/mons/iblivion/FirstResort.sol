@@ -32,7 +32,7 @@ contract FirstResort is IMoveSet {
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) external {
-        AttackCalculator.calculateDamage(
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

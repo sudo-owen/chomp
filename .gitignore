@@ -17,6 +17,8 @@ log.txt
 
 # Setup
 processing/
+input.txt
+output.txt
 
 # Everything in drool
 drool/*

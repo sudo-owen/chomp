@@ -106,7 +106,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0; // No crits
 
         // Calculate damage (Alice attacking Bob)
-        (int32 damage, ) = AttackCalculator.calculateDamageView(
+        (int32 damage, ) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -139,7 +139,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0; // No crits
 
         // Calculate damage (Bob attacking Alice)
-        (int32 damage, ) = AttackCalculator.calculateDamageView(
+        (int32 damage, ) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -171,12 +171,12 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0;
 
         // With rng = 49, attack should hit (rng < accuracy)
-        (int32 damage1, ) = AttackCalculator.calculateDamageView(
+        (int32 damage1, ) = AttackCalculator._calculateDamageView(
             engine, typeCalc, battleKey, 0, 1, basePower, accuracy, volatility, attackType, attackSupertype, 49, critRate
         );
 
         // With rng = 50, attack should miss (rng >= accuracy)
-        (int32 damage2, EngineEventType eventType) = AttackCalculator.calculateDamageView(
+        (int32 damage2, EngineEventType eventType) = AttackCalculator._calculateDamageView(
             engine, typeCalc, battleKey, 0, 1, basePower, accuracy, volatility, attackType, attackSupertype, 50, critRate
         );
         assertEq(uint256(eventType), uint256(EngineEventType.MoveMiss), "Should emit miss");
@@ -201,7 +201,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         // For simplicity, we'll test both scenarios
 
         // First, force a non-crit by setting critRate to 0
-        (int32 normalDamage, ) = AttackCalculator.calculateDamageView(
+        (int32 normalDamage, ) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -217,7 +217,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // Then, force a crit by setting critRate to 100
-        (int32 critDamage, EngineEventType eventType) = AttackCalculator.calculateDamageView(
+        (int32 critDamage, EngineEventType eventType) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -247,7 +247,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0;
 
         // With even RNG, damage should increase
-        (int32 damageScaledUp, ) = AttackCalculator.calculateDamageView(
+        (int32 damageScaledUp, ) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -263,7 +263,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // With odd RNG, damage should decrease
-        (int32 damageScaledDown, ) = AttackCalculator.calculateDamageView(
+        (int32 damageScaledDown, ) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -279,7 +279,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // Reset volatility and get base damage
-        (int32 baseDamage, ) = AttackCalculator.calculateDamageView(
+        (int32 baseDamage, ) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,

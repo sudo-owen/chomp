@@ -34,8 +34,8 @@ contract Q5 is IMoveSet, BasicEffect {
         ENGINE.addEffect(2, 2, this, abi.encode(1, attackerPlayerIndex));
 
         // Clear the priority boost
-        if (HeatBeaconLib.getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
-            HeatBeaconLib.clearPriorityBoost(ENGINE, attackerPlayerIndex);
+        if (HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
+            HeatBeaconLib._clearPriorityBoost(ENGINE, attackerPlayerIndex);
         }
     }
 
@@ -44,7 +44,7 @@ contract Q5 is IMoveSet, BasicEffect {
     }
 
     function priority(bytes32, uint256 attackerPlayerIndex) external view returns (uint32) {
-        return DEFAULT_PRIORITY + HeatBeaconLib.getPriorityBoost(ENGINE, attackerPlayerIndex);
+        return DEFAULT_PRIORITY + HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex);
     }
 
     function moveType(bytes32) public pure returns (Type) {
@@ -74,7 +74,7 @@ contract Q5 is IMoveSet, BasicEffect {
         (uint256 turnCount, uint256 attackerPlayerIndex) = abi.decode(extraData, (uint256, uint256));
         if (turnCount == DELAY) {
             // Deal damage
-            AttackCalculator.calculateDamage(
+            AttackCalculator._calculateDamage(
                 ENGINE,
                 TYPE_CALCULATOR,
                 ENGINE.battleKeyForWrite(),

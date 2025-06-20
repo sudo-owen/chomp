@@ -21,7 +21,7 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
 
     IMonRegistry public immutable MON_REGISTRY;
     IEngine public immutable ENGINE;
-    IGachaRNG public immutable RNG;
+    IGachaRNG immutable RNG;
 
     mapping(address => EnumerableSetLib.Uint256Set) private monsOwned;
     mapping(address => uint256) public pointsBalance;

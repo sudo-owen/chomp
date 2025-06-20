@@ -39,7 +39,7 @@ contract RockPull is IMoveSet {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) external {
         if (_didOtherPlayerChooseSwitch(battleKey, attackerPlayerIndex)) {
             // Deal damage to the opposing mon
-            AttackCalculator.calculateDamage(
+            AttackCalculator._calculateDamage(
                 ENGINE,
                 TYPE_CALCULATOR,
                 battleKey,
@@ -54,7 +54,7 @@ contract RockPull is IMoveSet {
             );
         } else {
             // Deal damage to ourselves
-            (int32 selfDamage, ) = AttackCalculator.calculateDamageView(
+            (int32 selfDamage, ) = AttackCalculator._calculateDamageView(
                 ENGINE,
                 TYPE_CALCULATOR,
                 battleKey,

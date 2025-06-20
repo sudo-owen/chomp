@@ -17,7 +17,7 @@ Big Bite,Inutia,85,2,100,0,Wild,Physical,Deals damage.,Yes
 Shrine Strike,Inutia,90,2,100,0,Water,Special,"Deals damage, heals for 1/16 of max HP.",Yes
 Triple Think,Malalien,0,2,100,0,Mind,Self,Boosts SpATK by 75%.,Yes
 Federal Investigation,Malalien,100,2,100,0,Cyber,Special,Deals damage.,Yes
-Negative Thoughts,Malalien,80,3,100,0,Mind,Special,"Deals damage, 10% chance to cause Fatigue.",Yes
+Negative Thoughts,Malalien,80,3,100,0,Mind,Special,"Deals damage, 10% chance to cause Panic.",Yes
 Infinite Love,Malalien,90,2,100,0,Cosmic,Special,"Deals damage, 10% chance to cause Sleep.",Yes
 Chill Out,Pengym,0,2,90,0,Ice,Other,"Inflicts Frostbite. Frostbite deals 1/16 damage every turn, and also halves SpATK.",Yes
 Deadlift,Pengym,0,2,100,0,Metal,Self,Increases ATK and DEF by 50%.,Yes

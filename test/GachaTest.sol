@@ -1,12 +1,3 @@
-/**
- * - First roll only works for new accounts [x]
- *     - Points assigning works [x]
- *     - Points can be spent for rolls [x]
- *     - Rolls work
- *     - Battle cooldown works
- *     - Rolls fail when all mons are owned
- */
-
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 

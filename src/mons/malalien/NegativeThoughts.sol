@@ -14,7 +14,7 @@ import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract NegativeThoughts is StandardAttack {
-    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, IEffect _FATIGUE_STATUS)
+    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, IEffect _PANIC_STATUS)
         StandardAttack(
             address(msg.sender),
             _ENGINE,
@@ -30,7 +30,7 @@ contract NegativeThoughts is StandardAttack {
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
                 EFFECT_ACCURACY: 10,
-                EFFECT: _FATIGUE_STATUS
+                EFFECT: _PANIC_STATUS
             })
         )
     {}

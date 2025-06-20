@@ -15,8 +15,8 @@ contract FrostbiteStatus is StatusEffect {
 
     StatBoosts immutable STAT_BOOST;
 
-    constructor(IEngine engine, StatBoosts _STAT_BOOST) StatusEffect(engine) {
-        STAT_BOOST = _STAT_BOOST;
+    constructor(IEngine engine, StatBoosts _STAT_BOOSTS) StatusEffect(engine) {
+        STAT_BOOST = _STAT_BOOSTS;
     }
 
     function name() public pure override returns (string memory) {

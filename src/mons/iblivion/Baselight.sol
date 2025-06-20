@@ -57,7 +57,7 @@ contract Baselight is IMoveSet {
         );
         uint32 basePower = (baselightLevel * BASELIGHT_LEVEL_BOOST) + BASE_POWER;
 
-        AttackCalculator.calculateDamage(
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

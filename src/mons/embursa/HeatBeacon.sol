@@ -33,12 +33,12 @@ contract HeatBeacon is IMoveSet {
         ENGINE.addEffect(defenderPlayerIndex, defenderMonIndex, BURN_STATUS, "");
 
         // Clear the priority boost
-        if (HeatBeaconLib.getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
-            HeatBeaconLib.clearPriorityBoost(ENGINE, attackerPlayerIndex);
+        if (HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
+            HeatBeaconLib._clearPriorityBoost(ENGINE, attackerPlayerIndex);
         }
 
         // Set a new priority boost
-        HeatBeaconLib.setPriorityBoost(ENGINE, attackerPlayerIndex);
+        HeatBeaconLib._setPriorityBoost(ENGINE, attackerPlayerIndex);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -46,7 +46,7 @@ contract HeatBeacon is IMoveSet {
     }
 
     function priority(bytes32, uint256 attackerPlayerIndex) external view returns (uint32) {
-        return DEFAULT_PRIORITY + HeatBeaconLib.getPriorityBoost(ENGINE, attackerPlayerIndex);
+        return DEFAULT_PRIORITY + HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex);
     }
 
     function moveType(bytes32) public pure returns (Type) {

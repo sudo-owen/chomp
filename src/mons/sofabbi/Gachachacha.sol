@@ -54,7 +54,7 @@ contract Gachachacha is IMoveSet {
         else {
             basePower = ENGINE.getMonValueForBattle(battleKey, defenderPlayerIndex, activeMon[defenderPlayerIndex], MonStateIndexName.Hp);
         }
-        AttackCalculator.calculateDamage(
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

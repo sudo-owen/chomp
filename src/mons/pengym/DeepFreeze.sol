@@ -55,7 +55,7 @@ contract DeepFreeze is IMoveSet {
             damageToDeal = damageToDeal * 2;
         }
         // Deal damage
-        AttackCalculator.calculateDamage(
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

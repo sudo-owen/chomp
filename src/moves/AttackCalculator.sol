@@ -11,7 +11,7 @@ import {ITypeCalculator} from "../types/ITypeCalculator.sol";
 library AttackCalculator {
     uint32 constant RNG_SCALING_DENOM = 100;
 
-    function calculateDamage(
+    function _calculateDamage(
         IEngine ENGINE,
         ITypeCalculator TYPE_CALCULATOR,
         bytes32 battleKey,
@@ -23,9 +23,9 @@ library AttackCalculator {
         MoveClass attackSupertype,
         uint256 rng,
         uint256 critRate // out of 100
-    ) public returns (int32) {
+    ) internal returns (int32) {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
-        (int32 damage, EngineEventType eventType) = calculateDamageView(
+        (int32 damage, EngineEventType eventType) = _calculateDamageView(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,
@@ -49,7 +49,7 @@ library AttackCalculator {
         return damage;
     }
 
-    function calculateDamageView(
+    function _calculateDamageView(
         IEngine ENGINE,
         ITypeCalculator TYPE_CALCULATOR,
         bytes32 battleKey,
@@ -62,7 +62,7 @@ library AttackCalculator {
         MoveClass attackSupertype,
         uint256 rng,
         uint256 critRate // out of 100
-    ) public view returns (int32, EngineEventType) {
+    ) internal view returns (int32, EngineEventType) {
         // Do accuracy check first to decide whether or not to short circuit
         // [0... accuracy] [accuracy + 1, ..., 100]
         // [succeeds     ] [fails                 ]

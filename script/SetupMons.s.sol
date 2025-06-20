@@ -66,7 +66,8 @@ struct DeployData {
 }
 contract SetupMons is Script {
     function run() external returns (DeployData[] memory deployedContracts) {
-        vm.startBroadcast();
+        uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
+        vm.startBroadcast(deployerPrivateKey);
 
         // Get the DefaultMonRegistry address
         DefaultMonRegistry registry = DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY"));
@@ -173,7 +174,7 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        ChainExpansion chainexpansion = new ChainExpansion(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALC")));
+        ChainExpansion chainexpansion = new ChainExpansion(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
         deployedContracts[contractIndex] = DeployData({
             name: "Chain Expansion",
             contractAddress: address(chainexpansion)
@@ -201,7 +202,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        Interweaving interweaving = new Interweaving(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOST")));
+        Interweaving interweaving = new Interweaving(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Interweaving",
             contractAddress: address(interweaving)
@@ -251,7 +252,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        NegativeThoughts negativethoughts = new NegativeThoughts(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("FATIGUE_STATUS")));
+        NegativeThoughts negativethoughts = new NegativeThoughts(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("PANIC_STATUS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Negative Thoughts",
             contractAddress: address(negativethoughts)
@@ -329,7 +330,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        IntrinsicValue intrinsicvalue = new IntrinsicValue(IEngine(vm.envAddress("ENGINE")), Baselight(vm.envAddress("BASELIGHT")), StatBoosts(vm.envAddress("STAT_BOOST")));
+        IntrinsicValue intrinsicvalue = new IntrinsicValue(IEngine(vm.envAddress("ENGINE")), Baselight(vm.envAddress("BASELIGHT")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Intrinsic Value",
             contractAddress: address(intrinsicvalue)

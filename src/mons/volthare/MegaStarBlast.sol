@@ -56,7 +56,7 @@ contract MegaStarBlast is IMoveSet {
             acc = 100;
         }
         // Deal damage
-        AttackCalculator.calculateDamage(
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

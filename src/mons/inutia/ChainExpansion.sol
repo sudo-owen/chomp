@@ -22,9 +22,9 @@ contract ChainExpansion is IMoveSet, BasicEffect {
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALC;
 
-    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALC) {
+    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR) {
         ENGINE = _ENGINE;
-        TYPE_CALC = _TYPE_CALC;
+        TYPE_CALC = _TYPE_CALCULATOR;
     }
 
     function name() public pure override(IMoveSet, BasicEffect) returns (string memory) {
