@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import "../lib/ERC721Soulbound.sol";
-import "../teams/IMonRegistry.sol";
 import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
+
+import "../teams/IMonRegistry.sol";
+import {IOwnableMon} from "./IOwnableMon.sol";
 import {IEngine} from "../IEngine.sol";
 import {IEngineHook} from "../IEngineHook.sol";
 import {IGachaRNG} from "../rng/IGachaRNG.sol";
 
-contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
+contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
+
     using EnumerableSetLib for EnumerableSetLib.Uint256Set;
 
     uint256 constant public INITIAL_ROLLS = 4;
@@ -37,7 +39,7 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     event PointsSpent(address indexed player, uint256 points);
     event BonusPoints(bytes32 indexed battleKey);
 
-    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG) ERC721Soulbound("MONS", "MONS") {
+    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG) {
         MON_REGISTRY = _MON_REGISTRY;
         ENGINE = _ENGINE;
         if (address(_RNG) == address(0)) {
@@ -48,17 +50,17 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
     }
 
     function firstRoll() external returns (uint256[] memory monIds) {
-        if (balanceOf(msg.sender) > 0) {
+        if (monsOwned[msg.sender].length() > 0) {
             revert AlreadyFirstRolled();
         }
         return _roll(INITIAL_ROLLS);
     }
 
     function roll(uint256 numRolls) external returns (uint256[] memory monIds) {
-        if (balanceOf(msg.sender) == 0) {
+        if (monsOwned[msg.sender].length() > 0) {
             revert NotYetFirstRolled();
         }
-        else if (balanceOf(msg.sender) == MON_REGISTRY.getMonCount()) {
+        else if (monsOwned[msg.sender].length() == MON_REGISTRY.getMonCount()) {
             revert NoMoreStock();
         }
         else {
@@ -81,7 +83,6 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
                 monId = (monId + 1) % numMons;
             }
             monIds[i] = monId;
-            _mint(msg.sender, monId);
             monsOwned[msg.sender].add(monId);
             seed = keccak256(abi.encodePacked(seed));
             prng = RNG.getRNG(seed, battleKey);
@@ -91,6 +92,15 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
 
     function getRNG(bytes32 seed, bytes32 battleKey) public view returns (uint256) {
         return uint256(keccak256(abi.encode(blockhash(block.number - 1), seed, ENGINE.getRNG(battleKey, type(uint256).max))));
+    }
+
+    // IOwnableMons implementation
+    function isOwner(address player, uint256 monId) external view returns (bool) {
+        return monsOwned[player].contains(monId);
+    }
+
+    function balanceOf(address player) external view returns (uint256) {
+        return monsOwned[player].length();
     }
 
     // IEngineHook implementation
@@ -136,11 +146,6 @@ contract GachaRegistry is IMonRegistry, ERC721Soulbound, IEngineHook {
             lastBattleTimestamp[players[1]] = block.timestamp;
             emit PointsAwarded(players[1], pointsAwarded);
         }
-    }
-
-    // TODO: read from onchain data and compose
-    function tokenURI(uint256) public override pure returns (string memory) {
-        return "";
     }
 
     // All IMonRegistry functions are just pass throughs

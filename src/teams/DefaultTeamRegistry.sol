@@ -36,7 +36,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         MOVES_PER_MON = args.MOVES_PER_MON;
     }
 
-    function createTeam(uint256[] memory monIndices, IMoveSet[][] memory moves, IAbility[] memory abilities) external {
+    function createTeam(uint256[] memory monIndices, IMoveSet[][] memory moves, IAbility[] memory abilities) virtual public {
         if (monIndices.length != MONS_PER_TEAM) {
             revert InvalidTeamSize();
         }
@@ -77,7 +77,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         uint256[] memory newMonIndices,
         IMoveSet[][] memory newMoves,
         IAbility[] memory newAbilities
-    ) external {
+    ) virtual public {
         uint256 numMonsToOverride = teamMonIndicesToOverride.length;
 
         // Verify that the new moves and abilities are valid
@@ -119,7 +119,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         }
     }
 
-    function copyTeam(address playerToCopy, uint256 teamIndex) external {
+    function copyTeam(address playerToCopy, uint256 teamIndex) virtual public {
         // Initialize team and set indices
         uint256 teamId = numTeams[msg.sender];
         for (uint256 i; i < MONS_PER_TEAM; i++) {
@@ -158,7 +158,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         return uint32(monRegistryIndicesForTeamPacked[player][teamIndex] >> (position * BITS_PER_MON_INDEX));
     }
 
-    function getMonRegistryIndicesForTeam(address player, uint256 teamIndex) external view returns (uint256[] memory) {
+    function getMonRegistryIndicesForTeam(address player, uint256 teamIndex) public view returns (uint256[] memory) {
         uint256[] memory ids = new uint256[](MONS_PER_TEAM);
         for (uint256 i; i < MONS_PER_TEAM; ++i) {
             ids[i] = _getMonRegistryIndex(player, teamIndex, i);
