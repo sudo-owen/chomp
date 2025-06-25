@@ -12,6 +12,7 @@ import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 import {TypeCalculator} from "../src/types/TypeCalculator.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
+import {GachaTeamRegistry, DefaultTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 
@@ -72,15 +73,28 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(gachaRegistry)
         });
 
-        DefaultRandomnessOracle defaultOracle = new DefaultRandomnessOracle();
+        GachaTeamRegistry gachaTeamRegistry = new GachaTeamRegistry(
+            DefaultTeamRegistry.Args({
+                REGISTRY: gachaRegistry,
+                MONS_PER_TEAM: 4,
+                MOVES_PER_MON: 4
+            }),
+            gachaRegistry
+        );
         deployedContracts[5] = DeployData({
+            name: "GACHA TEAM REGISTRY",
+            contractAddress: address(gachaTeamRegistry)
+        });
+
+        DefaultRandomnessOracle defaultOracle = new DefaultRandomnessOracle();
+        deployedContracts[6] = DeployData({
             name: "DEFAULT RANDOMNESS ORACLE",
             contractAddress: address(defaultOracle)
         });
 
         DeployData[] memory gameFundamentals = deployGameFundamentals(engine);
         for (uint256 i = 0; i < gameFundamentals.length; i++) {
-            deployedContracts[i + 6] = gameFundamentals[i];
+            deployedContracts[i + 7] = gameFundamentals[i];
         }
         
         vm.stopBroadcast();

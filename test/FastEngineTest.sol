@@ -204,7 +204,7 @@ contract FastEngineTest is Test, BattleHelper {
         vm.startPrank(BOB);
         commitManager.commitMove(battleKey, "");
 
-        // Have Alice accept the battle bob proposed
+        // Have Alice accept the battle Bob proposed
         vm.startPrank(ALICE);
         bytes32 battleIntegrityHash = keccak256(
             abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash)
@@ -222,6 +222,61 @@ contract FastEngineTest is Test, BattleHelper {
 
         // Battle key should be different when one accepts
         assertNotEq(battleKey, newBattleKey);
+    }
+
+    function test_anyoneCanFillP1() public {
+        // Create validator with zero mons and zero moves needed
+        FastValidator validator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        );
+        Mon[] memory dummyTeam = new Mon[](1);
+        IMoveSet[] memory moves = new IMoveSet[](0);
+        dummyTeam[0] = Mon({
+            stats: MonStats({
+                hp: 1,
+                stamina: 1,
+                speed: 1,
+                attack: 1,
+                defense: 1,
+                specialAttack: 1,
+                specialDefense: 1,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0))
+        });
+
+        // Register teams
+        defaultRegistry.setTeam(ALICE, dummyTeam);
+        defaultRegistry.setTeam(BOB, dummyTeam);
+
+        // Create a battle with Alice as p0 and zero address as p1
+        bytes32 aliceTeamHash = keccak256(
+            abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+        );
+        StartBattleArgs memory args = StartBattleArgs({
+            p0: ALICE,
+            p1: address(0),
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: defaultRegistry,
+            p0TeamHash: aliceTeamHash,
+            engineHook: IEngineHook(address(0))
+        });
+        vm.startPrank(ALICE);
+        bytes32 battleKey = engine.proposeBattle(args);
+        vm.startPrank(BOB);
+        bytes32 battleIntegrityHash = keccak256(
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, aliceTeamHash)
+        );
+        engine.acceptBattle(battleKey, 0, battleIntegrityHash);
+        vm.startPrank(ALICE);
+        engine.startBattle(battleKey, "", 0);
+
+        // Verify Bob is now p1
+        assertEq(engine.getPlayersForBattle(battleKey)[1], BOB);
     }
 
     /*

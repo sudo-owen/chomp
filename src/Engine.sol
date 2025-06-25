@@ -122,11 +122,15 @@ contract Engine is IEngine {
 
     function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external {
         Battle storage battle = battles[battleKey];
-        if (msg.sender != battle.p1) {
+
+        // Allow anyone to fill battles if p1 is set to address(0)
+        if (battle.p1 == address(0)) {
+            battle.p1 = msg.sender;
+        }
+        else if (msg.sender != battle.p1) {
             revert WrongCaller();
         }
 
-        // Set the battle status to be accepted
         battle.status = BattleProposalStatus.Accepted;
 
         // Set the team for p1

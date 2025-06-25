@@ -19,6 +19,7 @@ log.txt
 processing/
 input.txt
 output.txt
+script/jk.s.sol
 
 # Everything in drool
 drool/*

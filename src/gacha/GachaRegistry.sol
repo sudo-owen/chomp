@@ -30,7 +30,6 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
     mapping(address => uint256) public lastBattleTimestamp;
 
     error AlreadyFirstRolled();
-    error NotYetFirstRolled();
     error NoMoreStock();
     error NotEngine();
 
@@ -57,10 +56,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
     }
 
     function roll(uint256 numRolls) external returns (uint256[] memory monIds) {
-        if (monsOwned[msg.sender].length() > 0) {
-            revert NotYetFirstRolled();
-        }
-        else if (monsOwned[msg.sender].length() == MON_REGISTRY.getMonCount()) {
+        if (monsOwned[msg.sender].length() == MON_REGISTRY.getMonCount()) {
             revert NoMoreStock();
         }
         else {
