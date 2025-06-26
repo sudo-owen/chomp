@@ -207,7 +207,7 @@ contract FastEngineTest is Test, BattleHelper {
         // Have Alice accept the battle Bob proposed
         vm.startPrank(ALICE);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash, args.engineHook)
         );
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
 
@@ -269,7 +269,7 @@ contract FastEngineTest is Test, BattleHelper {
         bytes32 battleKey = engine.proposeBattle(args);
         vm.startPrank(BOB);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, aliceTeamHash)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, aliceTeamHash, args.engineHook)
         );
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
         vm.startPrank(ALICE);

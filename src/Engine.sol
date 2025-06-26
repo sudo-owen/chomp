@@ -144,7 +144,12 @@ contract Engine is IEngine {
             battleIntegrityHash
                 != keccak256(
                     abi.encodePacked(
-                        battle.validator, battle.rngOracle, battle.ruleset, battle.teamRegistry, battle.p0TeamHash
+                        battle.validator, 
+                        battle.rngOracle, 
+                        battle.ruleset, 
+                        battle.teamRegistry, 
+                        battle.p0TeamHash,
+                        battle.engineHook
                     )
                 )
         ) {

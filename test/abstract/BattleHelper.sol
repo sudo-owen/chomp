@@ -71,7 +71,7 @@ abstract contract BattleHelper is Test {
         vm.startPrank(ALICE);
         bytes32 battleKey = engine.proposeBattle(args);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook)
         );
         vm.startPrank(BOB);
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
@@ -103,7 +103,7 @@ abstract contract BattleHelper is Test {
         vm.startPrank(ALICE);
         bytes32 battleKey = engine.proposeBattle(args);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook)
         );
         vm.startPrank(BOB);
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
