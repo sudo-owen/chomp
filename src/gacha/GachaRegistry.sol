@@ -48,6 +48,11 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
         }
     }
 
+    // TODO: for testing events in prod, obviously remove this later
+    function addPoints(address a, uint256 points) external {
+        pointsBalance[a] += points;
+    }
+
     function firstRoll() external returns (uint256[] memory monIds) {
         if (monsOwned[msg.sender].length() > 0) {
             revert AlreadyFirstRolled();
