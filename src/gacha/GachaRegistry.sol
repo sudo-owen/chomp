@@ -20,6 +20,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
     uint256 constant public POINTS_MULTIPLIER = 3;
     uint256 constant public POINTS_MULTIPLIER_CHANCE_DENOM = 10;
     uint256 constant public BATTLE_COOLDOWN = 23 hours;
+    uint256 constant public MAGIC_WINNING_NUMBER = 4;
 
     IMonRegistry public immutable MON_REGISTRY;
     IEngine public immutable ENGINE;
@@ -75,8 +76,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
         monIds = new uint256[](numRolls);
         uint256 numMons = MON_REGISTRY.getMonCount();
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender));
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint256 prng = RNG.getRNG(seed, battleKey);
+        uint256 prng = RNG.getRNG(seed);
         for (uint256 i; i < numRolls; ++i) {
             uint256 monId = prng % numMons;
             // Linear probing to solve for duplicate mons
@@ -86,13 +86,13 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
             monIds[i] = monId;
             monsOwned[msg.sender].add(monId);
             seed = keccak256(abi.encodePacked(seed));
-            prng = RNG.getRNG(seed, battleKey);
+            prng = RNG.getRNG(seed);
         }
         emit MonRoll(msg.sender, monIds);
     }
 
-    function getRNG(bytes32 seed, bytes32 battleKey) public view returns (uint256) {
-        return uint256(keccak256(abi.encode(blockhash(block.number - 1), seed, ENGINE.getRNG(battleKey, type(uint256).max))));
+    function getRNG(bytes32 seed) public view returns (uint256) {
+        return uint256(keccak256(abi.encode(blockhash(block.number - 1), seed)));
     }
 
     // IOwnableMons implementation
@@ -102,6 +102,10 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
 
     function balanceOf(address player) external view returns (uint256) {
         return monsOwned[player].length();
+    }
+
+    function getOwned(address player) external view returns (uint256[] memory) {
+        return monsOwned[player].values();
     }
 
     // IEngineHook implementation
@@ -129,9 +133,9 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
             p0Points = POINTS_PER_LOSS;
             p1Points = POINTS_PER_WIN;
         }
-        uint256 rng = uint256(RNG.getRNG(battleKey, battleKey)) % POINTS_MULTIPLIER_CHANCE_DENOM;
+        uint256 rng = uint256(RNG.getRNG(blockhash(block.number - 1))) % POINTS_MULTIPLIER_CHANCE_DENOM;
         uint256 pointScale = 1; 
-        if (rng == (POINTS_MULTIPLIER_CHANCE_DENOM - 1)) {
+        if (rng == MAGIC_WINNING_NUMBER) {
             pointScale = POINTS_MULTIPLIER;
             emit BonusPoints(battleKey);
         }

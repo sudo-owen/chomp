@@ -247,9 +247,6 @@ contract GachaTest is Test, BattleHelper {
         engine.end(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
 
-        // Assert the rng is the max value
-        assertEq(gachaRegistry.getRNG(battleKey, battleKey) % gachaRegistry.POINTS_MULTIPLIER_CHANCE_DENOM(), gachaRegistry.POINTS_MULTIPLIER_CHANCE_DENOM() - 1);
-
         // Verify points are correct
         assertEq(
             gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_LOSS()

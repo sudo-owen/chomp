@@ -10,7 +10,7 @@ contract MockGachaRNG is IGachaRNG {
         rng = a;
     }
 
-    function getRNG(bytes32, bytes32) external view returns (uint256) {
+    function getRNG(bytes32) external view returns (uint256) {
         return rng;
     }
 }
