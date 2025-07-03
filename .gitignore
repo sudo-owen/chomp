@@ -41,4 +41,4 @@ drool/*
 !drool/types.csv
 !drool/type-data.js
 !drool/utils.js
-!drool/combin_data.py
+!drool/combine_data.py
