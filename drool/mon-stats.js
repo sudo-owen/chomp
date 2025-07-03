@@ -277,6 +277,27 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             td.appendChild(select);
+          } else if (column.name === "Flavor") {
+            // Special handling for Flavor field - make it a textarea for multi-line text
+            const textarea = document.createElement("textarea");
+            textarea.style.width = "100%";
+            textarea.style.minHeight = "60px";
+            textarea.style.padding = "4px";
+            textarea.style.backgroundColor = "transparent";
+            textarea.style.border = "1px solid #444";
+            textarea.style.color = "inherit";
+            textarea.style.fontFamily = "inherit";
+            textarea.style.fontSize = "inherit";
+            textarea.style.resize = "vertical";
+            textarea.value = row[column.name] || "";
+
+            textarea.addEventListener("blur", (e) => {
+              data[rowIndex][column.name] = e.target.value;
+              markUnsavedChanges();
+              notifyDataUpdated();
+            });
+
+            td.appendChild(textarea);
           } else if (column.editable) {
             td.contentEditable = true;
             td.className = "editable";
@@ -473,8 +494,40 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
+      // Parse CSV with proper handling of quoted fields
+      function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              // Escaped quote
+              current += '"';
+              i++; // Skip next quote
+            } else {
+              // Toggle quote state
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            // Field separator
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+
+        // Add the last field
+        result.push(current.trim());
+        return result;
+      }
+
       // Extract headers
-      const headers = lines[0].split(",").map((header) => header.trim());
+      const headers = parseCSVLine(lines[0]);
 
       // Reset columns
       columns = [];
@@ -512,7 +565,7 @@ document.addEventListener("DOMContentLoaded", function () {
       for (let i = 1; i < lines.length; i++) {
         if (lines[i].trim() === "") continue;
 
-        const values = lines[i].split(",").map((value) => value.trim());
+        const values = parseCSVLine(lines[i]);
         const rowData = {};
 
         headers.forEach((header, index) => {
@@ -543,13 +596,16 @@ document.addEventListener("DOMContentLoaded", function () {
         return columns
           .map((col) => {
             let value = row[col.name] !== undefined ? row[col.name] : "";
+            // Always quote the Flavor field or if the value contains special characters
             if (
-              typeof value === "string" &&
-              (value.includes(",") ||
-                value.includes('"') ||
-                value.includes("\n"))
+              col.name === "Flavor" ||
+              (typeof value === "string" &&
+                (value.includes(",") ||
+                  value.includes('"') ||
+                  value.includes("\n") ||
+                  value.includes("\r")))
             ) {
-              value = `"${value.replace(/"/g, '""')}"`;
+              value = `"${String(value).replace(/"/g, '""')}"`;
             }
             return value;
           })
