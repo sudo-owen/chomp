@@ -37,10 +37,9 @@ contract EngineAndPeriphery is Script {
             DeployData[] memory deployedContracts
         )
     {
-        uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
-        deployedContracts = new DeployData[](16);
+        deployedContracts = new DeployData[](17);
     
         Engine engine = new Engine();
         deployedContracts[0] = DeployData({

@@ -16,9 +16,9 @@ log.txt
 .env
 
 # Setup
-processing/
 input.txt
 output.txt
+ts.txt
 script/jk.s.sol
 
 # Everything in drool

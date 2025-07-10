@@ -66,8 +66,7 @@ struct DeployData {
 }
 contract SetupMons is Script {
     function run() external returns (DeployData[] memory deployedContracts) {
-        uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Get the DefaultMonRegistry address
         DefaultMonRegistry registry = DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY"));

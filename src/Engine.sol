@@ -35,7 +35,7 @@ contract Engine is IEngine {
     error GameAlreadyOver();
 
     // Events
-    event BattleProposal(address indexed p1, address p0, bytes32 battleKey);
+    event BattleProposal(address indexed p1, address p0, bytes32 battleKey, bytes32 p0TeamHash);
     event BattleAcceptance(bytes32 indexed battleKey, uint256 p1TeamIndex);
     event BattleStart(bytes32 indexed battleKey, uint256 p0TeamIndex, address p0, address p1);
     event EngineExecute(
@@ -116,7 +116,7 @@ contract Engine is IEngine {
             p1TeamIndex: 0, // placeholder value until p1 responds
             engineHook: args.engineHook
         });
-        emit BattleProposal(args.p1, msg.sender, battleKey);
+        emit BattleProposal(args.p1, msg.sender, battleKey, args.p0TeamHash);
         return battleKey;
     }
 
