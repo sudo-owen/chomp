@@ -47,7 +47,7 @@ contract SplitThePot is IAbility, BasicEffect {
     {
         // If the move index was a no-op, heal all non-KO'ed mons
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        RevealedMove memory move = ENGINE.commitManager().getMoveForBattleStateForTurn(
+        RevealedMove memory move = ENGINE.moveManager().getMoveForBattleStateForTurn(
             battleKey, targetIndex, ENGINE.getTurnIdForBattleState(battleKey)
         );
         if (move.moveIndex == NO_OP_MOVE_INDEX) {

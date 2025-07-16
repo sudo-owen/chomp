@@ -1,5 +1,5 @@
-import { loadFullMonsFromCsv, loadMovesFromCsv, loadAbilitiesFromCsv, loadTypeData } from "./utils.js";
 import { typeData } from "./type-data.js";
+import { loadMovesFromCsv, loadTypeData } from "./utils.js";
 
 document.addEventListener("DOMContentLoaded", async function () {
   // Elements

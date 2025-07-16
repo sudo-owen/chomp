@@ -58,7 +58,7 @@ contract IblivionTest is Test, BattleHelper {
             IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new FastCommitManager(IEngine(address(engine)));
-        engine.setCommitManager(address(commitManager));
+        engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         baselight = new Baselight(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         loop = new Loop(IEngine(address(engine)));

@@ -53,7 +53,7 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(commitManager)
         });
 
-        engine.setCommitManager(address(commitManager));
+        engine.setMoveManager(address(commitManager));
         TypeCalculator typeCalc = new TypeCalculator();
         deployedContracts[2] = DeployData({
             name: "TYPE CALCULATOR",

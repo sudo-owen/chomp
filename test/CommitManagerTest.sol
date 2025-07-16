@@ -17,12 +17,12 @@ contract CommitManagerTest is Test {
     function setUp() public {
         engine = new Engine();
         commitManager = new CommitManager(engine);
-        engine.setCommitManager(address(commitManager));
+        engine.setMoveManager(address(commitManager));
     }
 
     function test_cannotDoubleSet() public {
-        vm.expectRevert(Engine.CommitManagerAlreadySet.selector);
-        engine.setCommitManager(address(0));
+        vm.expectRevert(Engine.MoveManagerAlreadySet.selector);
+        engine.setMoveManager(address(0));
     }
 
     function test_cannotCommitForArbitraryBattleKey() public {

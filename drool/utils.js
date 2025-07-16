@@ -180,7 +180,6 @@ export async function loadTypeData() {
       const csvContent = await response.text();
       const lines = csvContent.split(/\r\n|\n/);
       if (lines.length < 2) return [];
-      const headers = lines[0].split(",").map(header => header.trim());
       const typeData = {};
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();

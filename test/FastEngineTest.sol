@@ -53,7 +53,7 @@ contract FastEngineTest is Test, BattleHelper {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
         commitManager = new FastCommitManager(engine);
-        engine.setCommitManager(address(commitManager));
+        engine.setMoveManager(address(commitManager));
         typeCalc = new TestTypeCalculator();
         defaultRegistry = new TestTeamRegistry();
     }
