@@ -7,8 +7,9 @@ import "./Structs.sol";
 
 import {IEngine} from "./IEngine.sol";
 import {IFastCommitManager} from "./IFastCommitManager.sol";
+import {IMoveManager} from "./IMoveManager.sol";
 
-contract FastCommitManager is IFastCommitManager {
+contract FastCommitManager is IFastCommitManager, IMoveManager {
     // State variables
     IEngine private immutable ENGINE;
     mapping(bytes32 battleKey => mapping(address player => MoveCommitment)) private commitments;

@@ -9,6 +9,7 @@ import {IEngine} from "./IEngine.sol";
 import {IValidator} from "./IValidator.sol";
 
 import {IFastCommitManager} from "./IFastCommitManager.sol";
+import {IMoveManager} from "./IMoveManager.sol";
 import {IMonRegistry} from "./teams/IMonRegistry.sol";
 import {ITeamRegistry} from "./teams/ITeamRegistry.sol";
 
@@ -214,7 +215,7 @@ contract FastValidator is IValidator {
             presumedAFKPlayer = players[0];
         }
 
-        IFastCommitManager commitManager = ENGINE.commitManager();
+        IFastCommitManager commitManager = IFastCommitManager(address(ENGINE.moveManager()));
 
         // Grab latest reference time out of both players
         uint256 lastMoveTimestamp;
@@ -275,9 +276,9 @@ contract FastValidator is IValidator {
 
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256) {
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        IFastCommitManager commitManager = ENGINE.commitManager();
-        RevealedMove memory p0Move = commitManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
-        RevealedMove memory p1Move = commitManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
+        IMoveManager moveManager = ENGINE.moveManager();
+        RevealedMove memory p0Move = moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
+        RevealedMove memory p1Move = moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
         uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
 
         uint256 p0Priority;

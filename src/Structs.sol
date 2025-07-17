@@ -5,24 +5,12 @@ import {BattleProposalStatus, Type} from "./Enums.sol";
 import {IRuleset} from "./IRuleset.sol";
 import {IValidator} from "./IValidator.sol";
 import {IEngineHook} from "./IEngineHook.sol";
-
 import {IAbility} from "./abilities/IAbility.sol";
 import {IEffect} from "./effects/IEffect.sol";
 import {IMoveSet} from "./moves/IMoveSet.sol";
 import {IRandomnessOracle} from "./rng/IRandomnessOracle.sol";
-
 import {ITeamRegistry} from "./teams/ITeamRegistry.sol";
-
-struct StartBattleArgs {
-    address p0;
-    address p1;
-    IValidator validator;
-    IRandomnessOracle rngOracle;
-    IRuleset ruleset;
-    ITeamRegistry teamRegistry;
-    bytes32 p0TeamHash;
-    IEngineHook engineHook;
-}
+import {IMoveManager} from "./IMoveManager.sol";
 
 struct Battle {
     address p0;
@@ -32,10 +20,11 @@ struct Battle {
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
     bytes32 p0TeamHash;
-    Mon[][] teams;
-    BattleProposalStatus status;
-    uint96 p1TeamIndex;
     IEngineHook engineHook;
+    IMoveManager moveManager;
+    Mon[][] teams; // Set during battle proposal
+    BattleProposalStatus status; // Set during battle proposal
+    uint96 p1TeamIndex; // Set during battle acceptance
 }
 
 struct BattleState {

@@ -47,7 +47,7 @@ def read_mons_data(file_path: str) -> Dict[int, Dict[str, Any]]:
                     'bst': int(row['BST'])
                 },
                 'type1': row['Type1'],
-                'typ2': row['Type2'] if row['Type2'] != 'NA' else None,
+                'type2': row['Type2'] if row['Type2'] != 'NA' else None,
                 'moves': [],
                 'ability': {
                     'address': '',
@@ -175,10 +175,8 @@ export type Mon = {{
     readonly speed: number;
     readonly bst: number;
   }};
-  readonly types: {{
-    readonly primary: Type;
-    readonly secondary: Type | null;
-  }};
+  readonly type1: Type;
+  readonly type2: Type | null;
   readonly moves: readonly [Move, Move, Move, Move, ...Array<Move>];
   readonly ability: {{
     readonly address: LowercaseHex;

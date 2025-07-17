@@ -37,7 +37,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         typeCalc = new TypeCalculator();
         mockOracle = new MockRandomnessOracle();
         commitManager = new CommitManager(engine);
-        engine.setCommitManager(address(commitManager));
+        engine.setMoveManager(address(commitManager));
         validator = new DefaultValidator(
             engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );

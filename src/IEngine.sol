@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./Enums.sol";
 
-import "./IFastCommitManager.sol";
+import "./IMoveManager.sol";
 import "./IValidator.sol";
 import "./Structs.sol";
 import "./moves/IMoveSet.sol";
@@ -24,7 +24,7 @@ interface IEngine {
     function emitEngineEvent(EngineEventType eventType, bytes memory extraData) external;
 
     // Getters
-    function commitManager() external view returns (IFastCommitManager);
+    function moveManager() external view returns (IMoveManager);
     function getBattle(bytes32 battleKey) external view returns (Battle memory);
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory);
     function getMonValueForBattle(

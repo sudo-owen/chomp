@@ -7,14 +7,14 @@ import "./Enums.sol";
 import "./Structs.sol";
 import "./moves/IMoveSet.sol";
 
-import {IFastCommitManager} from "./IFastCommitManager.sol";
+import {IMoveManager} from "./IMoveManager.sol";
 import {IEngine} from "./IEngine.sol";
 
 contract Engine is IEngine {
 
     // Public state variables
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
-    IFastCommitManager public commitManager; // technically immutable but circular dependency
+    IMoveManager public moveManager; // default move manager (e.g. for normal commit-reveal PVP)
     mapping(bytes32 => uint256) public pairHashNonces; // intended to be read by anyone
 
     // Private state variables (battles and battleStates values are granularly accessible via getters)
@@ -28,7 +28,7 @@ contract Engine is IEngine {
     // Errors
     error NoWriteAllowed();
     error WrongCaller();
-    error CommitManagerAlreadySet();
+    error MoveManagerAlreadySet();
     error BattleChangedBeforeAcceptance();
     error InvalidP0TeamHash();
     error InvalidBattleConfig();
@@ -83,7 +83,7 @@ contract Engine is IEngine {
     /**
      * - Core game functions
      */
-    function proposeBattle(StartBattleArgs memory args) external returns (bytes32) {
+    function proposeBattle(Battle memory args) external returns (bytes32) {
         // Caller must be p0
         if (msg.sender != args.p0) {
             revert WrongCaller();
@@ -103,21 +103,26 @@ contract Engine is IEngine {
         Mon[][] memory teams = new Mon[][](2);
 
         // Store the battle
-        battles[battleKey] = Battle({
-            p0: args.p0,
-            p1: args.p1,
-            validator: args.validator,
-            rngOracle: args.rngOracle,
-            ruleset: args.ruleset,
-            status: BattleProposalStatus.Proposed,
-            teams: teams,
-            teamRegistry: args.teamRegistry,
-            p0TeamHash: args.p0TeamHash,
-            p1TeamIndex: 0, // placeholder value until p1 responds
-            engineHook: args.engineHook
-        });
+        battles[battleKey] = args;
+        battles[battleKey].teams = teams;
+        battles[battleKey].status = BattleProposalStatus.Proposed;
+
         emit BattleProposal(args.p1, msg.sender, battleKey, args.p0TeamHash);
         return battleKey;
+    }
+
+    function getBattleIntegrityHash(Battle memory battle) public pure returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                battle.validator, 
+                battle.rngOracle, 
+                battle.ruleset, 
+                battle.teamRegistry, 
+                battle.p0TeamHash,
+                battle.engineHook,
+                battle.moveManager
+            )
+        );
     }
 
     function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external {
@@ -141,17 +146,7 @@ contract Engine is IEngine {
 
         // Validate the integrity hash of the battle parameters
         if (
-            battleIntegrityHash
-                != keccak256(
-                    abi.encodePacked(
-                        battle.validator, 
-                        battle.rngOracle, 
-                        battle.ruleset, 
-                        battle.teamRegistry, 
-                        battle.p0TeamHash,
-                        battle.engineHook
-                    )
-                )
+            battleIntegrityHash != getBattleIntegrityHash(battle)
         ) {
             revert BattleChangedBeforeAcceptance();
         }
@@ -203,8 +198,9 @@ contract Engine is IEngine {
             }
         }
 
-        // Call the CommitManager to initialize the move history
-        commitManager.initMoveHistory(battleKey);
+        // Call the moveManager to initialize the move history
+        IMoveManager moveManagerToUse = battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
+        moveManagerToUse.initMoveHistory(battleKey);
 
         // Validate the battle config
         if (
@@ -291,10 +287,12 @@ contract Engine is IEngine {
             - Set player switch for turn flag
         */
         else {
+            IMoveManager moveManagerToUse = battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
+
             // Validate both moves have been revealed for the current turn
             // (accessing the values will revert if they haven't been set)
-            RevealedMove memory p0Move = commitManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
-            RevealedMove memory p1Move = commitManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
+            RevealedMove memory p0Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 0, turnId);
+            RevealedMove memory p1Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 1, turnId);
 
             // Update the PRNG hash to include the newest value
             uint256 rng = battle.rngOracle.getRNG(p0Move.salt, p1Move.salt);
@@ -567,7 +565,7 @@ contract Engine is IEngine {
     /**
      * - Internal helper functions
      */
-    function _computeBattleKey(StartBattleArgs memory args)
+    function _computeBattleKey(Battle memory args)
         internal
         view
         returns (bytes32 battleKey, bytes32 pairHash)
@@ -662,7 +660,8 @@ contract Engine is IEngine {
     function _handleMove(bytes32 battleKey, uint256 rng, uint256 playerIndex, uint256 prevPlayerSwitchForTurnFlag) internal returns (uint256 playerSwitchForTurnFlag) {
         Battle storage battle = battles[battleKey];
         BattleState storage state = battleStates[battleKey];
-        RevealedMove memory move = commitManager.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
+        IMoveManager moveManagerToUse = battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
+        RevealedMove memory move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
@@ -987,11 +986,11 @@ contract Engine is IEngine {
         return battleStates[battleKey].pRNGStream[index];
     }
 
-    // To be called once (after CommitManager is deployed and set to the Engine)
-    function setCommitManager(address a) external {
-        if (address(commitManager) != address(0)) {
-            revert CommitManagerAlreadySet();
+    // To be called once (after moveManager is deployed and set to the Engine)
+    function setMoveManager(address a) external {
+        if (address(moveManager) != address(0)) {
+            revert MoveManagerAlreadySet();
         }
-        commitManager = IFastCommitManager(a);
+        moveManager = IMoveManager(a);
     }
 }
