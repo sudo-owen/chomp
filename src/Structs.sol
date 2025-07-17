@@ -22,9 +22,9 @@ struct Battle {
     bytes32 p0TeamHash;
     IEngineHook engineHook;
     IMoveManager moveManager;
-    Mon[][] teams;
-    BattleProposalStatus status;
-    uint96 p1TeamIndex;
+    Mon[][] teams; // Set during battle proposal
+    BattleProposalStatus status; // Set during battle proposal
+    uint96 p1TeamIndex; // Set during battle acceptance
 }
 
 struct BattleState {
