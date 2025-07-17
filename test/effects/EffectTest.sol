@@ -20,6 +20,7 @@ import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 import {IEngineHook} from "../../src/IEngineHook.sol";
+import {IMoveManager} from "../../src/IMoveManager.sol";
 
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 
@@ -774,7 +775,7 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Create new battle with ruleset
-        StartBattleArgs memory args = StartBattleArgs({
+        Battle memory args = Battle({
             p0: ALICE,
             p1: BOB,
             validator: oneMonOneMoveValidator,
@@ -784,13 +785,17 @@ contract EffectTest is Test, BattleHelper {
             p0TeamHash: keccak256(
                 abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
             ),
-            engineHook: IEngineHook(address(0))
+            engineHook: IEngineHook(address(0)),
+            moveManager: IMoveManager(address(0)),
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
         });
 
         vm.prank(ALICE);
         bytes32 battleKey = engine.proposeBattle(args);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook, args.moveManager)
         );
         vm.prank(BOB);
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);

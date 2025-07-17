@@ -34,6 +34,7 @@ import {InvalidMove} from "./mocks/InvalidMove.sol";
 import {MockRandomnessOracle} from "./mocks/MockRandomnessOracle.sol";
 
 import {IEngineHook} from "../src/IEngineHook.sol";
+import {IMoveManager} from "../src/IMoveManager.sol";
 
 import {OneTurnStatBoost} from "./mocks/OneTurnStatBoost.sol";
 import {SingleInstanceEffect} from "./mocks/SingleInstanceEffect.sol";
@@ -144,7 +145,7 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, dummyTeam);
         defaultRegistry.setTeam(BOB, dummyTeam);
 
-        StartBattleArgs memory args = StartBattleArgs({
+        Battle memory args = Battle({
             p0: ALICE,
             p1: BOB,
             validator: validator,
@@ -154,14 +155,18 @@ contract EngineTest is Test, BattleHelper {
             p0TeamHash: keccak256(
                 abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
             ),
-            engineHook: IEngineHook(address(0))
+            engineHook: IEngineHook(address(0)),
+            moveManager: IMoveManager(address(0)),
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
         bytes32 battleKey = engine.proposeBattle(args);
 
         // Have Bob propose a battle
         vm.startPrank(BOB);
-        StartBattleArgs memory bobArgs = StartBattleArgs({
+        Battle memory bobArgs = Battle({
             p0: BOB,
             p1: ALICE,
             validator: validator,
@@ -171,7 +176,11 @@ contract EngineTest is Test, BattleHelper {
             p0TeamHash: keccak256(
                 abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(BOB, 0))
             ),
-            engineHook: IEngineHook(address(0))
+            engineHook: IEngineHook(address(0)),
+            moveManager: IMoveManager(address(0)),
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
         });
         bytes32 updatedBattleKey = engine.proposeBattle(bobArgs);
 
@@ -191,7 +200,7 @@ contract EngineTest is Test, BattleHelper {
         // Have Alice accept the battle bob proposed
         vm.startPrank(ALICE);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash, args.engineHook)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash, args.engineHook, args.moveManager)
         );
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
 
@@ -909,7 +918,7 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, teams[0]);
         defaultRegistry.setTeam(BOB, teams[1]);
 
-        StartBattleArgs memory args = StartBattleArgs({
+        Battle memory args = Battle({
             p0: ALICE,
             p1: BOB,
             validator: twoMonValidator,
@@ -919,12 +928,16 @@ contract EngineTest is Test, BattleHelper {
             p0TeamHash: keccak256(
                 abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
             ),
-            engineHook: IEngineHook(address(0))
+            engineHook: IEngineHook(address(0)),
+            moveManager: IMoveManager(address(0)),
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
         });
         vm.prank(ALICE);
         bytes32 battleKey = engine.proposeBattle(args);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook, args.moveManager)
         );
         vm.prank(BOB);
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
@@ -2823,7 +2836,7 @@ contract EngineTest is Test, BattleHelper {
         );
 
         // Start battle
-        StartBattleArgs memory args = StartBattleArgs({
+        Battle memory args = Battle({
             p0: ALICE,
             p1: BOB,
             validator: twoMoveValidator,
@@ -2833,15 +2846,19 @@ contract EngineTest is Test, BattleHelper {
             p0TeamHash: keccak256(
                 abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
             ),
-            engineHook: IEngineHook(address(0))
+            engineHook: IEngineHook(address(0)),
+            moveManager: IMoveManager(address(0)),
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
         bytes32 battleKey = engine.proposeBattle(args);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook)
+            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook, args.moveManager)
         );
         // Start a new battle with a different validator
-        args = StartBattleArgs({
+        args = Battle({
             p0: ALICE,
             p1: BOB,
             validator: validator,
@@ -2851,7 +2868,11 @@ contract EngineTest is Test, BattleHelper {
             p0TeamHash: keccak256(
                 abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
             ),
-            engineHook: IEngineHook(address(0))
+            engineHook: IEngineHook(address(0)),
+            moveManager: IMoveManager(address(0)),
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
         });
         // Battle key should stay the same
         engine.proposeBattle(args);
