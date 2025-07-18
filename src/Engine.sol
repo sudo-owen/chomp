@@ -689,6 +689,9 @@ contract Engine is IEngine {
             }
         }
 
+        // Emit event
+        emit MonMove(battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost);
+
         // Handle a switch or a no-op
         // otherwise, execute the moveset
         if (move.moveIndex == SWITCH_MOVE_INDEX) {
@@ -716,9 +719,6 @@ contract Engine is IEngine {
             // Run the move (no longer checking for a return value)
             moveSet.move(battleKey, playerIndex, move.extraData, rng);
         }
-
-        // Emit event
-        emit MonMove(battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost);
 
         // Set Game Over if true, and calculate and return switch for turn flag
         // (We check for both players)
