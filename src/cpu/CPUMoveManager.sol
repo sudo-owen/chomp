@@ -30,7 +30,7 @@ contract CPUMoveManager is IMoveManager {
         (uint256 cpuMoveIndex, bytes memory cpuExtraData) = cpuForPlayer[msg.sender].selectMove(battleKey, 1);
         moveHistory[battleKey][1][ENGINE.getTurnIdForBattleState(battleKey)] = RevealedMove({
             moveIndex: cpuMoveIndex,
-            salt: salt,
+            salt: keccak256(abi.encode(battleKey, msg.sender, block.timestamp)),
             extraData: cpuExtraData
         });
         ENGINE.execute(battleKey);

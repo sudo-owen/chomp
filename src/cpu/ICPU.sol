@@ -2,6 +2,6 @@
 pragma solidity ^0.8.0;
 
 interface ICPU {
-    function selectMove(bytes32 battleKey, uint256 playerIndex) external view returns (uint256 moveIndex, bytes memory extraData);
+    function selectMove(bytes32 battleKey, uint256 playerIndex) external returns (uint256 moveIndex, bytes memory extraData);
     function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external;
 }
