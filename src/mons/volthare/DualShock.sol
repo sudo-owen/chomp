@@ -21,7 +21,7 @@ contract DualShock is StandardAttack {
             ENGINE,
             TYPE_CALCULATOR,
             ATTACK_PARAMS({
-                NAME: "Pistol Squat",
+                NAME: "Dual Shock",
                 BASE_POWER: 60,
                 STAMINA_COST: 0,
                 ACCURACY: 100,

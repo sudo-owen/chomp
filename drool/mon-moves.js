@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const values = parseCsvLine(line);
             if (values[0]) { // If it has a name
-              monsFromCsv.push({ Name: values[0] });
+              monsFromCsv.push({ Name: values[1] });
             }
           }
           return monsFromCsv;
@@ -121,26 +121,16 @@ document.addEventListener("DOMContentLoaded", function () {
     function parseCSV(csvContent) {
       const lines = csvContent.split(/\r\n|\n/);
 
-      if (lines.length < 2) return;
-
       // Extract headers
       const headers = lines[0].split(",").map(header => header.trim());
 
-      // Set columns, excluding Implementation column for UI display
+      // Set columns
       columns = headers
-        .filter(header => header !== "Implementation")
         .map(header => ({
           name: header,
           type: ["Power", "Accuracy", "Stamina"].includes(header) ? "number" : "text",
           editable: true
         }));
-
-      // Add a new Status column for UI display
-      columns.push({
-        name: "Status",
-        type: "text",
-        editable: false
-      });
 
       // Parse data
       data = [];
@@ -151,21 +141,18 @@ document.addEventListener("DOMContentLoaded", function () {
         const values = parseCsvLine(line);
         const rowData = {};
 
-        // Process all columns including Implementation (stored separately)
+        // Process all columns
         headers.forEach((header, index) => {
           const value = values[index]?.trim() || "";
-          
-          // Store all original data including Implementation
+
+          // Store all data
           rowData[header] = value;
-          
+
           // Convert number types for UI display
           if (["Power", "Accuracy", "Stamina"].includes(header)) {
             rowData[header] = parseFloat(value) || 0;
           }
         });
-
-        // Add Status field based on Implementation value
-        rowData["Status"] = rowData["Implementation"] || "No";
 
         data.push(rowData);
       }
@@ -513,34 +500,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             td.appendChild(select);
-          } else if (column.name === "Status") {
-            // Create status indicator
-            const isImplemented = row["Implementation"] === "Yes";
-            
-            if (isImplemented) {
-              // Create link to GitHub implementation
-              const link = document.createElement("a");
-              const monName = (row["Mon"] || "").toLowerCase();
-              const moveName = (row["Name"] || "").replace(/\s+/g, "");
-              const githubUrl = `https://github.com/sudoswap/chomp/tree/main/src/mons/${monName}/${moveName}.sol`;
-              
-              link.href = githubUrl;
-              link.target = "_blank";
-              link.textContent = "📜";
-              link.title = "View implementation on GitHub";
-              link.style.fontSize = "0.9rem";
-              link.style.textDecoration = "none";
-              link.style.display = "block";
-              link.style.textAlign = "center";
-              
-              td.appendChild(link);
-            } else {
-              // Show red X emoji
-              td.textContent = "❌";
-              td.title = "Not implemented yet";
-              td.style.fontSize = "0.9rem";
-              td.style.textAlign = "center";
-            }
           } else {
             if (column.editable) {
               td.contentEditable = true;
@@ -644,8 +603,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function exportToCsv() {
-      // Get all original headers from the first data row
-      const originalHeaders = Object.keys(data[0] || {}).filter(key => key !== "Status");
+      // Get all headers from the first data row
+      const originalHeaders = Object.keys(data[0] || {});
       const csvHeaders = originalHeaders.join(",");
       
       const rows = data.map(row => {

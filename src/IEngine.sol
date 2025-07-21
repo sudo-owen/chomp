@@ -13,6 +13,7 @@ interface IEngine {
     function battleKeyForWrite() external view returns (bytes32);
     
     // State mutating effects
+    function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external;
     function updateMonState(uint256 playerIndex, uint256 monIndex, MonStateIndexName stateVarIndex, int32 valueToAdd)
         external;
     function addEffect(uint256 targetIndex, uint256 monIndex, IEffect effect, bytes memory extraData) external;

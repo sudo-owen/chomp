@@ -79,7 +79,8 @@ def read_moves_data(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
                 'priority': int(row['Priority']) if row['Priority'].isdigit() else 0,
                 'type': row['Type'],
                 'class': row['Class'],
-                'description': row['Description']
+                'description': row['Description'],
+                'extraDataNeeded': row['ExtraData'] == 'Yes'
             }
             moves_by_mon[mon_name].append(move_data)
     
@@ -146,7 +147,6 @@ import {{ LowercaseHex, Type }} from '../types/structs';
 
 export const MonMetadata = {json_str} as const;
 
-// Type definitions for better TypeScript support
 export type Move = {{
   readonly address: LowercaseHex;
   readonly name: string;
@@ -157,6 +157,7 @@ export type Move = {{
   readonly type: Type;
   readonly class: string;
   readonly description: string;
+  readonly extraDataNeeded: boolean;
 }};
 
 export type Mon = {{
