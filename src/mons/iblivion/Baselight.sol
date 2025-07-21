@@ -96,4 +96,8 @@ contract Baselight is IMoveSet {
     function moveClass(bytes32) public pure returns (MoveClass) {
         return MoveClass.Special;
     }
+
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

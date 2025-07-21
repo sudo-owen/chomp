@@ -81,4 +81,8 @@ contract Brightback is IMoveSet {
     function isValidTarget(bytes32, bytes calldata) external pure returns (bool) {
         return true;
     }
+
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

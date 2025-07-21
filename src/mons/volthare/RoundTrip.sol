@@ -49,4 +49,8 @@ contract RoundTrip is StandardAttack {
         // Switch the active mon (the Engine will skip it if the validator returns false)
         ENGINE.switchActiveMon(attackerPlayerIndex, swapIndex);
     }
+
+    function extraDataType() external pure override returns (ExtraDataType) {
+        return ExtraDataType.SelfTeamIndex;
+    }
 }

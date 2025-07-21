@@ -50,4 +50,8 @@ contract Loop is IMoveSet {
     function moveClass(bytes32) public pure returns (MoveClass) {
         return MoveClass.Self;
     }
+
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

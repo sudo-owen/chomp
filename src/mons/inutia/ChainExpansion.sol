@@ -144,4 +144,8 @@ contract ChainExpansion is IMoveSet, BasicEffect {
         }
         return (extraData, false);
     }
+
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

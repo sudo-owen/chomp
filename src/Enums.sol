@@ -80,3 +80,8 @@ enum EngineEventType {
     MoveCrit,
     None
 }
+
+enum ExtraDataType {
+    None,
+    SelfTeamIndex
+}

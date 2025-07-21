@@ -66,4 +66,7 @@ contract Deadlift is IMoveSet {
         return true;
     }
 
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

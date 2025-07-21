@@ -48,4 +48,8 @@ contract InvalidMove is IMoveSet {
     function basePower(bytes32) external pure returns (uint32) {
         return 0;
     }
+
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

@@ -142,4 +142,8 @@ contract StandardAttack is IMoveSet, Ownable {
             _effect = IEffect(address(uint160(newValue)));
         }
     }
+
+    function extraDataType() external virtual pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

@@ -93,4 +93,8 @@ contract CustomAttack is IMoveSet {
     function effectAccuracy(bytes32 battleKey) external view returns (uint32) {
         return _standardAttack.effectAccuracy(battleKey);
     }
+
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
 }

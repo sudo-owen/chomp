@@ -14,4 +14,5 @@ interface IMoveSet {
     function moveType(bytes32 battleKey) external view returns (Type);
     function isValidTarget(bytes32 battleKey, bytes calldata extraData) external view returns (bool);
     function moveClass(bytes32 battleKey) external view returns (MoveClass);
+    function extraDataType() external view returns (ExtraDataType);
 }

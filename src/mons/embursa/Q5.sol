@@ -59,6 +59,10 @@ contract Q5 is IMoveSet, BasicEffect {
         return MoveClass.Special;
     }
 
+    function extraDataType() external pure returns (ExtraDataType) {
+        return ExtraDataType.None;
+    }
+
     /**
      Effect implementation
      */
