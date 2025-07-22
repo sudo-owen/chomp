@@ -215,7 +215,13 @@ contract FastValidator is IValidator {
             presumedAFKPlayer = players[0];
         }
 
-        IFastCommitManager commitManager = IFastCommitManager(address(ENGINE.moveManager()));
+        IFastCommitManager commitManager;
+        Battle memory battle = ENGINE.getBattle(battleKey);
+        if (battle.moveManager == IMoveManager(address(0))) {
+            commitManager = IFastCommitManager(address(ENGINE.moveManager()));
+        } else {
+            commitManager = IFastCommitManager(address(battle.moveManager));
+        }
 
         // Grab latest reference time out of both players
         uint256 lastMoveTimestamp;
@@ -276,7 +282,15 @@ contract FastValidator is IValidator {
 
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256) {
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        IMoveManager moveManager = ENGINE.moveManager();
+
+        IMoveManager moveManager;
+        Battle memory battle = ENGINE.getBattle(battleKey);
+        if (battle.moveManager == IMoveManager(address(0))) {
+            moveManager = ENGINE.moveManager();
+        } else {
+            moveManager = battle.moveManager;
+        }
+        
         RevealedMove memory p0Move = moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
         RevealedMove memory p1Move = moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
         uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);

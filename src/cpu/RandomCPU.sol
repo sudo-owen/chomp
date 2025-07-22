@@ -3,44 +3,66 @@ pragma solidity ^0.8.0;
 
 import {IEngine} from "../IEngine.sol";
 import {IValidator} from "../IValidator.sol";
-import {ICPU} from "./ICPU.sol";
+
 import {IMoveSet} from "../moves/IMoveSet.sol";
+import {ICPURNG} from "../rng/ICPURNG.sol";
+import {ICPU} from "./ICPU.sol";
 
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
-import {Battle, RevealedMove} from "../Structs.sol";
+
 import {ExtraDataType} from "../Enums.sol";
+import {Battle, BattleState, RevealedMove} from "../Structs.sol";
 
-contract RandomCPU is ICPU {
-
-    // Hard coded for now
-    uint256 constant NUM_MOVES = 4;
-
+contract RandomCPU is ICPU, ICPURNG {
+    uint256 private immutable NUM_MOVES;
     IEngine private immutable ENGINE;
+    ICPURNG private immutable RNG;
 
-    constructor(IEngine engine) {
+    uint256 private nonceToUse;
+
+    constructor(uint256 numMoves, IEngine engine, ICPURNG rng) {
+        NUM_MOVES = numMoves;
         ENGINE = engine;
+        if (address(rng) == address(0)) {
+            RNG = ICPURNG(address(this));
+        } else {
+            RNG = rng;
+        }
     }
 
-    /*
-    - If it's turn index 0, randomly pick a mon index
-    - If it's not turn 0, check for all valid switches (among all mon indices)
-    - Check for all valid moves
-    - Pick one
-    */
+    /**
+     * If it's turn 0, randomly selects a mon index to swap to
+     *     Otherwise, randomly selects a valid move, switch index, or no op
+     */
     function selectMove(bytes32 battleKey, uint256 playerIndex)
         external
         returns (uint256 moveIndex, bytes memory extraData)
     {
+        (RevealedMove[] memory moveChoices, uint256 updatedNonce) = calculateValidMoves(battleKey, playerIndex);
+        nonceToUse = updatedNonce;
+        uint256 randomIndex =
+            RNG.getRNG(keccak256(abi.encode(nonceToUse++, battleKey, block.timestamp))) % moveChoices.length;
+        return (moveChoices[randomIndex].moveIndex, moveChoices[randomIndex].extraData);
+    }
+
+    function calculateValidMoves(bytes32 battleKey, uint256 playerIndex)
+        public
+        returns (RevealedMove[] memory, uint256 updatedNonce)
+    {
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        uint256 nonce = nonceToUse;
         if (turnId == 0) {
             uint256 teamSize = ENGINE.getTeamSize(battleKey, playerIndex);
-            uint256 monToSwitchIndex = uint256(keccak256(abi.encode(battleKey, block.timestamp))) % teamSize;
-            return (SWITCH_MOVE_INDEX, abi.encode(monToSwitchIndex));
+            RevealedMove[] memory switchChoices = new RevealedMove[](teamSize);
+            for (uint256 i = 0; i < teamSize; i++) {
+                switchChoices[i] = RevealedMove({moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(i)});
+            }
+            return (switchChoices, nonce);
         } else {
             Battle memory battle = ENGINE.getBattle(battleKey);
             uint256[] memory validSwitchIndices;
             uint256 validSwitchCount;
-            uint256 validMoves = 1; // We can always do a no op
+            uint256 validMoves = 1; // (We can always do a no op)
             // Check for valid switches
             {
                 uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
@@ -48,12 +70,31 @@ contract RandomCPU is ICPU {
                 validSwitchIndices = new uint256[](teamSize);
                 for (uint256 i = 0; i < teamSize; i++) {
                     if (i != activeMonIndex[playerIndex]) {
-                        if (battle.validator.validatePlayerMove(battleKey, SWITCH_MOVE_INDEX, playerIndex, abi.encode(i))) {
+                        if (
+                            battle.validator.validatePlayerMove(
+                                battleKey, SWITCH_MOVE_INDEX, playerIndex, abi.encode(i)
+                            )
+                        ) {
                             validSwitchIndices[validSwitchCount++] = i;
                         }
                     }
                 }
                 validMoves += validSwitchCount;
+            }
+            // If it's a turn where we need to make a switch, then we should just return a valid switch immediately
+            {
+                BattleState memory battleState = ENGINE.getBattleState(battleKey);
+                if (battleState.playerSwitchForTurnFlag == 1) {
+                    RevealedMove[] memory switchChoices = new RevealedMove[](validSwitchCount);
+                    for (uint256 i = 0; i < validSwitchCount; i++) {
+                        switchChoices[i] = RevealedMove({
+                            moveIndex: SWITCH_MOVE_INDEX,
+                            salt: "",
+                            extraData: abi.encode(validSwitchIndices[i])
+                        });
+                    }
+                    return (switchChoices, nonce);
+                }
             }
             uint256[] memory validMoveIndices;
             bytes[] memory validMoveExtraData;
@@ -62,12 +103,15 @@ contract RandomCPU is ICPU {
             {
                 uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
                 validMoveIndices = new uint256[](NUM_MOVES);
+                validMoveExtraData = new bytes[](NUM_MOVES);
                 for (uint256 i = 0; i < NUM_MOVES; i++) {
-                    IMoveSet move = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], i);
-                    bytes memory extraDataToUse;
+                    IMoveSet move =
+                        ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], i);
+                    bytes memory extraDataToUse = "";
                     if (move.extraDataType() == ExtraDataType.SelfTeamIndex) {
                         uint256 teamSize = ENGINE.getTeamSize(battleKey, playerIndex);
-                        uint256 randomIndex = uint256(keccak256(abi.encode(battleKey, block.timestamp))) % teamSize;
+                        uint256 randomIndex =
+                            RNG.getRNG(keccak256(abi.encode(nonce++, battleKey, block.timestamp))) % teamSize;
                         extraDataToUse = abi.encode(randomIndex);
                         validMoveExtraData[validMoveCount] = extraDataToUse;
                     }
@@ -81,14 +125,19 @@ contract RandomCPU is ICPU {
             RevealedMove[] memory moveChoices = new RevealedMove[](validMoves);
             moveChoices[0] = RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""});
             for (uint256 i = 0; i < validSwitchCount; i++) {
-                moveChoices[i + 1] = RevealedMove({moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])});
+                moveChoices[i + 1] =
+                    RevealedMove({moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])});
             }
             for (uint256 i = 0; i < validMoveCount; i++) {
-                moveChoices[i + validSwitchCount + 1] = RevealedMove({moveIndex: validMoveIndices[i], salt: "", extraData: validMoveExtraData[i]});
+                moveChoices[i + validSwitchCount + 1] =
+                    RevealedMove({moveIndex: validMoveIndices[i], salt: "", extraData: validMoveExtraData[i]});
             }
-            uint256 choiceIndex = uint256(keccak256(abi.encode(battleKey, block.timestamp))) % validMoves;
-            return (moveChoices[choiceIndex].moveIndex, moveChoices[choiceIndex].extraData);
+            return (moveChoices, nonce);
         }
+    }
+
+    function getRNG(bytes32 seed) public pure returns (uint256) {
+        return uint256(seed);
     }
 
     function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external {

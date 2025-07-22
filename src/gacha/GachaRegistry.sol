@@ -9,7 +9,7 @@ import {IEngine} from "../IEngine.sol";
 import {IEngineHook} from "../IEngineHook.sol";
 import {IGachaRNG} from "../rng/IGachaRNG.sol";
 
-contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
+contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG {
 
     using EnumerableSetLib for EnumerableSetLib.Uint256Set;
 
@@ -91,6 +91,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon {
         emit MonRoll(msg.sender, monIds);
     }
 
+    // Default RNG implementation
     function getRNG(bytes32 seed) public view returns (uint256) {
         return uint256(keccak256(abi.encode(blockhash(block.number - 1), seed)));
     }
