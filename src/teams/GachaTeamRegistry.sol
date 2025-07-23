@@ -3,8 +3,9 @@ pragma solidity ^0.8.0;
 
 import "./DefaultTeamRegistry.sol";
 import {IOwnableMon} from "../gacha/IOwnableMon.sol";
+import {Ownable} from "../lib/Ownable.sol";
 
-contract GachaTeamRegistry is DefaultTeamRegistry {
+contract GachaTeamRegistry is DefaultTeamRegistry, Ownable {
 
     IOwnableMon immutable OWNER_LOOKUP;
 
@@ -12,6 +13,7 @@ contract GachaTeamRegistry is DefaultTeamRegistry {
 
     constructor(Args memory args, IOwnableMon _OWNER_LOOKUP) DefaultTeamRegistry(args) {
         OWNER_LOOKUP = _OWNER_LOOKUP;
+        _initializeOwner(msg.sender);
     }
 
     function _validateOwnership(uint256[] memory monIndices) internal view {
@@ -25,6 +27,15 @@ contract GachaTeamRegistry is DefaultTeamRegistry {
     function createTeam(uint256[] memory monIndices, IMoveSet[][] memory moves, IAbility[] memory abilities) override public {
         _validateOwnership(monIndices);
         super.createTeam(monIndices, moves, abilities);
+    }
+
+    function createTeamForUser(
+        address user,
+        uint256[] memory monIndices,
+        IMoveSet[][] memory moves,
+        IAbility[] memory abilities
+    ) external onlyOwner {
+        _createTeamForUser(user, monIndices, moves, abilities);
     }
 
     function updateTeam(

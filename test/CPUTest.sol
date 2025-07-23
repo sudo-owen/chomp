@@ -145,7 +145,7 @@ contract CPUTest is Test {
         Mon memory mon4 = Mon({
             stats: MonStats({
                 hp: 1,
-                stamina: 2,
+                stamina: 3, // Because Guest Feature costs 3
                 speed: 2,
                 attack: 1,
                 defense: 1,
@@ -170,8 +170,8 @@ contract CPUTest is Test {
 
     /**
      * CPU should:
-     * - Only swap if they are KO'ed
-     * - Only pick valid moves (e.g. should not pick a move that costs too much stamina)
+     * - Only swap if they are KO'ed [x]
+     * - Only pick valid moves (e.g. should not pick a move that costs too much stamina) [x]
      * - Moves that need a self team index correctly generate a random index
      */
     function test_cpuOnlyPicksValidMoves() public {
@@ -259,7 +259,7 @@ contract CPUTest is Test {
             assertEq(moves.length, 5);
         }
 
-        // // Alice chooses no op, CPU chooses move2 which should consume all stamina
+        // Alice chooses no op, CPU chooses move2 which should consume all stamina
         mockCPURNG.setRNG(4); // [no op, swap 2, swap 3, move 1, move 2, ...] and we want move 2
         // (note that the swaps are 0-indexed, and the moves are 1-indexed to refer to the above variable
         // naming convention, sorry D: )
@@ -269,6 +269,22 @@ contract CPUTest is Test {
         {
             (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 3);
+        }
+
+        // Alice chooses no op, CPU chooses swapping to mon index 3
+        mockCPURNG.setRNG(2); // [no op, swap 2, swap 3 and we want swap 3
+        cpuMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
+
+        // Assert the CPU now has mon index 3 as the active mon
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 3);
+
+        // Assert that there are now 4 moves, switching to mon index 0, 2, the two moves, and no op
+        // Assert that both moves generate a valid self team index (either mon 0 or mon 2)
+        {
+            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length, 5);
+            assertEq(abi.decode(moves[3].extraData, (uint256)), 0); // rng is set to 2, which % 2 is 0
+            assertEq(abi.decode(moves[4].extraData, (uint256)), 0);
         }
     }
 

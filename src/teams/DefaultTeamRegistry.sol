@@ -36,7 +36,19 @@ contract DefaultTeamRegistry is ITeamRegistry {
         MOVES_PER_MON = args.MOVES_PER_MON;
     }
 
-    function createTeam(uint256[] memory monIndices, IMoveSet[][] memory moves, IAbility[] memory abilities) virtual public {
+    function createTeam(uint256[] memory monIndices, IMoveSet[][] memory moves, IAbility[] memory abilities)
+        public
+        virtual
+    {
+        _createTeamForUser(msg.sender, monIndices, moves, abilities);
+    }
+
+    function _createTeamForUser(
+        address user,
+        uint256[] memory monIndices,
+        IMoveSet[][] memory moves,
+        IAbility[] memory abilities
+    ) internal {
         if (monIndices.length != MONS_PER_TEAM) {
             revert InvalidTeamSize();
         }
@@ -59,16 +71,16 @@ contract DefaultTeamRegistry is ITeamRegistry {
         _checkForDuplicates(monIndices);
 
         // Initialize team and set indices
-        uint256 teamId = numTeams[msg.sender];
+        uint256 teamId = numTeams[user];
         for (uint256 i; i < MONS_PER_TEAM; i++) {
-            teams[msg.sender][teamId].push(
+            teams[user][teamId].push(
                 Mon({stats: REGISTRY.getMonStats(monIndices[i]), moves: moves[i], ability: abilities[i]})
             );
             _setMonRegistryIndices(teamId, uint32(monIndices[i]), i);
         }
 
         // Update the team index
-        numTeams[msg.sender] += 1;
+        numTeams[user] += 1;
     }
 
     function updateTeam(
@@ -77,7 +89,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         uint256[] memory newMonIndices,
         IMoveSet[][] memory newMoves,
         IAbility[] memory newAbilities
-    ) virtual public {
+    ) public virtual {
         uint256 numMonsToOverride = teamMonIndicesToOverride.length;
 
         // Verify that the new moves and abilities are valid
@@ -119,7 +131,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         }
     }
 
-    function copyTeam(address playerToCopy, uint256 teamIndex) virtual public {
+    function copyTeam(address playerToCopy, uint256 teamIndex) public virtual {
         // Initialize team and set indices
         uint256 teamId = numTeams[msg.sender];
         for (uint256 i; i < MONS_PER_TEAM; i++) {

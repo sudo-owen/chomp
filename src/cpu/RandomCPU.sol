@@ -109,10 +109,9 @@ contract RandomCPU is ICPU, ICPURNG {
                         ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], i);
                     bytes memory extraDataToUse = "";
                     if (move.extraDataType() == ExtraDataType.SelfTeamIndex) {
-                        uint256 teamSize = ENGINE.getTeamSize(battleKey, playerIndex);
                         uint256 randomIndex =
-                            RNG.getRNG(keccak256(abi.encode(nonce++, battleKey, block.timestamp))) % teamSize;
-                        extraDataToUse = abi.encode(randomIndex);
+                            RNG.getRNG(keccak256(abi.encode(nonce++, battleKey, block.timestamp))) % validSwitchCount;
+                        extraDataToUse = abi.encode(validSwitchIndices[randomIndex]);
                         validMoveExtraData[validMoveCount] = extraDataToUse;
                     }
                     if (battle.validator.validatePlayerMove(battleKey, i, playerIndex, extraDataToUse)) {

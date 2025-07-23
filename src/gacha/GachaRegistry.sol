@@ -5,11 +5,12 @@ import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 
 import "../teams/IMonRegistry.sol";
 import {IOwnableMon} from "./IOwnableMon.sol";
+import {Ownable} from "../lib/Ownable.sol";
 import {IEngine} from "../IEngine.sol";
 import {IEngineHook} from "../IEngineHook.sol";
 import {IGachaRNG} from "../rng/IGachaRNG.sol";
 
-contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG {
+contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Ownable {
 
     using EnumerableSetLib for EnumerableSetLib.Uint256Set;
 
@@ -39,7 +40,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG {
     event PointsSpent(address indexed player, uint256 points);
     event BonusPoints(bytes32 indexed battleKey);
 
-    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG) {
+    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG)  {
         MON_REGISTRY = _MON_REGISTRY;
         ENGINE = _ENGINE;
         if (address(_RNG) == address(0)) {
@@ -49,8 +50,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG {
         }
     }
 
-    // TODO: for testing events in prod, obviously remove this later
-    function addPoints(address a, uint256 points) external {
+    function addPoints(address a, uint256 points) external onlyOwner {
         pointsBalance[a] += points;
     }
 

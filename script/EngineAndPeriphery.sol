@@ -15,6 +15,9 @@ import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
 import {GachaTeamRegistry, DefaultTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
+import {ICPURNG} from "../src/rng/ICPURNG.sol";
+import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
+import {RandomCPU} from "../src/cpu/RandomCPU.sol";
 
 // Important effects
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
@@ -39,7 +42,7 @@ contract EngineAndPeriphery is Script {
     {
         vm.startBroadcast();
 
-        deployedContracts = new DeployData[](17);
+        deployedContracts = new DeployData[](19);
     
         Engine engine = new Engine();
         deployedContracts[0] = DeployData({
@@ -91,9 +94,21 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(defaultOracle)
         });
 
+        RandomCPU cpu = new RandomCPU(4, engine, ICPURNG(address(0)));
+        deployedContracts[7] = DeployData({
+            name: "RANDOM CPU",
+            contractAddress: address(cpu)
+        });
+
+        CPUMoveManager cpuMoveManager = new CPUMoveManager(engine, cpu);
+        deployedContracts[8] = DeployData({
+            name: "CPU MOVE MANAGER",
+            contractAddress: address(cpuMoveManager)
+        });
+
         DeployData[] memory gameFundamentals = deployGameFundamentals(engine);
         for (uint256 i = 0; i < gameFundamentals.length; i++) {
-            deployedContracts[i + 7] = gameFundamentals[i];
+            deployedContracts[i + 9] = gameFundamentals[i];
         }
         
         vm.stopBroadcast();
