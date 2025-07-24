@@ -34,46 +34,47 @@ struct DeployData {
 }
 
 contract EngineAndPeriphery is Script {
+
+    DeployData[] deployedContracts;
+
     function run()
         external
         returns (
-            DeployData[] memory deployedContracts
+            DeployData[] memory
         )
     {
         vm.startBroadcast();
 
-        deployedContracts = new DeployData[](19);
-    
         Engine engine = new Engine();
-        deployedContracts[0] = DeployData({
+        deployedContracts.push(DeployData({
             name: "ENGINE",
             contractAddress: address(engine)
-        });
+        }));
 
         FastCommitManager commitManager = new FastCommitManager(engine);
-        deployedContracts[1] = DeployData({
+        deployedContracts.push(DeployData({
             name: "COMMIT MANAGER",
             contractAddress: address(commitManager)
-        });
+        }));
 
         engine.setMoveManager(address(commitManager));
         TypeCalculator typeCalc = new TypeCalculator();
-        deployedContracts[2] = DeployData({
+        deployedContracts.push(DeployData({
             name: "TYPE CALCULATOR",
             contractAddress: address(typeCalc)
-        });
+        }));
 
         DefaultMonRegistry monRegistry = new DefaultMonRegistry();
-        deployedContracts[3] = DeployData({
+        deployedContracts.push(DeployData({
             name: "DEFAULT MON REGISTRY",
             contractAddress: address(monRegistry)
-        });
+        }));
 
         GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, IGachaRNG(address(0)));
-        deployedContracts[4] = DeployData({
+        deployedContracts.push(DeployData({
             name: "GACHA REGISTRY",
             contractAddress: address(gachaRegistry)
-        });
+        }));
 
         GachaTeamRegistry gachaTeamRegistry = new GachaTeamRegistry(
             DefaultTeamRegistry.Args({
@@ -83,107 +84,97 @@ contract EngineAndPeriphery is Script {
             }),
             gachaRegistry
         );
-        deployedContracts[5] = DeployData({
+        deployedContracts.push(DeployData({
             name: "GACHA TEAM REGISTRY",
             contractAddress: address(gachaTeamRegistry)
-        });
+        }));
 
         DefaultRandomnessOracle defaultOracle = new DefaultRandomnessOracle();
-        deployedContracts[6] = DeployData({
+        deployedContracts.push(DeployData({
             name: "DEFAULT RANDOMNESS ORACLE",
             contractAddress: address(defaultOracle)
-        });
+        }));
 
         RandomCPU cpu = new RandomCPU(4, engine, ICPURNG(address(0)));
-        deployedContracts[7] = DeployData({
+        deployedContracts.push(DeployData({
             name: "RANDOM CPU",
             contractAddress: address(cpu)
-        });
+        }));
 
         CPUMoveManager cpuMoveManager = new CPUMoveManager(engine, cpu);
-        deployedContracts[8] = DeployData({
+        deployedContracts.push(DeployData({
             name: "CPU MOVE MANAGER",
             contractAddress: address(cpuMoveManager)
-        });
-
-        DeployData[] memory gameFundamentals = deployGameFundamentals(engine);
-        for (uint256 i = 0; i < gameFundamentals.length; i++) {
-            deployedContracts[i + 9] = gameFundamentals[i];
-        }
-        
+        }));
+        deployGameFundamentals(engine);
         vm.stopBroadcast();
+        return deployedContracts;
     }
 
-    function deployGameFundamentals(Engine engine) public returns (DeployData[] memory deployedContracts) {
-
-        // Deploy game fundamentals
-        DeployData[] memory gameFundamentals = new DeployData[](10);
-
+    function deployGameFundamentals(Engine engine) public {
         StaminaRegen staminaRegen = new StaminaRegen(engine);
-        gameFundamentals[0] = DeployData({
+        deployedContracts.push(DeployData({
             name: "STAMINA REGEN",
             contractAddress: address(staminaRegen)
-        });
+        }));
 
         IEffect[] memory effects = new IEffect[](1);
         effects[0] = staminaRegen;
         DefaultRuleset ruleset = new DefaultRuleset(engine, effects);
-        gameFundamentals[1] = DeployData({
+        deployedContracts.push(DeployData({
             name: "DEFAULT RULESET",
             contractAddress: address(ruleset)
-        });
+        }));
 
         FastValidator validator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 4, TIMEOUT_DURATION: 30})
         );
-        gameFundamentals[2] = DeployData({
+        deployedContracts.push(DeployData({
             name: "FAST VALIDATOR",
             contractAddress: address(validator)
-        });
+        }));
 
         StatBoosts statBoosts = new StatBoosts(engine);
-        gameFundamentals[3] = DeployData({
+        deployedContracts.push(DeployData({
             name: "STAT BOOSTS",
             contractAddress: address(statBoosts)
-        });
+        }));
 
         Storm storm = new Storm(engine, statBoosts);
-        gameFundamentals[4] = DeployData({
+        deployedContracts.push(DeployData({
             name: "STORM",
             contractAddress: address(storm)
-        });
+        }));
 
         SleepStatus sleepStatus = new SleepStatus(engine);
-        gameFundamentals[5] = DeployData({
+        deployedContracts.push(DeployData({
             name: "SLEEP STATUS",
             contractAddress: address(sleepStatus)
-        });
+        }));
 
         PanicStatus panicStatus = new PanicStatus(engine);
-        gameFundamentals[6] = DeployData({
+        deployedContracts.push(DeployData({
             name: "PANIC STATUS",
             contractAddress: address(panicStatus)
-        });
+        }));
 
         FrostbiteStatus frostbiteStatus = new FrostbiteStatus(engine, statBoosts);
-        gameFundamentals[7] = DeployData({
+        deployedContracts.push(DeployData({
             name: "FROSTBITE STATUS",
             contractAddress: address(frostbiteStatus)
-        });
+        }));
 
         BurnStatus burnStatus = new BurnStatus(engine, statBoosts);
-        gameFundamentals[8] = DeployData({
+        deployedContracts.push(DeployData({
             name: "BURN STATUS",
             contractAddress: address(burnStatus)
-        });
+        }));
 
         ZapStatus zapStatus = new ZapStatus(engine);
-        gameFundamentals[9] = DeployData({
+        deployedContracts.push(DeployData({
             name: "ZAP STATUS",
             contractAddress: address(zapStatus)
-        });
-
-        return gameFundamentals;
+        }));
     }
 
 }
