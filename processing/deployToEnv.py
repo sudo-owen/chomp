@@ -33,7 +33,7 @@ def process_file(input_file, output_file):
         f.write('\n'.join(output))
 
 # Usage
-input_file = 'input.txt'  # Replace with your input file name
-output_file = 'output.txt'  # Replace with your desired output file name
+input_file = 'processing/input.txt'
+output_file = 'processing/output.txt'
 process_file(input_file, output_file)
 print(f"Conversion complete. Output written to {output_file}")

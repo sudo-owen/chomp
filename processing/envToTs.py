@@ -17,8 +17,8 @@ def convert_file(input_file, output_file):
             outfile.write(f"{key}: '{value}' as LowercaseHex,\n")
 
 # Usage
-input_file = 'output.txt'  # Replace with your input file name
-output_file = 'ts.txt'  # Replace with your desired output file name
+input_file = 'processing/output.txt'
+output_file = 'processing/ts.txt'
 
 convert_file(input_file, output_file)
 print(f"Conversion complete. Output written to {output_file}")
