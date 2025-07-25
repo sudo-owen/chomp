@@ -6,6 +6,7 @@ import "../Structs.sol";
 import "../Constants.sol";
 
 import {IEngine} from "../IEngine.sol";
+import {IMoveManager} from "../IMoveManager.sol";
 import {BasicEffect} from "./BasicEffect.sol";
 
 contract StaminaRegen is BasicEffect {
@@ -50,7 +51,8 @@ contract StaminaRegen is BasicEffect {
 
     // Regen stamina if the mon did a No Op (i.e. resting)
     function onAfterMove(uint256, bytes memory, uint256 targetIndex, uint256 monIndex) external override returns (bytes memory, bool) {
-        RevealedMove memory move = ENGINE.moveManager().getMoveForBattleStateForTurn(
+        IMoveManager moveManager = ENGINE.getMoveManager(ENGINE.battleKeyForWrite());
+        RevealedMove memory move = moveManager.getMoveForBattleStateForTurn(
             ENGINE.battleKeyForWrite(), targetIndex, ENGINE.getTurnIdForBattleState(ENGINE.battleKeyForWrite())
         );
         if (move.moveIndex == NO_OP_MOVE_INDEX) {

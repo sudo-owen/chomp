@@ -25,7 +25,7 @@ interface IEngine {
     function emitEngineEvent(EngineEventType eventType, bytes memory extraData) external;
 
     // Getters
-    function moveManager() external view returns (IMoveManager);
+    function getMoveManager(bytes32 battleKey) external view returns (IMoveManager);
     function getBattle(bytes32 battleKey) external view returns (Battle memory);
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory);
     function getMonValueForBattle(

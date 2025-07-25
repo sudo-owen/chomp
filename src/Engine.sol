@@ -14,7 +14,6 @@ contract Engine is IEngine {
 
     // Public state variables
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
-    IMoveManager public moveManager; // default move manager (e.g. for normal commit-reveal PVP)
     mapping(bytes32 => uint256) public pairHashNonces; // intended to be read by anyone
 
     // Private state variables (battles and battleStates values are granularly accessible via getters)
@@ -24,6 +23,7 @@ contract Engine is IEngine {
     mapping(bytes32 battleKeyPlusPlayerOffset => uint256) private monsKOedBitmap;
     uint256 transient private currentStep; // Used to bubble up step data for events
     int32 transient private damageDealt; // Used to provide access to onAfterDamage hook for effects
+    IMoveManager private moveManager; // default move manager (e.g. for normal commit-reveal PVP)
 
     // Errors
     error NoWriteAllowed();
@@ -992,5 +992,10 @@ contract Engine is IEngine {
             revert MoveManagerAlreadySet();
         }
         moveManager = IMoveManager(a);
+    }
+
+    function getMoveManager(bytes32 battleKey) external view returns (IMoveManager) {
+        Battle memory battle = battles[battleKey];
+        return battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
     }
 }

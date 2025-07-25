@@ -30,7 +30,7 @@ contract RockPull is IMoveSet {
     function _didOtherPlayerChooseSwitch(bytes32 battleKey, uint256 attackerPlayerIndex) internal view returns (bool) {
         // Check RevealedMove for other player
         uint256 otherPlayerIndex = (attackerPlayerIndex + 1) % 2;
-        RevealedMove memory otherPlayerMove = ENGINE.moveManager().getMoveForBattleStateForTurn(
+        RevealedMove memory otherPlayerMove = ENGINE.getMoveManager(battleKey).getMoveForBattleStateForTurn(
             battleKey, otherPlayerIndex, ENGINE.getTurnIdForBattleState(battleKey)
         );
         return otherPlayerMove.moveIndex == SWITCH_MOVE_INDEX;

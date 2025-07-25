@@ -76,7 +76,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
             teams[user][teamId].push(
                 Mon({stats: REGISTRY.getMonStats(monIndices[i]), moves: moves[i], ability: abilities[i]})
             );
-            _setMonRegistryIndices(teamId, uint32(monIndices[i]), i);
+            _setMonRegistryIndices(teamId, uint32(monIndices[i]), i, user);
         }
 
         // Update the team index
@@ -117,7 +117,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
             uint256 monIndexToOverride = teamMonIndicesToOverride[i];
             teams[msg.sender][teamIndex][monIndexToOverride] =
                 Mon({stats: REGISTRY.getMonStats(newMonIndices[i]), moves: newMoves[i], ability: newAbilities[i]});
-            _setMonRegistryIndices(teamIndex, uint32(newMonIndices[i]), monIndexToOverride);
+            _setMonRegistryIndices(teamIndex, uint32(newMonIndices[i]), monIndexToOverride, msg.sender);
         }
     }
 
@@ -145,12 +145,12 @@ contract DefaultTeamRegistry is ITeamRegistry {
     }
 
     // Layout: | Nothing | Nothing | Mon5 | Mon4 | Mon3 | Mon2 | Mon1 | Mon 0 <-- rightmost bits
-    function _setMonRegistryIndices(uint256 teamIndex, uint32 monId, uint256 position) internal {
+    function _setMonRegistryIndices(uint256 teamIndex, uint32 monId, uint256 position, address caller) internal {
         // Create a bitmask to clear the bits we want to modify
         uint256 clearBitmask = ~(ONES_MASK << (position * BITS_PER_MON_INDEX));
 
         // Get the existing packed value
-        uint256 existingPackedValue = monRegistryIndicesForTeamPacked[msg.sender][teamIndex];
+        uint256 existingPackedValue = monRegistryIndicesForTeamPacked[caller][teamIndex];
 
         // Clear the bits we want to modify
         uint256 clearedValue = existingPackedValue & clearBitmask;
@@ -159,7 +159,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         uint256 valueBitmask = uint256(monId) << (position * BITS_PER_MON_INDEX);
 
         // Combine the cleared value with the new value
-        monRegistryIndicesForTeamPacked[msg.sender][teamIndex] = clearedValue | valueBitmask;
+        monRegistryIndicesForTeamPacked[caller][teamIndex] = clearedValue | valueBitmask;
     }
 
     function _getMonRegistryIndex(address player, uint256 teamIndex, uint256 position)
