@@ -21,6 +21,7 @@ import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ICPURNG} from "../src/rng/ICPURNG.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
+import {FirstCPU} from "../src/cpu/FirstCPU.sol";
 import {MonStats} from "../src/Structs.sol";
 import {Type} from "../src/Enums.sol";
 
@@ -89,7 +90,19 @@ contract SetupCPU is Script {
         abilities[3] = IAbility(vm.envAddress("OVERCLOCK"));
 
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices, moves, abilities);
+        
+        FirstCPU firstCPU = new FirstCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(vm.envAddress("DEFAULT_RANDOMNESS_ORACLE")));
+        deployedContracts.push(DeployData({
+            name: "FIRST CPU",
+            contractAddress: address(firstCPU)
+        }));
+        CPUMoveManager cpuMoveManager = new CPUMoveManager(IEngine(vm.envAddress("ENGINE")), firstCPU);
+        deployedContracts.push(DeployData({
+            name: "CPU MOVE MANAGER",
+            contractAddress: address(cpuMoveManager)
+        }));
+
+        gachaTeamRegistry.createTeamForUser(address(cpuMoveManager), monIndices, moves, abilities);
 
         vm.stopBroadcast();
 
