@@ -21,7 +21,7 @@ import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ICPURNG} from "../src/rng/ICPURNG.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
-import {FirstCPU} from "../src/cpu/FirstCPU.sol";
+import {LastCPU} from "../src/cpu/LastCPU.sol";
 import {MonStats} from "../src/Structs.sol";
 import {Type} from "../src/Enums.sol";
 
@@ -91,18 +91,18 @@ contract SetupCPU is Script {
 
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
         
-        FirstCPU firstCPU = new FirstCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(vm.envAddress("DEFAULT_RANDOMNESS_ORACLE")));
+        LastCPU cpu = new LastCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)));
         deployedContracts.push(DeployData({
-            name: "FIRST CPU",
-            contractAddress: address(firstCPU)
+            name: "LAST CPU",
+            contractAddress: address(cpu)
         }));
-        CPUMoveManager cpuMoveManager = new CPUMoveManager(IEngine(vm.envAddress("ENGINE")), firstCPU);
+        CPUMoveManager cpuMoveManager = new CPUMoveManager(IEngine(vm.envAddress("ENGINE")), cpu);
         deployedContracts.push(DeployData({
             name: "CPU MOVE MANAGER",
             contractAddress: address(cpuMoveManager)
         }));
 
-        gachaTeamRegistry.createTeamForUser(address(cpuMoveManager), monIndices, moves, abilities);
+        gachaTeamRegistry.createTeamForUser(address(cpu), monIndices, moves, abilities);
 
         vm.stopBroadcast();
 

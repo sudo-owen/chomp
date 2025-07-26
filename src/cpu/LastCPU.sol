@@ -14,7 +14,7 @@ import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 import {ExtraDataType} from "../Enums.sol";
 import {Battle, BattleState, RevealedMove} from "../Structs.sol";
 
-contract FirstCPU is CPU {
+contract LastCPU is CPU {
 
     constructor(uint256 numMoves, IEngine engine, ICPURNG rng) CPU(numMoves, engine, rng) {}
 
@@ -29,7 +29,7 @@ contract FirstCPU is CPU {
     {
         (RevealedMove[] memory moveChoices, uint256 updatedNonce) = calculateValidMoves(battleKey, playerIndex);
         nonceToUse = updatedNonce;
-        uint256 choiceIndex = 0;
+        uint256 choiceIndex = moveChoices.length - 1;
         return (moveChoices[choiceIndex].moveIndex, moveChoices[choiceIndex].extraData);
     }
 }
