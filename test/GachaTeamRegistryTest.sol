@@ -10,6 +10,7 @@ import "../src/Structs.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {DefaultTeamRegistry} from "../src/teams/DefaultTeamRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
+import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 import {GachaRegistry} from "../src/gacha/GachaRegistry.sol";
 import {Engine} from "../src/Engine.sol";
 import {IGachaRNG} from "../src/rng/IGachaRNG.sol";
@@ -32,8 +33,10 @@ contract GachaTeamRegistryTest is Test {
     Engine engine;
     MockGachaRNG mockRNG;
 
-    uint256 constant MONS_PER_TEAM = 1;
-    uint256 constant MOVES_PER_MON = 0;
+    uint256 constant MONS_PER_TEAM = 2;
+    uint256 constant MOVES_PER_MON = 1;
+    address constant MOVE_ADDRESS = address(111);
+    address constant ABILITY_ADDRESS = address(222);
 
     uint256 unownedMonId;
 
@@ -45,7 +48,7 @@ contract GachaTeamRegistryTest is Test {
         gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG);
 
         gachaTeamRegistry = new GachaTeamRegistry(
-            DefaultTeamRegistry.Args({
+            LookupTeamRegistry.Args({
                 REGISTRY: gachaRegistry,
                 MONS_PER_TEAM: MONS_PER_TEAM,
                 MOVES_PER_MON: MOVES_PER_MON
@@ -65,10 +68,11 @@ contract GachaTeamRegistryTest is Test {
             type2: Type.None
         });
 
-        IMoveSet[] memory moves = new IMoveSet[](0);
+        IMoveSet[] memory moves = new IMoveSet[](1);
+        moves[0] = IMoveSet(MOVE_ADDRESS);
 
         IAbility[] memory abilities = new IAbility[](1);
-        abilities[0] = IAbility(address(0));
+        abilities[0] = IAbility(ABILITY_ADDRESS);
 
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
@@ -93,11 +97,24 @@ contract GachaTeamRegistryTest is Test {
         vm.startPrank(ALICE);
         uint256[] memory monIndices = new uint256[](MONS_PER_TEAM);
         monIndices[0] = unownedMonId;
-        IMoveSet[][] memory moves = new IMoveSet[][](MONS_PER_TEAM);
-        IAbility[] memory abilities = new IAbility[](MONS_PER_TEAM);
-        abilities[0] = IAbility(address(0));
         vm.expectRevert(GachaTeamRegistry.NotOwner.selector);
-        gachaTeamRegistry.createTeam(monIndices, moves, abilities);
+        gachaTeamRegistry.createTeam(monIndices);
+    }
+
+    function test_createTeamReturnsCorrectValues() public {
+        vm.startPrank(ALICE);
+        uint256[] memory monIndices = new uint256[](MONS_PER_TEAM);
+        for (uint256 i; i < MONS_PER_TEAM; i++) {
+            monIndices[i] = i;
+        }
+        gachaTeamRegistry.createTeam(monIndices);
+        assertEq(gachaTeamRegistry.getTeamCount(ALICE), 1);
+        Mon[] memory team = gachaTeamRegistry.getTeam(ALICE, 0);
+        for (uint256 i; i < MONS_PER_TEAM; i++) {
+            IMoveSet[] memory moves = team[i].moves;
+            assertEq(address(moves[0]), MOVE_ADDRESS);
+            assertEq(address(team[i].ability), ABILITY_ADDRESS);
+        }
     }
 
     function test_updateTeam_revertsWithUnownedMon() public {
@@ -106,36 +123,12 @@ contract GachaTeamRegistryTest is Test {
         for (uint256 i; i < MONS_PER_TEAM; i++) {
             monIndices[i] = i;
         }
-        IMoveSet[][] memory moves = new IMoveSet[][](MONS_PER_TEAM);
-        IAbility[] memory abilities = new IAbility[](MONS_PER_TEAM);
-        gachaTeamRegistry.createTeam(monIndices, moves, abilities);
+        gachaTeamRegistry.createTeam(monIndices);
         uint256[] memory teamMonIndicesToOverride = new uint256[](1);
         teamMonIndicesToOverride[0] = 0;
         uint256[] memory newMonIndices = new uint256[](1);
         newMonIndices[0] = unownedMonId;
-        IMoveSet[][] memory newMoves = new IMoveSet[][](1);
-        IAbility[] memory newAbilities = new IAbility[](1);
         vm.expectRevert(GachaTeamRegistry.NotOwner.selector);
-        gachaTeamRegistry.updateTeam(0, teamMonIndicesToOverride, newMonIndices, newMoves, newAbilities);
-    }
-
-    function test_copyTeam_revertsWithUnownedMon() public {
-        // Set RNG to be 1 and let bob firstRoll
-        mockRNG.setRNG(1);
-        vm.startPrank(BOB);
-        gachaRegistry.firstRoll();
-
-        // Bob should have ID NUM_ROLLS + 1, while Alice does not
-        uint256[] memory bobMonIndices = new uint256[](MONS_PER_TEAM);
-        bobMonIndices[0] = unownedMonId; // Bob will actually own this one
-        IMoveSet[][] memory bobMoves = new IMoveSet[][](MONS_PER_TEAM);
-        IAbility[] memory bobAbilities = new IAbility[](MONS_PER_TEAM);
-        bobAbilities[0] = IAbility(address(0));
-        gachaTeamRegistry.createTeam(bobMonIndices, bobMoves, bobAbilities);
-
-        // Copy should now fail because Alice doesn't own mon ID MONS_PER_TEAM + 1
-        vm.startPrank(ALICE);
-        vm.expectRevert(GachaTeamRegistry.NotOwner.selector);
-        gachaTeamRegistry.copyTeam(BOB, 0);
+        gachaTeamRegistry.updateTeam(0, teamMonIndicesToOverride, newMonIndices);
     }
 }

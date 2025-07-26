@@ -12,7 +12,9 @@ import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 import {TypeCalculator} from "../src/types/TypeCalculator.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
-import {GachaTeamRegistry, DefaultTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
+import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
+import {DefaultTeamRegistry} from "../src/teams/DefaultTeamRegistry.sol";
+import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ICPURNG} from "../src/rng/ICPURNG.sol";
@@ -77,7 +79,7 @@ contract EngineAndPeriphery is Script {
         }));
 
         GachaTeamRegistry gachaTeamRegistry = new GachaTeamRegistry(
-            DefaultTeamRegistry.Args({
+            LookupTeamRegistry.Args({
                 REGISTRY: gachaRegistry,
                 MONS_PER_TEAM: 4,
                 MOVES_PER_MON: 4

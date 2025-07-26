@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import "./DefaultTeamRegistry.sol";
+import "./LookupTeamRegistry.sol";
 import {IOwnableMon} from "../gacha/IOwnableMon.sol";
 import {Ownable} from "../lib/Ownable.sol";
 
-contract GachaTeamRegistry is DefaultTeamRegistry, Ownable {
+contract GachaTeamRegistry is LookupTeamRegistry, Ownable {
 
     IOwnableMon immutable OWNER_LOOKUP;
 
     error NotOwner();
 
-    constructor(Args memory args, IOwnableMon _OWNER_LOOKUP) DefaultTeamRegistry(args) {
+    constructor(Args memory args, IOwnableMon _OWNER_LOOKUP) LookupTeamRegistry(args) {
         OWNER_LOOKUP = _OWNER_LOOKUP;
         _initializeOwner(msg.sender);
     }
@@ -24,35 +24,24 @@ contract GachaTeamRegistry is DefaultTeamRegistry, Ownable {
         }
     }
 
-    function createTeam(uint256[] memory monIndices, IMoveSet[][] memory moves, IAbility[] memory abilities) override public {
+    function createTeam(uint256[] memory monIndices) override public {
         _validateOwnership(monIndices);
-        super.createTeam(monIndices, moves, abilities);
+        super.createTeam(monIndices);
     }
 
     function createTeamForUser(
         address user,
-        uint256[] memory monIndices,
-        IMoveSet[][] memory moves,
-        IAbility[] memory abilities
+        uint256[] memory monIndices
     ) external onlyOwner {
-        _createTeamForUser(user, monIndices, moves, abilities);
+        _createTeamForUser(user, monIndices);
     }
 
     function updateTeam(
         uint256 teamIndex,
         uint256[] memory teamMonIndicesToOverride,
-        uint256[] memory newMonIndices,
-        IMoveSet[][] memory newMoves,
-        IAbility[] memory newAbilities
+        uint256[] memory newMonIndices
     ) override public {
         _validateOwnership(newMonIndices);
-        super.updateTeam(teamIndex, teamMonIndicesToOverride, newMonIndices, newMoves, newAbilities);
-    }
-
-    function copyTeam(address playerToCopy, uint256 teamIndex) override public {
-        // Get team indices of player to copy
-        uint256[] memory teamIndices = getMonRegistryIndicesForTeam(playerToCopy, teamIndex);
-        _validateOwnership(teamIndices);
-        super.copyTeam(playerToCopy, teamIndex);
+        super.updateTeam(teamIndex, teamMonIndicesToOverride, newMonIndices);
     }
 }
