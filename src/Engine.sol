@@ -689,16 +689,14 @@ contract Engine is IEngine {
             }
         }
 
-        // Emit event
-        emit MonMove(battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost);
-
         // Handle a switch or a no-op
         // otherwise, execute the moveset
         if (move.moveIndex == SWITCH_MOVE_INDEX) {
             // Handle the switch
             _handleSwitch(battleKey, playerIndex, abi.decode(move.extraData, (uint256)), address(0));
         } else if (move.moveIndex == NO_OP_MOVE_INDEX) {
-            // do nothing (e.g. just recover stamina)
+            // Emit event and do nothing (e.g. just recover stamina)
+            emit MonMove(battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost);
         }
         // Execute the move and then set updated state, active mons, and effects/data
         else {
@@ -715,6 +713,9 @@ contract Engine is IEngine {
             // Update the mon state directly to account for the stamina cost of the move
             staminaCost = int32(moveSet.stamina(battleKey, playerIndex, state.activeMonIndex[playerIndex]));
             state.monStates[playerIndex][state.activeMonIndex[playerIndex]].staminaDelta -= staminaCost;
+
+            // Emit event
+            emit MonMove(battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost);
 
             // Run the move (no longer checking for a return value)
             moveSet.move(battleKey, playerIndex, move.extraData, rng);
