@@ -46,9 +46,11 @@ contract EternalGrudge is IMoveSet {
             StatBoostType.Divide,
             StatBoostFlag.Perm
         );
+        uint256 attackerMonIndex =
+            ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[attackerPlayerIndex];
 
         // KO self
-        ENGINE.updateMonState(attackerPlayerIndex, defenderMonIndex, MonStateIndexName.IsKnockedOut, 1);
+        ENGINE.updateMonState(attackerPlayerIndex, attackerMonIndex, MonStateIndexName.IsKnockedOut, 1);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

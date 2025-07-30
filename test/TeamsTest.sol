@@ -9,7 +9,6 @@ import "../src/Structs.sol";
 
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {DefaultTeamRegistry} from "../src/teams/DefaultTeamRegistry.sol";
-import {LazyTeamRegistry} from "../src/teams/LazyTeamRegistry.sol";
 
 import {StandardAttack} from "../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
@@ -30,16 +29,12 @@ contract TeamsTest is Test {
 
     DefaultMonRegistry monRegistry;
     DefaultTeamRegistry teamRegistry;
-    LazyTeamRegistry lazyTeamRegistry;
 
     function setUp() public {
         monRegistry = new DefaultMonRegistry();
         teamRegistry = new DefaultTeamRegistry(
             DefaultTeamRegistry.Args({REGISTRY: monRegistry, MONS_PER_TEAM: 1, MOVES_PER_MON: 1})
         );
-        lazyTeamRegistry =
-            new LazyTeamRegistry(LazyTeamRegistry.Args({REGISTRY: monRegistry, MONS_PER_TEAM: 1, MOVES_PER_MON: 1}));
-
         // Make Alice the mon registry owner
         monRegistry.transferOwnership(ALICE);
     }
@@ -830,68 +825,5 @@ contract TeamsTest is Test {
         allAbilities[4] = ability;
         allAbilities[5] = ability;
         teamRegistry2.createTeam(monIndices, moves, allAbilities);
-    }
-
-    function test_lazyTeamRegistryFlow() public {
-        IAbility ability = new EffectAbility(IEngine(address(0)), IEffect(address(0)));
-        IAbility[] memory abilities = new IAbility[](1);
-        abilities[0] = ability;
-
-        IMoveSet move1 = new EffectAttack(
-            IEngine(address(0)), IEffect(address(0)), EffectAttack.Args({TYPE: Type.Fire, STAMINA_COST: 1, PRIORITY: 1})
-        );
-
-        IMoveSet move2 = new EffectAttack(
-            IEngine(address(0)), IEffect(address(0)), EffectAttack.Args({TYPE: Type.Fire, STAMINA_COST: 1, PRIORITY: 1})
-        );
-
-        IMoveSet[] memory moves = new IMoveSet[](2);
-        moves[0] = move1;
-        moves[1] = move2;
-
-        MonStats memory stats = MonStats({
-            hp: 1,
-            stamina: 1,
-            speed: 1,
-            attack: 1,
-            defense: 1,
-            specialAttack: 1,
-            specialDefense: 1,
-            type1: Type.Fire,
-            type2: Type.None
-        });
-
-        bytes32[] memory keys = new bytes32[](0);
-        bytes32[] memory values = new bytes32[](0);
-
-        vm.startPrank(ALICE);
-        monRegistry.createMon(0, stats, moves, abilities, keys, values);
-
-        uint256[] memory monIndices = new uint256[](1);
-        monIndices[0] = 0;
-        IMoveSet[][] memory movesToUse = new IMoveSet[][](1);
-        movesToUse[0] = new IMoveSet[](1);
-        movesToUse[0][0] = move1;
-        IAbility[] memory abilitiesToUse = new IAbility[](1);
-        abilitiesToUse[0] = ability;
-        lazyTeamRegistry.createTeam(monIndices, movesToUse, abilitiesToUse);
-
-        // Assert the team for Alice exists
-        assertEq(lazyTeamRegistry.getTeamCount(ALICE), 1);
-        Mon[] memory aliceTeam0 = lazyTeamRegistry.getTeam(ALICE, 0);
-        assertEq(aliceTeam0.length, 1);
-        assertEq(uint256(aliceTeam0[0].stats.type1), uint256(Type.Fire));
-        uint256[] memory teamIndices = lazyTeamRegistry.getMonRegistryIndicesForTeam(ALICE, 0);
-        assertEq(teamIndices.length, 1);
-        assertEq(teamIndices[0], 0);
-
-        // Check that Bob now also has a team which mirrors Alice's team
-        assertEq(lazyTeamRegistry.getTeamCount(BOB), 1);
-        Mon[] memory bobTeam0 = lazyTeamRegistry.getTeam(BOB, 0);
-        assertEq(bobTeam0.length, 1);
-        assertEq(uint256(bobTeam0[0].stats.type1), uint256(Type.Fire));
-        teamIndices = lazyTeamRegistry.getMonRegistryIndicesForTeam(BOB, 0);
-        assertEq(teamIndices.length, 1);
-        assertEq(teamIndices[0], 0);
     }
 }

@@ -487,7 +487,7 @@ contract GhouliathTest is Test, BattleHelper {
         bobTeam[0] = attackerMon;
         bobTeam[1] = attackerMon;
 
-                // Register teams
+        // Register teams
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
 
@@ -499,6 +499,9 @@ contract GhouliathTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
+        // Alice does nothing, Bob switches to mon index 1
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1));
+
         // Alice uses Eternal Grudge on Bob's mon
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
@@ -507,8 +510,9 @@ contract GhouliathTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1, "Alice's mon should be KO'd");
 
         // Assert Bob's mon has debuffs
-        int32 attackDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
-        int32 spAttackDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
+        uint256 bobMonIndex = 1;
+        int32 attackDelta = engine.getMonStateForBattle(battleKey, 1, bobMonIndex, MonStateIndexName.Attack);
+        int32 spAttackDelta = engine.getMonStateForBattle(battleKey, 1, bobMonIndex, MonStateIndexName.SpecialAttack);
         assertEq(attackDelta, -5, "Bob's mon's attack should be debuffed");
         assertEq(spAttackDelta, -5, "Bob's mon's special attack should be debuffed");
     }

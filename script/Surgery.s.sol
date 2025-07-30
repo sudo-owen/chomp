@@ -13,6 +13,7 @@ import {IEffect} from "../src/effects/IEffect.sol";
 import {DualShock} from "../src/mons/volthare/DualShock.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
+import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
 
@@ -27,28 +28,17 @@ contract Surgery is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
-        // Edit volthare
-        DefaultMonRegistry monRegistry = DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY"));
-        MonStats memory stats = MonStats({
-            hp: 303,
-            stamina: 5,
-            speed: 311,
-            attack: 120,
-            defense: 184,
-            specialAttack: 255,
-            specialDefense: 176,
-            type1: Type.Lightning,
-            type2: Type.Cyber
-        });
-        IAbility[] memory emptyAbilities = new IAbility[](0);
-        IMoveSet[] memory movesToAdd = new IMoveSet[](1);
-        movesToAdd[0] = new DualShock(
-            IEngine(vm.envAddress("ENGINE")),
-            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
-            IEffect(vm.envAddress("ZAP_STATUS"))
-        );
-        IMoveSet[] memory movesToRemove = new IMoveSet[](1);
-        movesToRemove[0] = IMoveSet(0x289bE45F51f052B1bF60E378433156F301BF90c5);
-        monRegistry.modifyMon(8, stats, movesToAdd, movesToRemove, emptyAbilities, emptyAbilities);
+        uint256[] memory monIndices = new uint256[](4);
+        monIndices[0] = 5; // Sofabbi
+        monIndices[1] = 1; // Inutia
+        monIndices[2] = 7; // Embursa
+        monIndices[3] = 8; // Volthare
+
+        GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
+        gachaTeamRegistry.createTeamForUser(0xc610593e78457A103f353b4259233408cb604592, monIndices);
+
+        vm.stopBroadcast();
+
+        return deployedContracts;
     }
 }

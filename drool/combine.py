@@ -138,10 +138,22 @@ def generate_typescript_const(data: Dict[int, Dict[str, Any]], output_file: str)
     for type_value in type_values:
         json_str = re.sub(f'"{type_value}"', f'Type.{type_value}', json_str)
 
+    # Replace class string values with MoveClass enum references
+    class_values = ['Physical', 'Special', 'Other', 'Self']
+    for class_value in class_values:
+        json_str = re.sub(f'"{class_value}"', f'MoveClass.{class_value}', json_str)
+
     # Create TypeScript const declaration
     typescript_content = f"""// Auto-generated type file
 import {{ Address }} from './address';
 import {{ LowercaseHex, Type }} from '../types/structs';
+
+export enum MoveClass {{
+  Physical = 'Physical',
+  Special = 'Special',
+  Other = 'Other',
+  Self = 'Self',
+}};
 
 export const MonMetadata = {json_str} as const;
 
@@ -153,7 +165,7 @@ export type Move = {{
   readonly accuracy: number;
   readonly priority: number;
   readonly type: Type;
-  readonly class: string;
+  readonly class: MoveClass;
   readonly description: string;
   readonly extraDataNeeded: boolean;
 }};

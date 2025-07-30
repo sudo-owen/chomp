@@ -47,19 +47,7 @@ contract SetupCPU is Script {
         monIndices[3] = 8; // Volthare
 
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
-        
-        LastCPU cpu = new LastCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)));
-        deployedContracts.push(DeployData({
-            name: "LAST CPU",
-            contractAddress: address(cpu)
-        }));
-        CPUMoveManager cpuMoveManager = new CPUMoveManager(IEngine(vm.envAddress("ENGINE")), cpu);
-        deployedContracts.push(DeployData({
-            name: "CPU MOVE MANAGER",
-            contractAddress: address(cpuMoveManager)
-        }));
-
-        gachaTeamRegistry.createTeamForUser(address(cpu), monIndices);
+        gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices);
 
         vm.stopBroadcast();
 
