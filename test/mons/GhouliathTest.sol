@@ -183,6 +183,10 @@ contract GhouliathTest is Test, BattleHelper {
         isKnockedOut = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut);
         assertEq(isKnockedOut, 0, "Alice's mon should be revived");
 
+        // Assert HP is 1
+        int32 damageTaken = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(damageTaken, -99, "Alice's mon should have 1 HP");
+
         // Alice swaps in mon index 0, Bob does attack again, which KOs Alice's mon
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 0, abi.encode(0), "");
 

@@ -516,17 +516,10 @@ contract Engine is IEngine {
         uint32 baseHp = battles[battleKey].teams[playerIndex][monIndex].stats.hp;
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
+            monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] |= 1 << monIndex;
         }
         uint256[] storage rngValues = battleStates[battleKey].pRNGStream;
         uint256 rngValue = rngValues[rngValues.length - 1];
-
-        // Set the bitmap for the KO flag
-        if (monState.isKnockedOut) {
-            monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] |= 1 << monIndex;
-        }
-        else {
-            monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] &= ~(1 << monIndex);
-        }
 
         _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage);
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, msg.sender, currentStep);

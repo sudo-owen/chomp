@@ -91,8 +91,15 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
         }
         // Otherwise, we are applied as a global effect and we should check if we should revive the mon
         else if (turnsLeft == 1) {
-            // Revive the mon and remove the effect
+            // Revive the mon and set HP to 1
             ENGINE.updateMonState(playerIndex, monIndex, MonStateIndexName.IsKnockedOut, 0);
+            bytes32 battleKey = ENGINE.battleKeyForWrite();
+            int32 currentDamage = ENGINE.getMonStateForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.Hp);
+            uint32 maxHp = ENGINE.getMonValueForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.Hp);
+            int32 hpShiftAmount = 1 - currentDamage - int32(maxHp);
+            ENGINE.updateMonState(playerIndex, monIndex, MonStateIndexName.Hp, hpShiftAmount);
+
+            // Clear the effect after running
             return (extraData, true);
         } else {
             uint256 newPackedValue = ((turnsLeft - 1) << 12) | ((playerIndex & 0x3F) << 6) | (monIndex & 0x3F);
