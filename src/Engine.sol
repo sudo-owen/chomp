@@ -523,9 +523,8 @@ contract Engine is IEngine {
         }
         uint256[] storage rngValues = battleStates[battleKey].pRNGStream;
         uint256 rngValue = rngValues[rngValues.length - 1];
-
-        _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage);
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, msg.sender, currentStep);
+        _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage);
     }
 
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external {
@@ -711,7 +710,7 @@ contract Engine is IEngine {
             staminaCost = int32(moveSet.stamina(battleKey, playerIndex, state.activeMonIndex[playerIndex]));
             state.monStates[playerIndex][state.activeMonIndex[playerIndex]].staminaDelta -= staminaCost;
 
-            // Emit event
+            // Emit event and then run the move
             emit MonMove(battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost);
 
             // Run the move (no longer checking for a return value)
