@@ -625,6 +625,9 @@ contract Engine is IEngine {
         MonState storage currentMonState = state.monStates[playerIndex][state.activeMonIndex[playerIndex]];
         uint256 rng = state.pRNGStream[state.pRNGStream.length - 1];
 
+        // Emit event first, then run effects
+        emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
+
         // If the current mon is not KO'ed
         // Go through each effect to see if it should be cleared after a switch,
         // If so, remove the effect and the extra data
@@ -649,8 +652,6 @@ contract Engine is IEngine {
         if (address(mon.ability) != address(0) && state.turnId != 0) {
             mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
         }
-
-        emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
     }
 
     function _handleMove(bytes32 battleKey, uint256 rng, uint256 playerIndex, uint256 prevPlayerSwitchForTurnFlag) internal returns (uint256 playerSwitchForTurnFlag) {
