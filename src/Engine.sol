@@ -444,6 +444,10 @@ contract Engine is IEngine {
             BattleState storage state = battleStates[battleKey];
             bytes memory extraDataToUse = extraData;
             bool removeAfterRun = false;
+
+            // Emit event first, then handle side effects
+            emit EffectAdd(battleKey, targetIndex, monIndex, address(effect), extraData, msg.sender, uint256(EffectStep.OnApply));
+
             // Check if we have to run an onApply state update
             if (effect.shouldRunAtStep(EffectStep.OnApply)) {
                 uint256 rng = state.pRNGStream[state.pRNGStream.length - 1];
@@ -459,7 +463,6 @@ contract Engine is IEngine {
                     state.monStates[targetIndex][monIndex].extraDataForTargetedEffects.push(extraDataToUse);
                 }
             }
-            emit EffectAdd(battleKey, targetIndex, monIndex, address(effect), extraData, msg.sender, currentStep);
         }
     }
 
