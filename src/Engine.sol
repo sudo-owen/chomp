@@ -24,6 +24,7 @@ contract Engine is IEngine {
     uint256 transient private currentStep; // Used to bubble up step data for events
     int32 transient private damageDealt; // Used to provide access to onAfterDamage hook for effects
     IMoveManager private moveManager; // default move manager (e.g. for normal commit-reveal PVP)
+    address private transient upstreamCaller;
 
     // Errors
     error NoWriteAllowed();
@@ -430,8 +431,10 @@ contract Engine is IEngine {
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
             monState.shouldSkipTurn = (valueToAdd % 2) == 1;
         }
+
+        // Grab state update source if it's set and use it, otherwise default to caller
         emit MonStateUpdate(
-            battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, msg.sender, currentStep
+            battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, _getUpstreamCaller(), currentStep
         );
     }
 
@@ -446,7 +449,7 @@ contract Engine is IEngine {
             bool removeAfterRun = false;
 
             // Emit event first, then handle side effects
-            emit EffectAdd(battleKey, targetIndex, monIndex, address(effect), extraData, msg.sender, uint256(EffectStep.OnApply));
+            emit EffectAdd(battleKey, targetIndex, monIndex, address(effect), extraData, _getUpstreamCaller(), uint256(EffectStep.OnApply));
 
             // Check if we have to run an onApply state update
             if (effect.shouldRunAtStep(EffectStep.OnApply)) {
@@ -496,7 +499,7 @@ contract Engine is IEngine {
         effects.pop();
         extraData[indexToRemove] = extraData[numEffects - 1];
         extraData.pop();
-        emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), msg.sender, currentStep);
+        emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCaller(), currentStep);
     }
 
     function setGlobalKV(bytes32 key, bytes32 value) external {
@@ -523,7 +526,7 @@ contract Engine is IEngine {
         }
         uint256[] storage rngValues = battleStates[battleKey].pRNGStream;
         uint256 rngValue = rngValues[rngValues.length - 1];
-        emit DamageDeal(battleKey, playerIndex, monIndex, damage, msg.sender, currentStep);
+        emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCaller(), currentStep);
         _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage);
     }
 
@@ -555,6 +558,10 @@ contract Engine is IEngine {
     function emitEngineEvent(EngineEventType eventType, bytes memory eventData) external {
         bytes32 battleKey = battleKeyForWrite;
         emit EngineEvent(battleKey, eventType, eventData);
+    }
+
+    function setUpstreamCaller(address caller) external {
+        upstreamCaller = caller;
     }
 
     /**
@@ -832,6 +839,17 @@ contract Engine is IEngine {
         (playerSwitchForTurnFlag, , , ) =
                 _checkForGameOverOrKO(battleKey, 1);
         return playerSwitchForTurnFlag;
+    }
+
+    function _getUpstreamCaller() internal returns (address) {
+        address source = upstreamCaller;
+        if (source == address(0)) {
+            source = msg.sender;
+        }
+        else {
+            upstreamCaller = address(0);
+        }
+        return source;
     }
 
     /**

@@ -171,6 +171,7 @@ contract StatBoosts is BasicEffect {
 
         // Set the new boost amount
         int32 newBoostAmount = calculateExistingBoost(targetIndex, monIndex, statIndex, false);
+        ENGINE.setUpstreamCaller(msg.sender);
         ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName(statIndex), newBoostAmount - existingBoostAmount);
     }
 
@@ -181,6 +182,7 @@ contract StatBoosts is BasicEffect {
         }
         int32 actualBoost = int32(int256(SCALE)) + boostAmount;
         bytes memory extraData = abi.encode(statIndex, actualBoost, uint256(boostType), uint256(boostFlag));
+        ENGINE.setUpstreamCaller(msg.sender);
         ENGINE.addEffect(targetIndex, monIndex, this, extraData);
     }
 

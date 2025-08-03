@@ -23,6 +23,7 @@ interface IEngine {
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external;
     function execute(bytes32 battleKey) external;
     function emitEngineEvent(EngineEventType eventType, bytes memory extraData) external;
+    function setUpstreamCaller(address caller) external;
 
     // Getters
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager);

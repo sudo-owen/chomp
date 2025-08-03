@@ -1,9 +1,7 @@
 # TODO
 
-- Add a test to make sure the prng works (e.g. using blockhash works as intended)
-- Or add another version that can read from the prng state
-
-
+- Figure out a way to bubble up the caller on central effects (e.g. StatBoosts) so that the event can surface them
+- But still show non-bubbled up callers by default
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES
