@@ -65,7 +65,9 @@ contract SplitThePot is IAbility, BasicEffect {
                     if (existingHpDelta + healAmount > 0) {
                         healAmount = 0 - existingHpDelta;
                     }
-                    ENGINE.updateMonState(targetIndex, i, MonStateIndexName.Hp, healAmount);
+                    if (healAmount != 0) {
+                        ENGINE.updateMonState(targetIndex, i, MonStateIndexName.Hp, healAmount);
+                    }
                 }
             }
         }

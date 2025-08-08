@@ -103,6 +103,10 @@ abstract contract CPU is ICPU, ICPURNG {
                         ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], i);
                     bytes memory extraDataToUse = "";
                     if (move.extraDataType() == ExtraDataType.SelfTeamIndex) {
+                        // Skip if there are no valid switches
+                        if (validSwitchCount == 0) {
+                            continue;
+                        }
                         uint256 randomIndex =
                             RNG.getRNG(keccak256(abi.encode(nonce++, battleKey, block.timestamp))) % validSwitchCount;
                         extraDataToUse = abi.encode(validSwitchIndices[randomIndex]);
