@@ -15,7 +15,7 @@ import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract DualShock is StandardAttack {
     
-    constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR, IEffect ZAP_STATUS)
+    constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR)
         StandardAttack(
             address(msg.sender),
             ENGINE,
@@ -31,7 +31,7 @@ contract DualShock is StandardAttack {
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
                 EFFECT_ACCURACY: 0,
-                EFFECT: IEffect(ZAP_STATUS)
+                EFFECT: IEffect(address(0))
             })
         )
     {}
@@ -43,7 +43,8 @@ contract DualShock is StandardAttack {
         // Deal the damage
         super.move(battleKey, attackerPlayerIndex, extraData, rng);
 
-        // Inflict Zap on self
-        ENGINE.addEffect(attackerPlayerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex], effect(battleKey), "");
+        // Set skip turn flag for self
+        uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        ENGINE.updateMonState(attackerPlayerIndex, activeMonIndex, MonStateIndexName.ShouldSkipTurn, 1);
     }
 }

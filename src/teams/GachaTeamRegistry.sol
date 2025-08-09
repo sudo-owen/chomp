@@ -36,14 +36,12 @@ contract GachaTeamRegistry is LookupTeamRegistry, Ownable {
         _createTeamForUser(user, monIndices);
     }
 
+    // TODO: For prod we won't want this
     function updateTeamForUser(
-        uint256[] memory monIndices
+        uint256[] memory newMonIndices
     ) external onlyOwner {
-        uint256[] memory teamMonIndicesToOverride = new uint256[](monIndices.length);
-        for (uint256 i; i < monIndices.length; i++) {
-            teamMonIndicesToOverride[i] = i;
-        }
-        super.updateTeam(0, monIndices, teamMonIndicesToOverride);
+        uint256[] memory teamMonIndicesToOverride = getMonRegistryIndicesForTeam(msg.sender, 0);
+        super.updateTeam(0, teamMonIndicesToOverride, newMonIndices);
     }
 
     function updateTeam(

@@ -8,15 +8,15 @@ import {Type} from "../src/Enums.sol";
 import {IEngine} from "../src/IEngine.sol";
 import {MonStats} from "../src/Structs.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
-
+import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
+import {RandomCPU} from "../src/cpu/RandomCPU.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
-import {DualShock} from "../src/mons/volthare/DualShock.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
+import {ICPURNG} from "../src/rng/ICPURNG.sol";
+import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
-import {ICPURNG} from "../src/rng/ICPURNG.sol";
-import {RandomCPU} from "../src/cpu/RandomCPU.sol";
-import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
+import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
 
@@ -30,17 +30,12 @@ contract Surgery is Script {
 
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
-        // Redeploy RandomCPU
-        RandomCPU cpu = new RandomCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)));
-        deployedContracts.push(DeployData({
-            name: "RANDOM CPU",
-            contractAddress: address(cpu)
-        }));
-        CPUMoveManager cpuMoveManager = new CPUMoveManager(IEngine(vm.envAddress("ENGINE")), cpu);
-        deployedContracts.push(DeployData({
-            name: "CPU MOVE MANAGER",
-            contractAddress: address(cpuMoveManager)
-        }));
+        GachaRegistry gachaRegistry = new GachaRegistry(DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY")), IEngine(vm.envAddress("ENGINE")), IGachaRNG(address(0)));
+        deployedContracts.push(DeployData({name: "GACHA REGISTRY", contractAddress: address(gachaRegistry)}));
+        GachaTeamRegistry gachaTeamRegistry = new GachaTeamRegistry(
+            LookupTeamRegistry.Args({REGISTRY: gachaRegistry, MONS_PER_TEAM: 4, MOVES_PER_MON: 4}), gachaRegistry
+        );
+        deployedContracts.push(DeployData({name: "GACHA TEAM REGISTRY", contractAddress: address(gachaTeamRegistry)}));
         vm.stopBroadcast();
 
         return deployedContracts;

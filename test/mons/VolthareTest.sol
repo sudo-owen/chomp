@@ -24,11 +24,15 @@ import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 
-import {Overclock} from "../../src/mons/volthare/Overclock.sol";
-import {Storm} from "../../src/effects/weather/Storm.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
-import {MegaStarBlast} from "../../src/mons/volthare/MegaStarBlast.sol";
+
 import {ZapStatus} from "../../src/effects/status/ZapStatus.sol";
+import {Storm} from "../../src/effects/weather/Storm.sol";
+
+import {DualShock} from "../../src/mons/volthare/DualShock.sol";
+import {MegaStarBlast} from "../../src/mons/volthare/MegaStarBlast.sol";
+import {Overclock} from "../../src/mons/volthare/Overclock.sol";
+
 import {DummyStatus} from "../mocks/DummyStatus.sol";
 
 import {StandardAttack} from "../../src/moves/StandardAttack.sol";
@@ -337,9 +341,7 @@ contract VolthareTest is Test, BattleHelper {
         mockOracle.setRNG(2);
 
         // Alice uses Mega Star Blast, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), "");
 
         // Verify that Bob's mon is zapped
         (effects,) = engine.getEffects(battleKey, 1, 0);
@@ -354,9 +356,7 @@ contract VolthareTest is Test, BattleHelper {
         mockOracle.setRNG(51);
 
         // Alice uses Mega Star Blast, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), "");
 
         // Verify that Bob's mon is not zapped
         (effects,) = engine.getEffects(battleKey, 1, 0);
@@ -365,5 +365,75 @@ contract VolthareTest is Test, BattleHelper {
         // Verify that Bob's mon did not take more damage
         int32 bobHpDelta2 = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
         assertEq(bobHpDelta2, bobHpDelta, "Bob's mon should not take more damage");
+    }
+
+    function test_dualShock() public {
+        // Create a team with a mon that knows Dual Shock
+        IMoveSet[] memory moves = new IMoveSet[](1);
+        DualShock dualShock = new DualShock(engine, typeCalc);
+        moves[0] = IMoveSet(address(dualShock));
+
+        // Create a mon with nice round stats
+        Mon memory fastMon = Mon({
+            stats: MonStats({
+                hp: 100,
+                stamina: 10,
+                speed: 100,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 100,
+                type1: Type.Lightning,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0))
+        });
+        Mon memory slowMon = Mon({
+            stats: MonStats({
+                hp: 100,
+                stamina: 10,
+                speed: 1,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 100,
+                type1: Type.Lightning,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0))
+        });
+
+        // Create teams for Alice and Bob
+        Mon[] memory aliceTeam = new Mon[](1);
+        aliceTeam[0] = fastMon;
+
+        Mon[] memory bobTeam = new Mon[](1);
+        bobTeam[0] = slowMon;
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        // Start a battle
+        bytes32 battleKey = _startBattle(
+            new FastValidator(
+                IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+            ),
+            engine,
+            mockOracle,
+            defaultRegistry
+        );
+
+        // First move: Both players select their first mon (index 0)
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Both players use Dual Shock, Alice should move first and skip their next move
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+
+        // Alice's mon should have the skip turn flag set
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.ShouldSkipTurn), 1);
     }
 }
