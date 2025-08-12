@@ -370,7 +370,8 @@ contract VolthareTest is Test, BattleHelper {
     function test_dualShock() public {
         // Create a team with a mon that knows Dual Shock
         IMoveSet[] memory moves = new IMoveSet[](1);
-        DualShock dualShock = new DualShock(engine, typeCalc);
+        ZapStatus zapStatus = new ZapStatus(engine);
+        DualShock dualShock = new DualShock(engine, typeCalc, zapStatus);
         moves[0] = IMoveSet(address(dualShock));
 
         // Create a mon with nice round stats

@@ -6,16 +6,16 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-
 import {IEffect} from "../../effects/IEffect.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
+import {BasicEffect} from "../../effects/BasicEffect.sol";
 import {StandardAttack} from "../../moves/StandardAttack.sol";
 import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
-contract DualShock is StandardAttack {
+contract DualShock is StandardAttack, BasicEffect {
     
-    constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR)
+    constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR, IEffect ZAP_STATUS)
         StandardAttack(
             address(msg.sender),
             ENGINE,
@@ -31,10 +31,14 @@ contract DualShock is StandardAttack {
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
                 EFFECT_ACCURACY: 0,
-                EFFECT: IEffect(address(0))
+                EFFECT: IEffect(ZAP_STATUS)
             })
         )
     {}
+
+    function name() public pure override(StandardAttack, BasicEffect) returns (string memory) {
+        return "Dual Shock";
+    }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng)
         public
@@ -43,8 +47,25 @@ contract DualShock is StandardAttack {
         // Deal the damage
         super.move(battleKey, attackerPlayerIndex, extraData, rng);
 
-        // Set skip turn flag for self
+        // Apply effect to self
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
-        ENGINE.updateMonState(attackerPlayerIndex, activeMonIndex, MonStateIndexName.ShouldSkipTurn, 1);
+        ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, this, "");
+    }
+
+    // Effect implementation
+    
+    function shouldRunAtStep(EffectStep r) external pure override returns (bool) {
+        return r == EffectStep.RoundEnd;
+    }
+
+    function onRoundEnd(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+        external
+        override
+        returns (bytes memory updatedExtraData, bool removeAfterRun)
+    {
+        // Apply Zap to self
+        ENGINE.addEffect(targetIndex, monIndex, effect(ENGINE.battleKeyForWrite()), "");
+
+        return ("", true);
     }
 }

@@ -29,8 +29,7 @@ contract StandardAttack is IMoveSet, Ownable {
     uint32 private _critRate;
     uint32 private _volatility;
     IEffect private _effect;
-
-    string public name;
+    string private _name;
 
     constructor(address owner, IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, ATTACK_PARAMS memory params) {
         ENGINE = _ENGINE;
@@ -45,7 +44,7 @@ contract StandardAttack is IMoveSet, Ownable {
         _critRate = params.CRIT_RATE;
         _volatility = params.VOLATILITY;
         _effect = params.EFFECT;
-        name = params.NAME;
+        _name = params.NAME;
         _initializeOwner(owner);
     }
 
@@ -145,5 +144,9 @@ contract StandardAttack is IMoveSet, Ownable {
 
     function extraDataType() external virtual pure returns (ExtraDataType) {
         return ExtraDataType.None;
+    }
+
+    function name() external virtual view returns (string memory) {
+        return _name;
     }
 }

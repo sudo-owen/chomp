@@ -642,7 +642,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Dual Shock",
             contractAddress: address(dualshock)

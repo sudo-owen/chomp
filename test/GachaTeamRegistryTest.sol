@@ -131,4 +131,23 @@ contract GachaTeamRegistryTest is Test {
         vm.expectRevert(GachaTeamRegistry.NotOwner.selector);
         gachaTeamRegistry.updateTeam(0, teamMonIndicesToOverride, newMonIndices);
     }
+
+    function test_updateTeamOverrideWorks() public {
+        vm.startPrank(ALICE);
+        uint256[] memory monIndices = new uint256[](MONS_PER_TEAM);
+        for (uint256 i; i < MONS_PER_TEAM; i++) {
+            monIndices[i] = i;
+        }
+        gachaTeamRegistry.createTeam(monIndices);
+        uint256[] memory newMonIndices = new uint256[](MONS_PER_TEAM);
+        for (uint256 i; i < MONS_PER_TEAM; i++) {
+            newMonIndices[i] = i + 1;
+        }
+        gachaTeamRegistry.updateTeamForUser(newMonIndices);
+        // Assert the new indices have been set for team index 0
+        uint256[] memory teamIndices = gachaTeamRegistry.getMonRegistryIndicesForTeam(ALICE, 0);
+        for (uint256 i; i < MONS_PER_TEAM; i++) {
+            assertEq(teamIndices[i], i + 1);
+        }
+    }
 }
