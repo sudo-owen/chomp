@@ -91,6 +91,19 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(gachaTeamRegistry)
         }));
 
+        GachaTeamRegistry singleGachaTeamRegistry = new GachaTeamRegistry(
+            LookupTeamRegistry.Args({
+                REGISTRY: gachaRegistry,
+                MONS_PER_TEAM: 1,
+                MOVES_PER_MON: 1
+            }),
+            gachaRegistry
+        );
+        deployedContracts.push(DeployData({
+            name: "SINGLE GACHA TEAM REGISTRY",
+            contractAddress: address(singleGachaTeamRegistry)
+        }));
+
         DefaultRandomnessOracle defaultOracle = new DefaultRandomnessOracle();
         deployedContracts.push(DeployData({
             name: "DEFAULT RANDOMNESS ORACLE",
@@ -134,6 +147,14 @@ contract EngineAndPeriphery is Script {
         deployedContracts.push(DeployData({
             name: "FAST VALIDATOR",
             contractAddress: address(validator)
+        }));
+
+        FastValidator singleValidator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 30})
+        );
+        deployedContracts.push(DeployData({
+            name: "SINGLE VALIDATOR",
+            contractAddress: address(singleValidator)
         }));
 
         StatBoosts statBoosts = new StatBoosts(engine);
