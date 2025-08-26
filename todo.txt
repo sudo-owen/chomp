@@ -1,8 +1,5 @@
 # TODO
 
-- Figure out a way to bubble up the caller on central effects (e.g. StatBoosts) so that the event can surface them
-- But still show non-bubbled up callers by default
-
 ---------------------------------------------------------------------------------------------
 LATER FEATURES
 
