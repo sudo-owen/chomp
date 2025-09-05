@@ -846,9 +846,6 @@ contract Engine is IEngine {
         if (source == address(0)) {
             source = msg.sender;
         }
-        else {
-            upstreamCaller = address(0);
-        }
         return source;
     }
 

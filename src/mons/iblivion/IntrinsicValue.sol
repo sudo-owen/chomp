@@ -51,7 +51,7 @@ contract IntrinsicValue is IAbility, BasicEffect {
     {
         bool statsReset = false;
 
-        // Check for negative stat boosts in ATK/DEF/SpATK/SpDEF/SPD:
+        // Check for stat boosts in ATK/DEF/SpATK/SpDEF/SPD:
         uint256[] memory statIndexNames = new uint256[](5);
         statIndexNames[0] = uint256(MonStateIndexName.Attack);
         statIndexNames[1] = uint256(MonStateIndexName.Defense);

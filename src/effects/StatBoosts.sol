@@ -173,6 +173,7 @@ contract StatBoosts is BasicEffect {
         int32 newBoostAmount = calculateExistingBoost(targetIndex, monIndex, statIndex, false);
         ENGINE.setUpstreamCaller(msg.sender);
         ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName(statIndex), newBoostAmount - existingBoostAmount);
+        ENGINE.setUpstreamCaller(address(0));
     }
 
     // boostAmount is in percent, specify if it should scale up or down by that % amount
@@ -184,6 +185,7 @@ contract StatBoosts is BasicEffect {
         bytes memory extraData = abi.encode(statIndex, actualBoost, uint256(boostType), uint256(boostFlag));
         ENGINE.setUpstreamCaller(msg.sender);
         ENGINE.addEffect(targetIndex, monIndex, this, extraData);
+        ENGINE.setUpstreamCaller(address(0));
     }
 
     function removeStatBoost(uint256 targetIndex, uint256 monIndex, uint256 statIndex, int32 boostAmount, StatBoostType boostType, StatBoostFlag boostFlag) public {
@@ -220,11 +222,14 @@ contract StatBoosts is BasicEffect {
             // Get the existing temporary boost amount
             int32 existingBoostAmount = calculateExistingBoost(targetIndex, monIndex, uint256(statIndex), true);
             if (existingBoostAmount != 0) {
+                // Set upstream caller
+                ENGINE.setUpstreamCaller(msg.sender);
                 // Clear the temporary boost in both directions
                 bytes32 tempBoostKey = getKeyForMonIndexStat(targetIndex, monIndex, uint256(statIndex), StatBoostFlag.Temp);
                 ENGINE.setGlobalKV(tempBoostKey, bytes32(0));
                 // Reset the temporary boost
                 ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName(statIndex), existingBoostAmount * -1);
+                ENGINE.setUpstreamCaller(address(0));
                 return true;
             }
         }
