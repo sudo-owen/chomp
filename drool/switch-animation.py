@@ -79,7 +79,7 @@ def process_single_gif(gif_path, output_folder):
         reversed_frames[-1].save(  # Start with the circle (last frame of forward animation)
             switch_in_path,
             save_all=True,
-            append_images=reversed_frames[:-1] + [frame1],  # End with initial frame
+            append_images=reversed_frames[:-1],
             duration=100,  # 100ms per frame for smooth animation
             loop=0,  # Infinite loop
             disposal=2
@@ -112,42 +112,44 @@ def create_white_frame(original_frame):
     white_frame.putdata(new_data)
     return white_frame
 
-def create_circle_frame(width, height):
+def create_diamond_frame(width, height):
     # Create transparent background
-    circle_frame = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    diamond_frame = Image.new('RGBA', (width, height), (0, 0, 0, 0))
 
-    # Calculate center position for circle
+    # Calculate center position for diamond
     center_x = width // 2
     center_y = height // 2
-    radius = 6
+    diamond_width = 8   # 8 pixels wide
+    diamond_height = 14  # 14 pixels tall
 
-    # Create circle using pixel-by-pixel approach for better accuracy
-    pixels = circle_frame.load()
+    # Create diamond using pixel-by-pixel approach
+    pixels = diamond_frame.load()
 
     for y in range(height):
         for x in range(width):
-            # Calculate distance from center
-            dx = x - center_x
-            dy = y - center_y
-            distance = (dx * dx + dy * dy) ** 0.5
+            # Calculate relative position from center
+            dx = abs(x - center_x)
+            dy = abs(y - center_y)
 
-            # If within radius, make it white
-            if distance <= radius:
+            # Diamond shape: |x|/half_width + |y|/half_height <= 1
+            half_width = diamond_width / 2.0
+            half_height = diamond_height / 2.0
+
+            if dx / half_width + dy / half_height <= 1.0:
                 pixels[x, y] = (255, 255, 255, 255)  # White, opaque
 
-    return circle_frame
+    return diamond_frame
 
-def create_morphing_animation(start_frame, width, height, num_frames=5):
-    """Create a morphing animation that moves and deforms pixels to final circle"""
-
-    # The rest of the morphing logic is kept below but won't execute
+def create_morphing_animation(start_frame, width, height, num_frames=6):
+    """Create a morphing animation that moves and deforms pixels to final diamond"""
     import math
     import random
 
     frames = []
     center_x = width // 2
     center_y = height // 2
-    final_radius = 6
+    diamond_width = 8
+    diamond_height = 14
 
     # Get all white pixels from the start frame
     start_pixels = start_frame.load()
@@ -158,30 +160,36 @@ def create_morphing_animation(start_frame, width, height, num_frames=5):
             if start_pixels[x, y][3] > 0:  # If pixel is not transparent
                 white_pixels.append((x, y))
 
-    # Calculate final circle pixels
-    final_circle_pixels = []
+    # Calculate final diamond pixels
+    final_diamond_pixels = []
+    half_width = diamond_width / 2.0
+    half_height = diamond_height / 2.0
+
     for y in range(height):
         for x in range(width):
-            dx = x - center_x
-            dy = y - center_y
-            distance = (dx * dx + dy * dy) ** 0.5
-            if distance <= final_radius:
-                final_circle_pixels.append((x, y))
+            dx = abs(x - center_x)
+            dy = abs(y - center_y)
+
+            # Diamond shape: |x|/half_width + |y|/half_height <= 1
+            if dx / half_width + dy / half_height <= 1.0:
+                final_diamond_pixels.append((x, y))
 
     total_start_pixels = len(white_pixels)
-    total_final_pixels = len(final_circle_pixels)
+    total_final_pixels = len(final_diamond_pixels)
 
     # Assign each starting pixel a target and movement pattern
     pixel_data = []
     for i, (start_x, start_y) in enumerate(white_pixels):
-        # Assign target position in final circle (some pixels won't have targets)
+        # Assign target position in final diamond (some pixels won't have targets)
         if i < total_final_pixels:
-            target_x, target_y = final_circle_pixels[i]
+            target_x, target_y = final_diamond_pixels[i]
         else:
-            # Pixels that will disappear get targets near the circle edge
+            # Pixels that will disappear get targets near the diamond edge
             angle = random.uniform(0, 2 * math.pi)
-            target_x = center_x + int(final_radius * 0.8 * math.cos(angle))
-            target_y = center_y + int(final_radius * 0.8 * math.sin(angle))
+            # Use diamond dimensions to calculate edge positions
+            edge_distance = min(half_width, half_height) * 0.8
+            target_x = center_x + int(edge_distance * math.cos(angle))
+            target_y = center_y + int(edge_distance * math.sin(angle))
 
         # Add some randomness to movement path for organic feel
         control_x = (start_x + target_x) / 2 + random.uniform(-8, 8)
