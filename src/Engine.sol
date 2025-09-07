@@ -79,7 +79,8 @@ contract Engine is IEngine {
         uint256 step
     );
     event BattleComplete(bytes32 indexed battleKey, address winner);
-    event EngineEvent(bytes32 indexed battleKey, EngineEventType eventType, bytes eventData);
+    event EngineEvent(bytes32 indexed battleKey, EngineEventType eventType, bytes eventData, address source, uint256 step
+    );
 
     /**
      * - Core game functions
@@ -557,7 +558,7 @@ contract Engine is IEngine {
 
     function emitEngineEvent(EngineEventType eventType, bytes memory eventData) external {
         bytes32 battleKey = battleKeyForWrite;
-        emit EngineEvent(battleKey, eventType, eventData);
+        emit EngineEvent(battleKey, eventType, eventData, _getUpstreamCaller(), currentStep);
     }
 
     function setUpstreamCaller(address caller) external {
@@ -841,7 +842,7 @@ contract Engine is IEngine {
         return playerSwitchForTurnFlag;
     }
 
-    function _getUpstreamCaller() internal returns (address) {
+    function _getUpstreamCaller() internal view returns (address) {
         address source = upstreamCaller;
         if (source == address(0)) {
             source = msg.sender;

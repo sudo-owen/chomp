@@ -42,3 +42,4 @@ drool/*
 !drool/type-data.js
 !drool/utils.js
 !drool/combine.py
+!drool/switch-animation.py
