@@ -70,7 +70,6 @@ def process_single_gif(gif_path, output_folder):
             append_images=animation_frames,
             duration=100,  # 100ms per frame for smooth animation
             loop=0,  # Infinite loop
-            transparency=0,
             disposal=2
         )
 
@@ -83,7 +82,6 @@ def process_single_gif(gif_path, output_folder):
             append_images=reversed_frames[:-1] + [frame1],  # End with initial frame
             duration=100,  # 100ms per frame for smooth animation
             loop=0,  # Infinite loop
-            transparency=0,
             disposal=2
         )
 
@@ -101,21 +99,16 @@ def create_white_frame(original_frame):
     for pixel in original_data:
         # If pixel has alpha channel
         if len(pixel) == 4:
-            r, g, b, a = pixel
-            # If pixel has any color (not fully transparent), make it white
-            if a > 0:  # Not fully transparent
-                new_data.append((255, 255, 255, 255))  # White, opaque
+            a = pixel[3]  # Only need alpha channel
+            # Keep transparent pixels transparent, make all others white
+            if a == 0:  # Fully transparent
+                new_data.append((0, 0, 0, 0))  # Keep transparent
             else:
-                new_data.append((0, 0, 0, 0))  # Transparent
-        else:  # RGB mode
-            # Convert any colored pixel to white, keep transparent areas transparent
-            r, g, b = pixel
-            # Check if pixel has any color (not pure black background)
-            if r > 0 or g > 0 or b > 0:  # Has any color
-                new_data.append((255, 255, 255, 255))  # White, opaque
-            else:
-                new_data.append((0, 0, 0, 0))  # Transparent
-
+                new_data.append((255, 255, 255, 255))  # Make white, opaque
+        else:  # RGB mode - assume all GIFs have transparency, so convert to RGBA
+            # All non-transparent pixels become white
+            new_data.append((255, 255, 255, 255))  # White, opaque
+            
     white_frame.putdata(new_data)
     return white_frame
 
@@ -146,6 +139,8 @@ def create_circle_frame(width, height):
 
 def create_morphing_animation(start_frame, width, height, num_frames=5):
     """Create a morphing animation that moves and deforms pixels to final circle"""
+
+    # The rest of the morphing logic is kept below but won't execute
     import math
     import random
 
