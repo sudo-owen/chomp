@@ -51,7 +51,7 @@ def process_single_gif(gif_path, output_folder):
         frame1 = create_white_frame(first_frame)
 
         # Create morphing animation frames
-        animation_frames = create_morphing_animation(frame1, width, height, num_frames=5)
+        animation_frames = create_morphing_animation(frame1, width, height, num_frames=6)
 
         # Create output filenames
         input_filename = os.path.basename(gif_path)
@@ -76,10 +76,10 @@ def process_single_gif(gif_path, output_folder):
         # Save backward animation (switch in: circle -> initial frame)
         # Reverse the frame order
         reversed_frames = animation_frames[::-1]  # Reverse the list
-        reversed_frames[-1].save(  # Start with the circle (last frame of forward animation)
+        reversed_frames[0].save(  # Start with the circle (last frame of forward animation)
             switch_in_path,
             save_all=True,
-            append_images=reversed_frames[:-1],
+            append_images=reversed_frames[1:] + [frame1],
             duration=100,  # 100ms per frame for smooth animation
             loop=0,  # Infinite loop
             disposal=2
@@ -112,35 +112,7 @@ def create_white_frame(original_frame):
     white_frame.putdata(new_data)
     return white_frame
 
-def create_diamond_frame(width, height):
-    # Create transparent background
-    diamond_frame = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-
-    # Calculate center position for diamond
-    center_x = width // 2
-    center_y = height // 2
-    diamond_width = 8   # 8 pixels wide
-    diamond_height = 14  # 14 pixels tall
-
-    # Create diamond using pixel-by-pixel approach
-    pixels = diamond_frame.load()
-
-    for y in range(height):
-        for x in range(width):
-            # Calculate relative position from center
-            dx = abs(x - center_x)
-            dy = abs(y - center_y)
-
-            # Diamond shape: |x|/half_width + |y|/half_height <= 1
-            half_width = diamond_width / 2.0
-            half_height = diamond_height / 2.0
-
-            if dx / half_width + dy / half_height <= 1.0:
-                pixels[x, y] = (255, 255, 255, 255)  # White, opaque
-
-    return diamond_frame
-
-def create_morphing_animation(start_frame, width, height, num_frames=6):
+def create_morphing_animation(start_frame, width, height, num_frames):
     """Create a morphing animation that moves and deforms pixels to final diamond"""
     import math
     import random
