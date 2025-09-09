@@ -34,9 +34,11 @@ def read_mons_data(file_path: str) -> Dict[int, Dict[str, Any]]:
                 'id': mon_id,
                 'name': row['Name'],
                 'flavor': row.get('Flavor', ''),
-                'frontImage': f'/assets/mons/{mon_name_lower}/front.gif',
-                'backImage': f'/assets/mons/{mon_name_lower}/back.gif',
-                'mini': f'/assets/mons/{mon_name_lower}/mini.gif',
+                'frontImage': f'/assets/mons/all/{mon_name_lower}_front.gif',
+                'backImage': f'/assets/mons/all/{mon_name_lower}_back.gif',
+                'mini': f'/assets/mons/all/{mon_name_lower}_mini.gif',
+                'switchInImage': f'/assets/mons/all/{mon_name_lower}_switch_in.gif',
+                'switchOutImage': f'/assets/mons/all/{mon_name_lower}_switch_out.gif',
                 'stats': {
                     'hp': int(row['HP']),
                     'attack': int(row['Attack']),
@@ -177,6 +179,8 @@ export type Mon = {{
   readonly frontImage: string;
   readonly backImage: string;
   readonly mini: string;
+  readonly switchInImage: string;
+  readonly switchOutImage: string;
   readonly stats: {{
     readonly hp: number;
     readonly attack: number;
