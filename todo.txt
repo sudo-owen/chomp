@@ -1,5 +1,10 @@
 # TODO
 
+- Slightly smarter CPU
+    - only rest when it makes sense
+    - swap less often
+- Debug CPU
+
 ---------------------------------------------------------------------------------------------
 LATER FEATURES
 

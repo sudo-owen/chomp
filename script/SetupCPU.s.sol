@@ -22,7 +22,6 @@ import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ICPURNG} from "../src/rng/ICPURNG.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
-import {LastCPU} from "../src/cpu/LastCPU.sol";
 import {MonStats} from "../src/Structs.sol";
 import {Type} from "../src/Enums.sol";
 

@@ -13,6 +13,7 @@ import {FastCommitManager} from "../src/FastCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
+import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 
 import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
@@ -34,7 +35,9 @@ contract CPUTest is Test {
     Engine engine;
     FastCommitManager commitManager;
     RandomCPU cpu;
+    PlayerCPU playerCPU;
     CPUMoveManager cpuMoveManager;
+    CPUMoveManager playerCPUMoveManager;
     FastValidator validator;
     DefaultRandomnessOracle defaultOracle;
     TestTypeCalculator typeCalc;
@@ -52,6 +55,8 @@ contract CPUTest is Test {
         mockCPURNG = new MockCPURNG();
         cpu = new RandomCPU(2, engine, mockCPURNG);
         cpuMoveManager = new CPUMoveManager(engine, cpu);
+        playerCPU = new PlayerCPU(2, engine, mockCPURNG);
+        playerCPUMoveManager = new CPUMoveManager(engine, playerCPU);
         validator =
             new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10}));
         typeCalc = new TestTypeCalculator();
@@ -165,6 +170,7 @@ contract CPUTest is Test {
         team[3] = mon4;
 
         teamRegistry.setTeam(address(cpu), team);
+        teamRegistry.setTeam(address(playerCPU), team);
         teamRegistry.setTeam(ALICE, team);
     }
 
@@ -326,5 +332,112 @@ contract CPUTest is Test {
         vm.startPrank(BOB);
         vm.expectRevert(CPUMoveManager.NotP0.selector);
         cpuMoveManager.selectMove(battleKey, 0, "", "");
+    }
+
+    /**
+     * Test that only p0 can call setMove on PlayerCPU
+     * Should revert if someone other than p0 attempts to call setMove
+     */
+    function test_onlyP0CanSetMoveOnPlayerCPU() public {
+        Battle memory args = Battle({
+            p0: ALICE,
+            p1: address(playerCPU),
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: teamRegistry,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            engineHook: IEngineHook(address(0)),
+            moveManager: playerCPUMoveManager,
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
+        });
+        vm.startPrank(ALICE);
+        bytes32 battleKey = engine.proposeBattle(args);
+        bytes32 battleIntegrityHash = keccak256(
+            abi.encodePacked(
+                args.validator,
+                args.rngOracle,
+                args.ruleset,
+                args.teamRegistry,
+                args.p0TeamHash,
+                args.engineHook,
+                args.moveManager
+            )
+        );
+        // Call the PlayerCPU to accept the battle
+        playerCPU.acceptBattle(battleKey, 0, battleIntegrityHash);
+        // Start the battle
+        engine.startBattle(battleKey, "", 0);
+
+        // Test that BOB (not p0) cannot call setMove
+        vm.startPrank(BOB);
+        vm.expectRevert(PlayerCPU.NotP0.selector);
+        playerCPU.setMove(battleKey, 0, "");
+    }
+
+    /**
+     * Test that PlayerCPU flow works correctly for p0 over multiple turns
+     * Should allow p0 to call setMove followed by selectMove, and subsequent calls should override previous moves
+     */
+    function test_playerCPUFlowWorksForP0() public {
+        Battle memory args = Battle({
+            p0: ALICE,
+            p1: address(playerCPU),
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: teamRegistry,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            engineHook: IEngineHook(address(0)),
+            moveManager: playerCPUMoveManager,
+            teams: new Mon[][](0),
+            status: BattleProposalStatus.Proposed,
+            p1TeamIndex: 0
+        });
+        vm.startPrank(ALICE);
+        bytes32 battleKey = engine.proposeBattle(args);
+        bytes32 battleIntegrityHash = keccak256(
+            abi.encodePacked(
+                args.validator,
+                args.rngOracle,
+                args.ruleset,
+                args.teamRegistry,
+                args.p0TeamHash,
+                args.engineHook,
+                args.moveManager
+            )
+        );
+        // Call the PlayerCPU to accept the battle
+        playerCPU.acceptBattle(battleKey, 0, battleIntegrityHash);
+        // Start the battle
+        engine.startBattle(battleKey, "", 0);
+
+        // First turn: p0 sets move 0 for PlayerCPU
+        playerCPU.setMove(battleKey, 0, "");
+
+        // Verify that selectMove returns the correct move
+        (uint256 moveIndex, bytes memory extraData) = playerCPU.selectMove(battleKey, 0);
+        assertEq(moveIndex, 0);
+        assertEq(extraData.length, 0);
+
+        // Execute the turn
+        playerCPUMoveManager.selectMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(1));
+
+        // Second turn: p0 sets move 1 for PlayerCPU (should override previous move)
+        playerCPU.setMove(battleKey, 1, abi.encode(42));
+
+        // Verify that selectMove now returns the new move
+        (moveIndex, extraData) = playerCPU.selectMove(battleKey, 0);
+        assertEq(moveIndex, 1);
+        assertEq(abi.decode(extraData, (uint256)), 42);
+
+        // Execute another turn to verify the flow continues to work
+        playerCPUMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
     }
 }

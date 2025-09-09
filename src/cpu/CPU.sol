@@ -16,8 +16,8 @@ import {Battle, BattleState, RevealedMove} from "../Structs.sol";
 abstract contract CPU is ICPU, ICPURNG {
 
     uint256 private immutable NUM_MOVES;
-    IEngine private immutable ENGINE;
     
+    IEngine public immutable ENGINE;
     ICPURNG public immutable RNG;
     uint256 public nonceToUse;
 
@@ -39,6 +39,10 @@ abstract contract CPU is ICPU, ICPURNG {
         external virtual
         returns (uint256 moveIndex, bytes memory extraData);
 
+    /**
+     - If it's a switch needed turn, returns [VALID SWITCHES]
+     - If it's a non-switch turn, returns [NO_OP | VALID MOVES | VALID SWITCHES]
+     */
     function calculateValidMoves(bytes32 battleKey, uint256 playerIndex)
         public
         returns (RevealedMove[] memory, uint256 updatedNonce)
@@ -118,7 +122,6 @@ abstract contract CPU is ICPU, ICPURNG {
                 }
                 validMoves += validMoveCount;
             }
-            // Pick a random move
             RevealedMove[] memory moveChoices = new RevealedMove[](validMoves);
             moveChoices[0] = RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""});
             for (uint256 i = 0; i < validSwitchCount; i++) {

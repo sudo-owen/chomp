@@ -20,7 +20,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Own
     uint256 constant public POINTS_PER_LOSS = 20;
     uint256 constant public POINTS_MULTIPLIER = 3;
     uint256 constant public POINTS_MULTIPLIER_CHANCE_DENOM = 10;
-    uint256 constant public BATTLE_COOLDOWN = 23 hours;
+    uint256 constant public BATTLE_COOLDOWN = 1 seconds;
     uint256 constant public MAGIC_WINNING_NUMBER = 4;
 
     IMonRegistry public immutable MON_REGISTRY;
