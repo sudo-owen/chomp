@@ -13,7 +13,7 @@ import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract GuestFeature is IMoveSet {
 
-    uint32 constant public BASE_POWER = 90;
+    uint32 constant public BASE_POWER = 75;
 
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;

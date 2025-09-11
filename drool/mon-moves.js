@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", function () {
       columns = headers
         .map(header => ({
           name: header,
-          type: ["Power", "Accuracy", "Stamina"].includes(header) ? "number" : "text",
+          type: ["Power", "Accuracy", "Stamina", "Priority"].includes(header) ? "number" : "text",
           editable: true
         }));
 
@@ -148,9 +148,14 @@ document.addEventListener("DOMContentLoaded", function () {
           // Store all data
           rowData[header] = value;
 
-          // Convert number types for UI display
-          if (["Power", "Accuracy", "Stamina"].includes(header)) {
-            rowData[header] = parseFloat(value) || 0;
+          // Convert number types for UI display, but preserve special values like "?"
+          if (["Power", "Accuracy", "Stamina", "Priority"].includes(header)) {
+            if (value === "?" || value === "") {
+              rowData[header] = value;
+            } else {
+              const numValue = parseFloat(value);
+              rowData[header] = isNaN(numValue) ? 0 : numValue;
+            }
           }
         });
 
@@ -506,7 +511,13 @@ document.addEventListener("DOMContentLoaded", function () {
               td.className = "editable";
 
               if (column.type === "number") {
-                td.textContent = row[column.name] || 0;
+                // Handle special values like "?" for numeric fields
+                const value = row[column.name];
+                if (value === "?" || value === "") {
+                  td.textContent = value;
+                } else {
+                  td.textContent = value || 0;
+                }
               } else {
                 td.textContent = row[column.name] || "";
               }
@@ -534,7 +545,13 @@ document.addEventListener("DOMContentLoaded", function () {
       const value = td.textContent.trim();
 
       if (columns.find(col => col.name === column)?.type === "number") {
-        data[rowIndex][column] = parseFloat(value) || 0;
+        // Handle special non-numeric values like "?" for numeric fields
+        if (value === "?" || value === "") {
+          data[rowIndex][column] = value;
+        } else {
+          const numValue = parseFloat(value);
+          data[rowIndex][column] = isNaN(numValue) ? 0 : numValue;
+        }
       } else {
         data[rowIndex][column] = value;
       }

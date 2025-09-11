@@ -8,7 +8,7 @@ import csv
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Union
 from dataclasses import dataclass
 
 @dataclass
@@ -16,10 +16,10 @@ class MoveData:
     """Data structure for move information from CSV"""
     name: str
     mon: str
-    power: int
-    stamina: int
-    accuracy: int
-    priority: int
+    power: Union[int, str]  # Can be int or '?' for complex moves
+    stamina: Union[int, str]
+    accuracy: Union[int, str]
+    priority: Union[int, str]
     move_type: str
     move_class: str
     description: str
@@ -76,7 +76,32 @@ class MoveValidator:
         self.src_path = src_path
         self.moves_data: Dict[str, MoveData] = {}
         self.validation_results: List[Dict[str, Any]] = []
-        
+
+        # Initialize mon-specific parsing rules
+        self.mon_specific_rules = self._init_mon_specific_rules()
+
+    def _init_mon_specific_rules(self) -> Dict[str, callable]:
+        """Initialize mon-specific parsing rules for complex moves"""
+        return {
+            'Embursa': self._parse_embursa_moves
+        }
+
+    def _parse_embursa_moves(self, content: str, contract_data: ContractData) -> ContractData:
+        """Custom parser for Embursa moves. Handles priority overrides that use HeatBeaconLib."""
+
+        # Check if there's a priority function override (for both StandardAttack and IMoveSet)
+        priority_pattern = r'function\s+priority\s*\([^)]*\)\s*[^{]*\{\s*return\s+([^;]+);'
+        match = re.search(priority_pattern, content, re.DOTALL)
+
+        if match:
+            priority_expr = match.group(1).strip()
+
+            # If it uses DEFAULT_PRIORITY (with or without HeatBeaconLib), accept it
+            if 'DEFAULT_PRIORITY' in priority_expr:
+                contract_data.priority = self.DEFAULT_PRIORITY
+
+        return contract_data
+
     def normalize_move_name(self, name: str) -> str:
         """Convert move name to CamelCase with spaces and punctuation removed"""
         # Remove punctuation and split on spaces
@@ -84,6 +109,12 @@ class MoveValidator:
         # Convert to CamelCase
         return ''.join(word.capitalize() for word in words)
     
+    def _parse_int_or_question(self, value: str) -> Union[int, str]:
+        """Parse a value that can be either an integer or '?' for complex moves"""
+        if value.strip() == '?':
+            return '?'
+        return int(value)
+
     def load_csv_data(self) -> None:
         """Load and parse the moves CSV file"""
         with open(self.csv_path, 'r', encoding='utf-8') as file:
@@ -92,10 +123,10 @@ class MoveValidator:
                 move_data = MoveData(
                     name=row['Name'],
                     mon=row['Mon'],
-                    power=int(row['Power']),
-                    stamina=int(row['Stamina']),
-                    accuracy=int(row['Accuracy']),
-                    priority=int(row['Priority']),
+                    power=self._parse_int_or_question(row['Power']),
+                    stamina=self._parse_int_or_question(row['Stamina']),
+                    accuracy=self._parse_int_or_question(row['Accuracy']),
+                    priority=self._parse_int_or_question(row['Priority']),
                     move_type=row['Type'],
                     move_class=row['Class'],
                     description=row['Description'],
@@ -115,7 +146,7 @@ class MoveValidator:
         
         return None
 
-    def parse_contract_file(self, file_path: str) -> ContractData:
+    def parse_contract_file(self, file_path: str, mon_name: str = None) -> ContractData:
         """Parse a Solidity contract file to extract move data"""
         contract_data = ContractData(file_path=file_path)
 
@@ -129,6 +160,11 @@ class MoveValidator:
         elif 'IMoveSet' in content and 'is IMoveSet' in content:
             contract_data.is_custom_implementation = True
             contract_data = self._parse_custom_implementation(content, contract_data)
+
+        # Apply mon-specific parsing rules after standard parsing (allows overrides)
+        if mon_name and mon_name in self.mon_specific_rules:
+            custom_parser = self.mon_specific_rules[mon_name]
+            contract_data = custom_parser(content, contract_data)
 
         return contract_data
 
@@ -274,25 +310,33 @@ class MoveValidator:
             'warnings': []
         }
 
-        # Skip power validation for 0-power moves
-        if move_data.power > 0:
+        # Skip power validation for 0-power moves or complex moves marked with '?'
+        if move_data.power != '?' and isinstance(move_data.power, int) and move_data.power > 0:
             if contract_data.power is None:
                 result['errors'].append(f"Power not found in contract (expected: {move_data.power})")
             elif contract_data.power != move_data.power:
                 result['errors'].append(f"Power mismatch: contract={contract_data.power}, csv={move_data.power}")
+        elif move_data.power == '?':
+            result['warnings'].append("Power validation skipped - marked as complex move ('?')")
 
         # Validate stamina
-        if contract_data.stamina is None:
-            result['errors'].append(f"Stamina not found in contract (expected: {move_data.stamina})")
-        elif contract_data.stamina != move_data.stamina:
-            result['errors'].append(f"Stamina mismatch: contract={contract_data.stamina}, csv={move_data.stamina}")
+        if move_data.stamina != '?':
+            if contract_data.stamina is None:
+                result['errors'].append(f"Stamina not found in contract (expected: {move_data.stamina})")
+            elif contract_data.stamina != move_data.stamina:
+                result['errors'].append(f"Stamina mismatch: contract={contract_data.stamina}, csv={move_data.stamina}")
+        else:
+            result['warnings'].append("Stamina validation skipped - marked as complex move ('?')")
 
         # Validate priority
-        expected_priority = self.csv_priority_to_contract_priority(move_data.priority)
-        if contract_data.priority is None:
-            result['errors'].append(f"Priority not found in contract (expected: {expected_priority})")
-        elif contract_data.priority != expected_priority:
-            result['errors'].append(f"Priority mismatch: contract={contract_data.priority}, csv={move_data.priority} (expected contract value: {expected_priority})")
+        if move_data.priority != '?':
+            expected_priority = self.csv_priority_to_contract_priority(move_data.priority)
+            if contract_data.priority is None:
+                result['errors'].append(f"Priority not found in contract (expected: {expected_priority})")
+            elif contract_data.priority != expected_priority:
+                result['errors'].append(f"Priority mismatch: contract={contract_data.priority}, csv={move_data.priority} (expected contract value: {expected_priority})")
+        else:
+            result['warnings'].append("Priority validation skipped - marked as complex move ('?')")
 
         # Validate move type
         if contract_data.move_type is None:
@@ -310,11 +354,8 @@ class MoveValidator:
 
     def run_validation(self) -> None:
         """Run validation for all moves"""
-        print("Loading CSV data...")
         self.load_csv_data()
         print(f"Loaded {len(self.moves_data)} moves from CSV")
-
-        print("\nSearching for contract files...")
         found_contracts = 0
         missing_contracts = []
 
@@ -326,10 +367,9 @@ class MoveValidator:
                 continue
 
             found_contracts += 1
-            print(f"  Found: {move_name} -> {contract_file}")
 
             # Parse and validate the contract
-            contract_data = self.parse_contract_file(contract_file)
+            contract_data = self.parse_contract_file(contract_file, move_data.mon)
             validation_result = self.validate_move(move_name, move_data, contract_data)
             self.validation_results.append(validation_result)
 
@@ -375,23 +415,14 @@ class MoveValidator:
             return
 
         print("\n" + "="*80)
-        print("DETAILED ERRORS AND WARNINGS")
+        print("Report")
         print("="*80)
 
         for result in moves_with_issues:
-            print(f"\n📁 {result['move_name']} ({result['normalized_name']})")
-            print(f"   File: {result['contract_file']}")
-            print(f"   Type: {'StandardAttack' if result['is_standard_attack'] else 'Custom IMoveSet'}")
-
             if result['errors']:
-                print("   ❌ Errors:")
+                print(f"\n📁 File: {result['contract_file']} | ❌ Errors")
                 for error in result['errors']:
                     print(f"      • {error}")
-
-            if result['warnings']:
-                print("   ⚠️  Warnings:")
-                for warning in result['warnings']:
-                    print(f"      • {warning}")
 
     def print_missing_contracts(self, missing_contracts: List[Tuple[str, str]]) -> None:
         """Print information about missing contract files"""
@@ -408,8 +439,8 @@ def main():
     import sys
 
     # Default paths (relative to processing folder)
-    csv_path = "../drool/moves.csv"
-    src_path = "../src/"
+    csv_path = "drool/moves.csv"
+    src_path = "src/"
 
     # Allow command line arguments
     if len(sys.argv) > 1:

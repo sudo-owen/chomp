@@ -1,8 +1,8 @@
 Id,Name,HP,Attack,Defense,SpecialAttack,SpecialDefense,Speed,Type1,Type2,BST,Flavor
 0,Ghouliath,303,157,202,151,202,181,Yang,Fire,1196,"Often found in dark places like caves and OTC trading desks."
 1,Inutia,351,171,189,175,192,259,Wild,NA,1337,"A little jumpy. Nose is always wet."
-2,Malalien,258,121,125,322,151,308,Cyber,NA,1285,"Do not approach or be approached. "
-3,Iblivion,277,188,164,240,168,256,Cosmic,Air,1293,"Many say it has great potential for growth."
+2,Malalien,258,121,125,322,151,308,Cyber,NA,1285,"Do not approach or be approached."
+3,Iblivion,277,188,164,240,168,256,Cosmic,NA,1293,"Many say it has great potential for growth."
 4,Gorillax,407,302,175,112,176,129,Earth,NA,1301,"Big."
 5,Sofabbi,333,180,201,120,269,205,Nature,NA,1308,"Their carrots make for a good stew."
 6,Pengym,371,212,191,233,172,149,Ice,NA,1328,"Even their ice contains a lot of protein."

@@ -76,10 +76,10 @@ def read_moves_data(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
             move_data = {
                 "address": f"Address.{address_key}",
                 "name": row["Name"],
-                "power": int(row["Power"]) if row["Power"].isdigit() else 0,
-                "stamina": int(row["Stamina"]) if row["Stamina"].isdigit() else 0,
-                "accuracy": int(row["Accuracy"]) if row["Accuracy"].isdigit() else 100,
-                "priority": int(row["Priority"]) if row["Priority"].isdigit() else 0,
+                "power": int(row["Power"]) if row["Power"].isdigit() else '?',
+                "stamina": int(row["Stamina"]) if row["Stamina"].isdigit() else '?',
+                "accuracy": int(row["Accuracy"]) if row["Accuracy"].isdigit() else '?',
+                "priority": int(row["Priority"]) if row["Priority"].isdigit() else '?',
                 "type": row["Type"],
                 "class": row["Class"],
                 "description": row["Description"],
@@ -184,10 +184,10 @@ export const MonMetadata = {json_str} as const;
 export type Move = {{
   readonly address: LowercaseHex;
   readonly name: string;
-  readonly power: number;
-  readonly stamina: number;
-  readonly accuracy: number;
-  readonly priority: number;
+  readonly power: number | '?';
+  readonly stamina: number | '?';
+  readonly accuracy: number | '?';
+  readonly priority: number | '?';
   readonly type: Type;
   readonly class: MoveClass;
   readonly description: string;

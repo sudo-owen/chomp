@@ -40,7 +40,7 @@ contract Loop is IMoveSet {
     }
 
     function moveType(bytes32) public pure returns (Type) {
-        return Type.Yin;
+        return Type.Cosmic;
     }
 
     function isValidTarget(bytes32, bytes calldata) external pure returns (bool) {

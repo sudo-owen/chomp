@@ -1,37 +1,37 @@
 Name,Mon,Power,Stamina,Accuracy,Priority,Type,Class,Description,ExtraData
 Eternal Grudge,Ghouliath,0,2,100,0,Yang,Self,"KO’s self, inflicts Grudge on the opponent. Halves ATK and SpATK.",No
-Infernal Flame,Ghouliath,120,3,85,0,Fire,Special,"Deals damage, 30% chance of inflicting Burn. Burn can stack up to 3 times (1st, 2nd, 3rd degree). Each stack of burn increases damage over time, from 1/16 to 1/8 to 1/4.",No
+Infernal Flame,Ghouliath,120,2,85,0,Fire,Special,"Deals damage, 30% chance of inflicting Burn. Burn can stack up to 3 times (1st, 2nd, 3rd degree). Each stack of burn increases damage over time, from 1/16 to 1/8 to 1/4.",No
 Wither Away,Ghouliath,60,3,100,0,Yang,Special,Deals damage and then inflicts Panic on both parties. Panic drains 1 stamina at end of turn for a max of 3 turns.,No
 Osteoporosis,Ghouliath,90,2,100,0,Yang,Physical,Deals damage.,No
-Rock Pull,Gorillax,0,3,100,0,Earth,Physical,"If the opposing Mon is attempting to switch out, deals damage heavy damage. Otherwise, deals damage to Gorillax.",No
+Rock Pull,Gorillax,?,3,100,?,Earth,Physical,"If the opposing Mon is attempting to switch out, deals damage heavy damage. Otherwise, deals damage to Gorillax.",No
 Pound Ground,Gorillax,95,3,100,0,Earth,Physical,Deals damage.,No
 Blow,Gorillax,70,2,100,0,Air,Physical,Deals damage.,No
 Throw Pebble,Gorillax,40,1,100,0,Earth,Physical,Deals damage.,No
-Baselight,Iblivion,0,0,100,0,Yin,Special,"Power and Stamina go up each time, up to a cap of 5. Power grows: 80/100/120/140/160. Stamina cost grows: 1/2/3/4/5",No
+Baselight,Iblivion,?,?,100,0,Cosmic,Special,"Power and Stamina go up each time, up to a cap of 5. Power grows: 80/100/120/140/160. Stamina cost grows: 1/2/3/4/5",No
 Loop,Iblivion,0,1,100,0,Cosmic,Self,Restores all Stamina to full.,No
-First Resort,Iblivion,40,2,100,1,Water,Special,"Deals damage, if Baselight is at least 2, has +1 priority.",No
+First Resort,Iblivion,40,2,100,?,Water,Special,"Deals damage, if Baselight is at least 2, has +1 priority.",No
 Brightback,Iblivion,70,2,100,0,Yin,Special,"Deals damage, if Baselight is at least 2, heal for 50% of damage dealt.",No
 Chain Expansion,Inutia,0,4,100,0,Mythic,Other,Sets up long-lasting battlefield effect. Triggers on switch in for both opponent and self. Damages opponent and heals self for 1/8 of max HP. Lasts for 3-5 turns.,No
 Initialize,Inutia,0,1,100,0,Mythic,Self,"Boosts ATK/SpATK by 50%. Can only be used once each time Inutia is sent out. When Inutia switches out, half of the bonus is transferred to the next incoming mon.",No
 Big Bite,Inutia,85,2,100,0,Wild,Physical,Deals damage.,No
 Shrine Strike,Inutia,90,2,100,0,Water,Special,"Deals damage, heals for 1/16 of max HP.",No
 Triple Think,Malalien,0,2,100,0,Mind,Self,Boosts SpATK by 75%.,No
-Federal Investigation,Malalien,100,2,100,0,Cyber,Special,Deals damage.,No
+Federal Investigation,Malalien,100,3,100,0,Cyber,Special,Deals damage.,No
 Negative Thoughts,Malalien,80,3,100,0,Mind,Special,"Deals damage, 10% chance to cause Panic.",No
 Infinite Love,Malalien,90,2,100,0,Cosmic,Special,"Deals damage, 10% chance to cause Sleep.",No
 Chill Out,Pengym,0,2,90,0,Ice,Other,"Inflicts Frostbite. Frostbite deals 1/16 damage every turn, and also halves SpATK.",No
 Deadlift,Pengym,0,2,100,0,Metal,Self,Increases ATK and DEF by 50%.,No
 Deep Freeze,Pengym,90,3,100,0,Ice,Physical,"If the target has Frostbite, consumes Frostbite and does double damage.",No
 Pistol Squat,Pengym,80,2,100,-1,Metal,Physical,"Deals damage, forces enemy mon to switch.",No
-Gachachacha,Sofabbi,0,3,100,0,Cyber,Physical,"Uniformly random power from 0 to 200. 5% chance to auto-KO self, 5% chance to auto-KO opponent.",No
-Guest Feature,Sofabbi,80,3,100,0,Cyber,Physical,Attack Type is set to be the first Type of another selected party member.,Yes
-Unexpected Carrot,Sofabbi,90,2,100,0,Nature,Physical,Deals damage.,No
+Gachachacha,Sofabbi,?,3,100,0,Cyber,Physical,"Uniformly random power from 0 to 200. 5% chance to auto-KO self, 5% chance to auto-KO opponent.",No
+Guest Feature,Sofabbi,75,3,100,0,Cyber,Physical,Attack Type is set to be the first Type of another selected party member.,Yes
+Unexpected Carrot,Sofabbi,80,2,100,0,Nature,Physical,Deals damage.,No
 Snack Break,Sofabbi,0,1,100,0,Nature,Self,"Heal for 1/2 of health. Effectiveness reduces by half each time, until a min of 1/16.",No
 Electrocute,Volthare,90,2,100,0,Lightning,Special,"Deals damage, 10% chance to cause Zap. A Zapped mon skips its next turn.",No
 Round Trip,Volthare,30,1,100,0,Lightning,Special,"Deals damage, then switches out.",Yes
 Mega Star Blast,Volthare,150,3,0,2,Lightning,Special,"+2 priority. If used during Storm, clears Storm and accuracy is 100%. Otherwise accuracy is 50%. Deals damage, 30% chance to cause Zap.",No
 Dual Shock,Volthare,60,0,100,0,Lightning,Special,Deals damage and inflicts Zap on self.,No
-Honey Bribe,Embursa,0,2,100,0,Wild,Other,Heals both self and opponent by 1/2 of max HP. (Each subsequent use cuts HP healed in half). Lowers opponent SpDEF by 50%.,No
+Honey Bribe,Embursa,0,2,100,0,Nature,Self,Heals both self and opponent by 1/2 of max HP. (Each subsequent use cuts HP healed in half). Lowers opponent SpDEF by 50%.,No
 Set Ablaze,Embursa,90,3,100,0,Fire,Special,"Deals damage, 30% chance of Burn.",No
 Heat Beacon,Embursa,0,2,100,0,Fire,Self,+1 priority to next turn's move. Inflict Burn on the opposing mon.,No
 Q5,Embursa,150,5,100,0,Fire,Special,Deals damage in 5 turns and Burns the enemy.,No

@@ -22,7 +22,7 @@ contract FederalInvestigation is StandardAttack {
             ATTACK_PARAMS({
                 NAME: "Federal Investigation",
                 BASE_POWER: 100,
-                STAMINA_COST: 2,
+                STAMINA_COST: 3,
                 ACCURACY: 100,
                 MOVE_TYPE: Type.Cyber,
                 MOVE_CLASS: MoveClass.Special,

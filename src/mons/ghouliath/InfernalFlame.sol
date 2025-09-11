@@ -22,7 +22,7 @@ contract InfernalFlame is StandardAttack {
             ATTACK_PARAMS({
                 NAME: "Infernal Flame",
                 BASE_POWER: 120,
-                STAMINA_COST: 3,
+                STAMINA_COST: 2,
                 ACCURACY: 85,
                 MOVE_TYPE: Type.Fire,
                 MOVE_CLASS: MoveClass.Special,

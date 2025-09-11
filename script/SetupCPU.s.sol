@@ -47,12 +47,7 @@ contract SetupCPU is Script {
 
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
         gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices);
-
-        // Create team of just Malalien on the Single Gacha Team Registry
-        uint256[] memory singleMonIndices = new uint256[](1);
-        singleMonIndices[0] = 2; // Malalien
-        GachaTeamRegistry singleGachaTeamRegistry = GachaTeamRegistry(vm.envAddress("SINGLE_GACHA_TEAM_REGISTRY"));
-        singleGachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), singleMonIndices);
+        gachaTeamRegistry.createTeamForUser(vm.envAddress("PLAYER_CPU"), monIndices);
 
         vm.stopBroadcast();
 

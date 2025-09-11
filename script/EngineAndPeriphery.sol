@@ -20,6 +20,7 @@ import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ICPURNG} from "../src/rng/ICPURNG.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
+import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 
 // Important effects
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
@@ -91,19 +92,6 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(gachaTeamRegistry)
         }));
 
-        GachaTeamRegistry singleGachaTeamRegistry = new GachaTeamRegistry(
-            LookupTeamRegistry.Args({
-                REGISTRY: gachaRegistry,
-                MONS_PER_TEAM: 1,
-                MOVES_PER_MON: 1
-            }),
-            gachaRegistry
-        );
-        deployedContracts.push(DeployData({
-            name: "SINGLE GACHA TEAM REGISTRY",
-            contractAddress: address(singleGachaTeamRegistry)
-        }));
-
         DefaultRandomnessOracle defaultOracle = new DefaultRandomnessOracle();
         deployedContracts.push(DeployData({
             name: "DEFAULT RANDOMNESS ORACLE",
@@ -121,6 +109,19 @@ contract EngineAndPeriphery is Script {
             name: "CPU MOVE MANAGER",
             contractAddress: address(cpuMoveManager)
         }));
+
+        PlayerCPU playerCPU = new PlayerCPU(4, engine, ICPURNG(address(0)));
+        deployedContracts.push(DeployData({
+            name: "PLAYER CPU",
+            contractAddress: address(playerCPU)
+        }));
+
+        CPUMoveManager playerCPUManager = new CPUMoveManager(engine, cpu);
+        deployedContracts.push(DeployData({
+            name: "PLAYER CPU MOVE MANAGER",
+            contractAddress: address(playerCPUManager)
+        }));
+
         deployGameFundamentals(engine);
         vm.stopBroadcast();
         return deployedContracts;
