@@ -27,3 +27,7 @@
 [smogon create a pokemon sprites](https://www.smogon.com/dex/ss/formats/cap/)
 
 - very good metagame articles / rationale when designing mons
+
+[pokemon design philosophy](https://forums.thousandroads.net/threads/caniss-thoughts-on-pok%C3%A9mon-design.1886/)
+
+- overview of the different types of pokemon designs
