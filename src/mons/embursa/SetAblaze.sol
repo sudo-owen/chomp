@@ -36,12 +36,13 @@ contract SetAblaze is StandardAttack {
         )
     {}
 
-    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata args, uint256 rng) public override {
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata args, uint256 rng) public override returns (bytes memory) {
         super.move(battleKey, attackerPlayerIndex, args, rng);
         // Clear the priority boost
         if (HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
             HeatBeaconLib._clearPriorityBoost(ENGINE, attackerPlayerIndex);
         }
+        return "";
     }
 
     function priority(bytes32, uint256 attackerPlayerIndex) public view override returns (uint32) {

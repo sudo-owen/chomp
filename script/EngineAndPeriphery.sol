@@ -116,7 +116,7 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(playerCPU)
         }));
 
-        CPUMoveManager playerCPUManager = new CPUMoveManager(engine, cpu);
+        CPUMoveManager playerCPUManager = new CPUMoveManager(engine, playerCPU);
         deployedContracts.push(DeployData({
             name: "PLAYER CPU MOVE MANAGER",
             contractAddress: address(playerCPUManager)

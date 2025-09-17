@@ -48,9 +48,9 @@ contract StandardAttack is IMoveSet, Ownable {
         _initializeOwner(owner);
     }
 
-    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) public virtual {
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) public virtual returns (bytes memory moveReturnData) {
         if (basePower(battleKey) > 0) {
-            AttackCalculator._calculateDamage(
+            int32 damage = AttackCalculator._calculateDamage(
                 ENGINE,
                 TYPE_CALCULATOR,
                 battleKey,
@@ -63,6 +63,7 @@ contract StandardAttack is IMoveSet, Ownable {
                 rng,
                 critRate(battleKey)
             );
+            moveReturnData = abi.encode(damage);
         }
 
         // Apply the effect as well if the accuracy is valid

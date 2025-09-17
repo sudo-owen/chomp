@@ -8,7 +8,7 @@ import {IEffect} from "../effects/IEffect.sol";
 
 interface IMoveSet {
     function name() external view returns (string memory);
-    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng) external;
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng) external returns (bytes memory moveReturnData);
     function priority(bytes32 battleKey, uint256 attackerPlayerIndex) external view returns (uint32);
     function stamina(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 monIndex) external view returns (uint32);
     function moveType(bytes32 battleKey) external view returns (Type);
