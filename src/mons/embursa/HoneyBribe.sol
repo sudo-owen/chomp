@@ -42,7 +42,7 @@ contract HoneyBribe is IMoveSet {
         }
     }
 
-    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external returns (bytes memory) {
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         // Heal active mon by max HP / 2**bribeLevel
         uint256 activeMonIndex =
             ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
@@ -83,8 +83,6 @@ contract HoneyBribe is IMoveSet {
         if (HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
             HeatBeaconLib._clearPriorityBoost(ENGINE, attackerPlayerIndex);
         }
-
-        return "";
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

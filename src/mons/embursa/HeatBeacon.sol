@@ -24,7 +24,7 @@ contract HeatBeacon is IMoveSet {
         return "Heat Beacon";
     }
 
-    function move(bytes32, uint256 attackerPlayerIndex, bytes calldata, uint256) external returns (bytes memory) {
+    function move(bytes32, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
 
         // Apply burn to opposing mon
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
@@ -39,8 +39,6 @@ contract HeatBeacon is IMoveSet {
 
         // Set a new priority boost
         HeatBeaconLib._setPriorityBoost(ENGINE, attackerPlayerIndex);
-
-        return "";
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

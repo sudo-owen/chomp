@@ -6,17 +6,17 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IMoveSet} from "../../moves/IMoveSet.sol";
-import {IEffect} from "../../effects/IEffect.sol";
+
 import {IAbility} from "../../abilities/IAbility.sol";
+import {IEffect} from "../../effects/IEffect.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
+import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract MegaStarBlast is IMoveSet {
-
-    uint32 constant public DEFAULT_ACCURACY = 50;
-    uint32 constant public ZAP_ACCURACY = 30;
-    uint32 constant public BASE_POWER = 150;
+    uint32 public constant DEFAULT_ACCURACY = 50;
+    uint32 public constant ZAP_ACCURACY = 30;
+    uint32 public constant BASE_POWER = 150;
 
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
@@ -36,7 +36,7 @@ contract MegaStarBlast is IMoveSet {
 
     function _checkForOverclock(bytes32 battleKey) internal view returns (int32) {
         // Check all global effects to see if Storm is active
-        (IEffect[] memory effects, ) = ENGINE.getEffects(battleKey, 2, 2);
+        (IEffect[] memory effects,) = ENGINE.getEffects(battleKey, 2, 2);
         for (uint256 i; i < effects.length; i++) {
             if (address(effects[i]) == address(STORM)) {
                 return int32(int256(i));
@@ -56,7 +56,7 @@ contract MegaStarBlast is IMoveSet {
             acc = 100;
         }
         // Deal damage
-        AttackCalculator._calculateDamage(
+        (int32 damage,) = AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,
@@ -70,12 +70,14 @@ contract MegaStarBlast is IMoveSet {
             DEFAULT_CRIT_RATE
         );
         // Apply Zap if rng allows
-        uint256 rng2 = uint256(keccak256(abi.encode(rng)));
-        if (rng2 % 100 < ZAP_ACCURACY) {
-            uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
-            uint256 defenderMonIndex =
-                ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[defenderPlayerIndex];
-            ENGINE.addEffect(defenderPlayerIndex, defenderMonIndex, ZAP_STATUS, "");
+        if (damage > 0) {
+            uint256 rng2 = uint256(keccak256(abi.encode(rng)));
+            if (rng2 % 100 < ZAP_ACCURACY) {
+                uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
+                uint256 defenderMonIndex =
+                    ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[defenderPlayerIndex];
+                ENGINE.addEffect(defenderPlayerIndex, defenderMonIndex, ZAP_STATUS, "");
+            }
         }
     }
 

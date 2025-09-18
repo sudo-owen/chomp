@@ -48,9 +48,15 @@ contract StandardAttack is IMoveSet, Ownable {
         _initializeOwner(owner);
     }
 
-    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) public virtual returns (bytes memory moveReturnData) {
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) public virtual {
+        _move(battleKey, attackerPlayerIndex, rng);
+    }
+
+    function _move(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 rng) internal virtual returns (int32, EngineEventType) {
+        int32 damage = 0;
+        EngineEventType eventType = EngineEventType.None;
         if (basePower(battleKey) > 0) {
-            int32 damage = AttackCalculator._calculateDamage(
+            (damage, eventType) = AttackCalculator._calculateDamage(
                 ENGINE,
                 TYPE_CALCULATOR,
                 battleKey,
@@ -63,16 +69,18 @@ contract StandardAttack is IMoveSet, Ownable {
                 rng,
                 critRate(battleKey)
             );
-            moveReturnData = abi.encode(damage);
         }
 
         // Apply the effect as well if the accuracy is valid
+        // NOTE: technically we should reroll the rng value here instead of using it raw, but the current way that the AttackCalculator works means that if a move misses (e.g. its accuracy is above the threshold), then the effect will not be applied, because it will also fail this check.
         if (rng % 100 < _effectAccuracy) {
             uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
             uint256 defenderMonIndex =
                 ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[defenderPlayerIndex];
             ENGINE.addEffect(defenderPlayerIndex, defenderMonIndex, _effect, "");
         }
+
+        return (damage, eventType);
     }
 
     function isValidTarget(bytes32, bytes calldata) public pure returns (bool) {

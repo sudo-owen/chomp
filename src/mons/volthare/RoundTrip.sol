@@ -38,21 +38,15 @@ contract RoundTrip is StandardAttack {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng)
         public
         override
-        returns (bytes memory)
     {
         // Deal the damage
-        bytes memory moveReturnData = super.move(battleKey, attackerPlayerIndex, extraData, rng);
-
-        // We're guaranteed that StandardAttack returns the damage
-        (int32 damage) = abi.decode(moveReturnData, (int32));
+        (int32 damage, ) = _move(battleKey, attackerPlayerIndex, rng);
 
         if (damage > 0) {
             // Decode the swap index from extraData and swap the active mon
             (uint256 swapIndex) = abi.decode(extraData, (uint256));
             ENGINE.switchActiveMon(attackerPlayerIndex, swapIndex);
         }
-
-        return moveReturnData;
     }
 
     function extraDataType() external pure override returns (ExtraDataType) {

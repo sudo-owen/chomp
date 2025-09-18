@@ -29,7 +29,7 @@ contract Q5 is IMoveSet, BasicEffect {
         return "Q5";
     }
 
-    function move(bytes32, uint256 attackerPlayerIndex, bytes calldata, uint256) external returns (bytes memory) {
+    function move(bytes32, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         // Add effect to global effects
         ENGINE.addEffect(2, 2, this, abi.encode(1, attackerPlayerIndex));
 
@@ -37,8 +37,6 @@ contract Q5 is IMoveSet, BasicEffect {
         if (HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
             HeatBeaconLib._clearPriorityBoost(ENGINE, attackerPlayerIndex);
         }
-
-        return "";
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

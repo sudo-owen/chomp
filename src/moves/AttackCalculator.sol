@@ -23,7 +23,7 @@ library AttackCalculator {
         MoveClass attackSupertype,
         uint256 rng,
         uint256 critRate // out of 100
-    ) internal returns (int32) {
+    ) internal returns (int32, EngineEventType) {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
         (int32 damage, EngineEventType eventType) = _calculateDamageView(
             ENGINE,
@@ -46,7 +46,7 @@ library AttackCalculator {
         if (eventType != EngineEventType.None) {
             ENGINE.emitEngineEvent(eventType, "");
         }
-        return damage;
+        return (damage, eventType);
     }
 
     function _calculateDamageView(
