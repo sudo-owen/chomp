@@ -596,7 +596,7 @@ contract Engine is IEngine {
         address gameResult = battle.validator.validateGameOver(battleKey, priorityPlayerIndex);
         if (gameResult != address(0)) {
             // Ensure we only emit the event / update the state once (we may call this multiple times during one stack frame)
-            if (state.winner != address(0)) {
+            if (state.winner == address(0)) {
                 state.winner = gameResult;
                 battle.status = BattleProposalStatus.Ended;
                 emit BattleComplete(battleKey, gameResult);   
