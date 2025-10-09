@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {EffectStep} from "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
 import {BasicEffect} from "../BasicEffect.sol";
 import {StatusEffectLib} from "./StatusEffectLib.sol";

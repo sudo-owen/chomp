@@ -10,7 +10,6 @@ import "../src/Structs.sol";
 import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 
 import {Engine} from "../src/Engine.sol";
-import {IValidator} from "../src/IValidator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 import {CommitManager} from "../src/deprecated/CommitManager.sol";
 import {DefaultValidator} from "../src/deprecated/DefaultValidator.sol";

@@ -7,7 +7,6 @@ import "../../src/Enums.sol";
 import "../../src/Structs.sol";
 
 import {IEngine} from "../../src/IEngine.sol";
-import {IEffect} from "../../src/effects/IEffect.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 
 contract InvalidMove is IMoveSet {

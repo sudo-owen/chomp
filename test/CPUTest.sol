@@ -17,7 +17,6 @@ import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 
 import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
-import {ICPURNG} from "../src/rng/ICPURNG.sol";
 
 import {MockCPURNG} from "./mocks/MockCPURNG.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";

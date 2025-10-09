@@ -29,7 +29,7 @@ Unexpected Carrot,Sofabbi,80,2,100,0,Nature,Physical,Deals damage.,No
 Snack Break,Sofabbi,0,1,100,0,Nature,Self,"Heal for 1/2 of health. Effectiveness reduces by half each time, until a min of 1/16.",No
 Electrocute,Volthare,90,2,100,0,Lightning,Special,"Deals damage, 10% chance to cause Zap. A Zapped mon skips its next turn.",No
 Round Trip,Volthare,30,1,100,0,Lightning,Special,"Deals damage, then switches out.",Yes
-Mega Star Blast,Volthare,150,3,0,2,Lightning,Special,"+2 priority. If used during Storm, clears Storm and accuracy is 100%. Otherwise accuracy is 50%. Deals damage, 30% chance to cause Zap.",No
+Mega Star Blast,Volthare,150,3,?,2,Lightning,Special,"+2 priority. If used during Storm, clears Storm and accuracy is 100%. Otherwise accuracy is 50%. Deals damage, 30% chance to cause Zap.",No
 Dual Shock,Volthare,60,0,100,0,Lightning,Special,Deals damage and inflicts Zap on self.,No
 Honey Bribe,Embursa,0,2,100,0,Nature,Self,Heals both self and opponent by 1/2 of max HP. (Each subsequent use cuts HP healed in half). Lowers opponent SpDEF by 50%.,No
 Set Ablaze,Embursa,90,3,100,0,Fire,Special,"Deals damage, 30% chance of Burn.",No

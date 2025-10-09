@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "../Enums.sol";
 import "../Structs.sol";
-import {IMoveSet} from "../moves/IMoveSet.sol";
 
 abstract contract BasicEffect is IEffect {
     function name() external virtual returns (string memory) {

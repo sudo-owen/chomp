@@ -7,9 +7,6 @@ import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
-import {IEffect} from "../../effects/IEffect.sol";
-import {AttackCalculator} from "../../moves/AttackCalculator.sol";
-import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract SnackBreak is IMoveSet {
 

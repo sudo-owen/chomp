@@ -13,30 +13,14 @@ import {FastValidator} from "../src/FastValidator.sol";
 import {IValidator} from "../src/IValidator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 
-import {IEffect} from "../src/effects/IEffect.sol";
-
+import {IEngineHook} from "../src/IEngineHook.sol";
+import {IMoveManager} from "../src/IMoveManager.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
-import {CustomAttack} from "./mocks/CustomAttack.sol";
-
-import {AfterDamageReboundEffect} from "./mocks/AfterDamageReboundEffect.sol";
-import {EffectAbility} from "./mocks/EffectAbility.sol";
-import {EffectAttack} from "./mocks/EffectAttack.sol";
-import {ForceSwitchMove} from "./mocks/ForceSwitchMove.sol";
-import {GlobalEffectAttack} from "./mocks/GlobalEffectAttack.sol";
-import {InstantDeathOnSwitchInEffect} from "./mocks/InstantDeathOnSwitchInEffect.sol";
-import {InvalidMove} from "./mocks/InvalidMove.sol";
-import {MockRandomnessOracle} from "./mocks/MockRandomnessOracle.sol";
-
-import {OneTurnStatBoost} from "./mocks/OneTurnStatBoost.sol";
-import {SingleInstanceEffect} from "./mocks/SingleInstanceEffect.sol";
-import {SkipTurnMove} from "./mocks/SkipTurnMove.sol";
-import {TempStatBoostEffect} from "./mocks/TempStatBoostEffect.sol";
-import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {BattleHelper} from "./abstract/BattleHelper.sol";
-import {IEngineHook} from "../src/IEngineHook.sol";
-import {IMoveManager} from "../src/IMoveManager.sol";
+import {CustomAttack} from "./mocks/CustomAttack.sol";
+import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 
@@ -216,7 +200,15 @@ contract FastEngineTest is Test, BattleHelper {
         // Have Alice accept the battle Bob proposed
         vm.startPrank(ALICE);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash, args.engineHook, args.moveManager)
+            abi.encodePacked(
+                args.validator,
+                args.rngOracle,
+                args.ruleset,
+                args.teamRegistry,
+                bobArgs.p0TeamHash,
+                args.engineHook,
+                args.moveManager
+            )
         );
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
 
@@ -282,7 +274,15 @@ contract FastEngineTest is Test, BattleHelper {
         bytes32 battleKey = engine.proposeBattle(args);
         vm.startPrank(BOB);
         bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, aliceTeamHash, args.engineHook, args.moveManager)
+            abi.encodePacked(
+                args.validator,
+                args.rngOracle,
+                args.ruleset,
+                args.teamRegistry,
+                aliceTeamHash,
+                args.engineHook,
+                args.moveManager
+            )
         );
         engine.acceptBattle(battleKey, 0, battleIntegrityHash);
         vm.startPrank(ALICE);

@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "../Enums.sol";
 import "../Structs.sol";
 
-import {IEffect} from "../effects/IEffect.sol";
 
 interface IMoveSet {
     function name() external view returns (string memory);

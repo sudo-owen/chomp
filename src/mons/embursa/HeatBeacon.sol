@@ -8,7 +8,6 @@ import "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
 import {IEffect} from "../../effects/IEffect.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
-import {AttackCalculator} from "../../moves/AttackCalculator.sol";
 import {HeatBeaconLib} from "./HeatBeaconLib.sol";
 
 contract HeatBeacon is IMoveSet {

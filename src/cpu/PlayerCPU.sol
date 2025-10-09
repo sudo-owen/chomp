@@ -2,18 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {IEngine} from "../IEngine.sol";
-import {IValidator} from "../IValidator.sol";
-import {MonStateIndexName} from "../Enums.sol";
 
-import {IMoveSet} from "../moves/IMoveSet.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
-import {ICPU} from "./ICPU.sol";
 import {CPU} from "./CPU.sol";
 
-import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
-import {ExtraDataType} from "../Enums.sol";
-import {Battle, BattleState, RevealedMove} from "../Structs.sol";
+import {RevealedMove} from "../Structs.sol";
 
 contract PlayerCPU is CPU {
 

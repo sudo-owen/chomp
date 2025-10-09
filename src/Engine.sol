@@ -595,9 +595,12 @@ contract Engine is IEngine {
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
         address gameResult = battle.validator.validateGameOver(battleKey, priorityPlayerIndex);
         if (gameResult != address(0)) {
-            state.winner = gameResult;
-            battle.status = BattleProposalStatus.Ended;
-            emit BattleComplete(battleKey, gameResult);
+            // Ensure we only emit the event / update the state once (we may call this multiple times during one stack frame)
+            if (state.winner != address(0)) {
+                state.winner = gameResult;
+                battle.status = BattleProposalStatus.Ended;
+                emit BattleComplete(battleKey, gameResult);   
+            }
             isGameOver = true;
         } else {
             // Always set default switch to be 2 (allow both players to make a move)

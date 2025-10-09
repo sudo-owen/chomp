@@ -7,7 +7,7 @@ import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {Engine} from "../../src/Engine.sol";
-import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
+import {MonStateIndexName, Type} from "../../src/Enums.sol";
 import {FastCommitManager} from "../../src/FastCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
@@ -35,9 +35,7 @@ import {Overclock} from "../../src/mons/volthare/Overclock.sol";
 
 import {DummyStatus} from "../mocks/DummyStatus.sol";
 
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
-import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
 contract VolthareTest is Test, BattleHelper {
     Engine engine;

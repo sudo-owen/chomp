@@ -10,7 +10,6 @@ import "../src/Structs.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {DefaultTeamRegistry} from "../src/teams/DefaultTeamRegistry.sol";
 
-import {StandardAttack} from "../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";

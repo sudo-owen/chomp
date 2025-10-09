@@ -8,7 +8,6 @@ import "../../src/Enums.sol";
 import "../../src/Structs.sol";
 
 import {Engine} from "../../src/Engine.sol";
-import {IValidator} from "../../src/IValidator.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {CommitManager} from "../../src/deprecated/CommitManager.sol";
 import {DefaultValidator} from "../../src/deprecated/DefaultValidator.sol";
@@ -35,7 +34,6 @@ import {StaminaRegen} from "../../src/effects/StaminaRegen.sol";
 import {DefaultRuleset} from "../../src/DefaultRuleset.sol";
 
 // Import standard attack factory and template
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 

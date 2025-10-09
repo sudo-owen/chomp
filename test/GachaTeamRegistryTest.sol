@@ -8,19 +8,15 @@ import "../src/Enums.sol";
 import "../src/Structs.sol";
 
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
-import {DefaultTeamRegistry} from "../src/teams/DefaultTeamRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 import {GachaRegistry} from "../src/gacha/GachaRegistry.sol";
 import {Engine} from "../src/Engine.sol";
-import {IGachaRNG} from "../src/rng/IGachaRNG.sol";
 
 import {MockGachaRNG} from "./mocks/MockGachaRNG.sol";
 
 import {IAbility} from "../src/abilities/IAbility.sol";
-import {IEffect} from "../src/effects/IEffect.sol";
 
-import {IEngine} from "../src/IEngine.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 
 contract GachaTeamRegistryTest is Test {

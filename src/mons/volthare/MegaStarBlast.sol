@@ -7,7 +7,6 @@ import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
 
-import {IAbility} from "../../abilities/IAbility.sol";
 import {IEffect} from "../../effects/IEffect.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";

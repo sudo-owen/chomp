@@ -3,22 +3,13 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
-import {Type} from "../src/Enums.sol";
 
 import {IEngine} from "../src/IEngine.sol";
-import {MonStats} from "../src/Structs.sol";
-import {IAbility} from "../src/abilities/IAbility.sol";
-import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
-import {RandomCPU} from "../src/cpu/RandomCPU.sol";
-import {IEffect} from "../src/effects/IEffect.sol";
-import {IMoveSet} from "../src/moves/IMoveSet.sol";
-import {ICPURNG} from "../src/rng/ICPURNG.sol";
 import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 
-import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
 
 struct DeployData {
     string name;

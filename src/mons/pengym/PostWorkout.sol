@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-import {NO_OP_MOVE_INDEX} from "../../Constants.sol";
 import {EffectStep, MonStateIndexName} from "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
 import "../../Structs.sol";

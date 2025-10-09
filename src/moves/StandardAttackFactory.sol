@@ -5,7 +5,6 @@ import "../Enums.sol";
 import "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
-import {IEffect} from "../effects/IEffect.sol";
 
 import {Ownable} from "../lib/Ownable.sol";
 import {ITypeCalculator} from "../types/ITypeCalculator.sol";

@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {EffectStep, MonStateIndexName} from "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
-import {IEffect} from "../IEffect.sol";
 
 import {StatusEffect} from "./StatusEffect.sol";
 

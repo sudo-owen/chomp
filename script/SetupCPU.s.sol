@@ -4,26 +4,7 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
-import {IMoveSet} from "../src/moves/IMoveSet.sol";
-import {IAbility} from "../src/abilities/IAbility.sol";
-import {IEffect} from "../src/effects/IEffect.sol";
-import {Engine} from "../src/Engine.sol";
-import {IEngine} from "../src/IEngine.sol";
-import {FastCommitManager} from "../src/FastCommitManager.sol";
-import {DefaultRuleset} from "../src/DefaultRuleset.sol";
-import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
-import {TypeCalculator} from "../src/types/TypeCalculator.sol";
-import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
-import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
-import {DefaultTeamRegistry} from "../src/teams/DefaultTeamRegistry.sol";
-import {FastValidator} from "../src/FastValidator.sol";
-import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
-import {ICPURNG} from "../src/rng/ICPURNG.sol";
-import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
-import {RandomCPU} from "../src/cpu/RandomCPU.sol";
-import {MonStats} from "../src/Structs.sol";
-import {Type} from "../src/Enums.sol";
 
 struct DeployData {
     string name;
