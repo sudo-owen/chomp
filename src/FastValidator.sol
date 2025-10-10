@@ -51,6 +51,15 @@ contract FastValidator is IValidator {
         address[2] memory players = [b.p0, b.p1];
         uint256[2] memory teamIndex = [p0TeamIndex, b.p1TeamIndex];
 
+        // If either player has a team count of zero, then it's invalid
+        {
+            uint256 p0teamCount = teamRegistry.getTeamCount(b.p0);
+            uint256 p1TeamCount = teamRegistry.getTeamCount(b.p1);
+            if (p0teamCount == 0 || p1TeamCount == 0) {
+                return false;
+            }
+        }
+
         for (uint256 i; i < playerIndices.length; ++i) {
             if (b.teams[i].length != MONS_PER_TEAM) {
                 return false;

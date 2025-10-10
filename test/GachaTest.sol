@@ -97,9 +97,27 @@ contract GachaTest is Test, BattleHelper {
         }
 
         // Start battle
+        Mon[] memory team = new Mon[](1);
+        team[0] = Mon({
+            stats: MonStats({
+                hp: 10,
+                stamina: 2,
+                speed: 2,
+                attack: 1,
+                defense: 1,
+                specialAttack: 1,
+                specialDefense: 1,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: new IMoveSet[](0),
+            ability: IAbility(address(0))
+        });
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
         FastValidator validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 0, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
+            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
 
         // Alice commits switching to mon index 0
@@ -146,11 +164,28 @@ contract GachaTest is Test, BattleHelper {
         }
 
         // Start battle (do it 6 times so Alice has enough to spend on a roll)
+        Mon[] memory team = new Mon[](1);
+        team[0] = Mon({
+            stats: MonStats({
+                hp: 10,
+                stamina: 2,
+                speed: 2,
+                attack: 1,
+                defense: 1,
+                specialAttack: 1,
+                specialDefense: 1,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: new IMoveSet[](0),
+            ability: IAbility(address(0))
+        });
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
         for (uint256 i = 0; i < 6; i++) {
             vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + (i + 1));
             FastValidator validator =
-                new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 0, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
-            defaultRegistry.setTeam(ALICE, new Mon[](0));
+                new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
             bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
 
             // Alice commits switching to mon index 0
