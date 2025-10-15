@@ -1,5 +1,16 @@
 # TODO
 
+## Reduce challenges to be just 1 tx needed (or 2)
+- Engine only cares about starting a battle, and relies on a BattleCreator (or just Validator again?) to tell us if it's valid or not
+- start battle takes in 2 teams, and the rest of the info
+- users need to auth/revoke a Creator to start matches
+- a Creator is responsible for handling its own state, and has an interface of IValidateBattle(battle configs)
+
+## Engine overhaul
+- Consider letting callers modify battle values (e.g. type / base stats)
+
+- Change interface of CommitManager to be consistent between player index or player address
+
 - Slightly smarter CPU
     - only rest when it makes sense
     - swap less often
