@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./Structs.sol";
 
-interface IFastCommitManager {
+interface ICommitManager {
     function commitMove(bytes32 battleKey, bytes32 moveHash) external;
     function revealMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes calldata extraData, bool autoExecute)
         external;

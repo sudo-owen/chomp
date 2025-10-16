@@ -6,10 +6,10 @@ import "./Enums.sol";
 import "./Structs.sol";
 
 import {IEngine} from "./IEngine.sol";
-import {IFastCommitManager} from "./IFastCommitManager.sol";
+import {ICommitManager} from "./ICommitManager.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 
-contract FastCommitManager is IFastCommitManager, IMoveManager {
+contract FastCommitManager is ICommitManager, IMoveManager {
     // State variables
     IEngine private immutable ENGINE;
     mapping(bytes32 battleKey => mapping(address player => MoveCommitment)) private commitments;

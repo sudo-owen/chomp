@@ -43,3 +43,4 @@ drool/*
 !drool/utils.js
 !drool/combine.py
 !drool/switch-animation.py
+!drool/docs
