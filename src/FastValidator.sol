@@ -197,7 +197,71 @@ contract FastValidator is IValidator {
         return address(0);
     }
 
-    function validateTimeout(bytes32 battleKey, uint256 presumedAFKPlayerIndex) external view returns (address) {
+    function validateTimeout(bytes32 battleKey, uint256 playerIndexToCheck) external view returns (address winner) {
+        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        ICommitManager commitManager = ICommitManager(address(ENGINE.getMoveManager(battleKey)));
+        uint256[] memory switchForTurnFlagHistory = ENGINE.getPlayerSwitchForTurnFlagHistory(battleKey);
+        uint256 prevPlayerSwitchForTurnFlag = switchForTurnFlagHistory[switchForTurnFlagHistory.length - 1];
+        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
+        uint256 lastTurnTimestamp;
+        if (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1) {
+            lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
+        }
+        else {
+            lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag % 2]);
+        }
+        uint256 currentPlayerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
+
+        /*
+        Switch for turn flag:
+
+        // 0 or 1:
+        - if it's not us, then we skip
+        - if it is us, then we need to check the timestamp from last turn, and we either timeout or don't [x]
+
+        // 2:
+        - we are committing + revealing:
+            - we have not committed:
+                - check the timestamp from last turn, and we either timeout or don't
+
+            - we have already committed:
+                - other player has revealed
+                    - check the timestamp from their reveal, and we either timeout or don't
+                - other player has not revealed
+                    - we don't timeout
+
+        - we are revealing:
+            - other player has not committed:
+                - we don't timeout
+
+            - other player has committed:
+                - check the timestamp from their commit, and we either timeout or don't
+        */
+
+        // It's a single player turn, and it's our turn:
+        if (currentPlayerSwitchForTurnFlag == 0 || currentPlayerSwitchForTurnFlag == 1) {
+            if (currentPlayerSwitchForTurnFlag == playerIndexToCheck) {
+                if (block.timestamp >= lastTurnTimestamp + TIMEOUT_DURATION) {
+                    return players[playerIndexToCheck];
+                }
+            }
+        }
+        // It's a two player turn:
+        else {
+            // We are committing + revealing:
+            if (turnId % 2 == playerIndexToCheck) {
+            }
+            // We are revealing:
+            else {
+
+            }
+        }
+
+        return address(0);
+    }
+
+    /*
+    function validateTimeout(bytes32 battleKey, uint256 presumedAFKPlayerIndex) external view returns (address winner) {
         address[] memory players = ENGINE.getPlayersForBattle(battleKey);
         uint256 presumedHonestPlayerIndex = (presumedAFKPlayerIndex + 1) % 2;
         address presumedHonestPlayer;
@@ -252,11 +316,9 @@ contract FastValidator is IValidator {
             }
         }
         // If it's a one-player turn, and it's the presumed afk player's turn...
-        // Or, it's a two-player turn, and it's the presumed afk player only has to reveal...
         if (
             (playerSwitchForTurnFlag != 2 && playerSwitchForTurnFlag == presumedAFKPlayerIndex)
-                || (playerSwitchForTurnFlag == 2 && turnId % 2 != presumedAFKPlayerIndex)
-        ) {
+        ) { 
             // Check if the presumed AFK player has revealed yet
             uint256 movesPresumedAFKPlayerRevealed =
                 commitManager.getMoveCountForBattleState(battleKey, presumedAFKPlayerIndex);
@@ -266,6 +328,14 @@ contract FastValidator is IValidator {
                 return presumedHonestPlayer;
             }
         }
+        // If it's a two-player turn, and it's the presumed afk player only has to reveal (and the other player has already committed)...
+        else if (playerSwitchForTurnFlag == 2 && turnId % 2 != presumedAFKPlayerIndex) {
+            MoveCommitment memory otherPlayerCommitment = commitManager.getCommitment(battleKey, presumedHonestPlayer);
+            if (otherPlayerCommitment.turnId == turnId) {
+            }
+
+        }
         return address(0);
     }
+    */
 }

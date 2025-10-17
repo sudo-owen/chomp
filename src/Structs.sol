@@ -45,6 +45,7 @@ struct Battle {
 
 struct BattleState {
     uint256 turnId;
+    uint256[] playerSwitchForTurnFlagHistory;
     uint256 playerSwitchForTurnFlag; // 0 for p0 only move, 1 for p1 only move, 2 for both players
     uint256[] activeMonIndex;
     uint256[] pRNGStream;

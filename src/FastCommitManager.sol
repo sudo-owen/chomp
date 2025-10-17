@@ -208,6 +208,7 @@ contract FastCommitManager is ICommitManager, IMoveManager {
         }
 
         // 6) Store revealed move and extra data for the current player
+        // Update their last move timestamp
         playerMoveHistory.push(RevealedMove({moveIndex: moveIndex, salt: salt, extraData: extraData}));
         lastMoveTimestamp[battleKey][msg.sender] = block.timestamp;
 

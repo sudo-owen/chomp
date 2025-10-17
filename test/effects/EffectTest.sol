@@ -753,30 +753,8 @@ contract EffectTest is Test, BattleHelper {
 
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
-
-        // Create new battle with ruleset
-        vm.startPrank(ALICE);
-        ProposedBattle memory proposal = ProposedBattle({
-            p0: ALICE,
-            p0TeamHash: keccak256(
-                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-            ),
-            p0TeamIndex: 0,
-            p1: BOB,
-            p1TeamIndex: 0,
-            validator: oneMonOneMoveValidator,
-            rngOracle: mockOracle,
-            ruleset: rules,
-            teamRegistry: defaultRegistry,
-            engineHook: IEngineHook(address(0)),
-            moveManager: IMoveManager(address(0)),
-            matchmaker: matchmaker
-        });
-        bytes32 battleKey = matchmaker.proposeBattle(proposal);
-        vm.startPrank(BOB);
-        matchmaker.acceptBattle(battleKey, 0, matchmaker.getBattleProposalIntegrityHash(proposal));
-        vm.startPrank(ALICE);
-        matchmaker.confirmBattle(battleKey, bytes32(""), 0);
+        
+        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(

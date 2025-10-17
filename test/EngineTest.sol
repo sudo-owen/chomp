@@ -2879,14 +2879,9 @@ contract EngineTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Alice commits to a move
-        bytes32 salt = "";
-        uint256 moveIndex = 0;
-        bytes32 moveHash = keccak256(abi.encodePacked(moveIndex, salt, ""));
-        vm.startPrank(ALICE);
-        commitManager.commitMove(battleKey, moveHash);
+        // Bob does nothing (it's his turn to move, so he'll lose by timeout)
 
-        // Skip ahead 1 second
+        // Skip ahead 1 second (past the timeout)
         vm.warp(block.timestamp + 1);
 
         // End the battle
@@ -2899,6 +2894,6 @@ contract EngineTest is Test, BattleHelper {
         // // Bob should not be able to commit to the ended battle
         vm.startPrank(BOB);
         vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
-        commitManager.commitMove(battleKey, moveHash);
+        commitManager.commitMove(battleKey, bytes32(0));
     }
 }

@@ -172,6 +172,9 @@ contract Engine is IEngine {
         uint256 playerSwitchForTurnFlag = 2;
         uint256 priorityPlayerIndex;
 
+        // Store the player switch for turn flag history
+        state.playerSwitchForTurnFlagHistory.push(state.playerSwitchForTurnFlag);
+
         // Set the battle key for the stack frame
         // (gets cleared at the end of the transaction)
         battleKeyForWrite = battleKey;
@@ -989,6 +992,10 @@ contract Engine is IEngine {
             return battleStates[battleKey].pRNGStream[battleStates[battleKey].pRNGStream.length - 1];
         }
         return battleStates[battleKey].pRNGStream[index];
+    }
+
+    function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory) {
+        return battleStates[battleKey].playerSwitchForTurnFlagHistory;
     }
 
     // To be called once (after moveManager is deployed and set to the Engine)
