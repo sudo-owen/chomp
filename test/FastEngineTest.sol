@@ -253,14 +253,25 @@ contract FastEngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, dummyTeam);
         defaultRegistry.setTeam(BOB, dummyTeam);
 
+        // Authorize matchmaker
+        vm.startPrank(ALICE);
+        address[] memory makersToAdd = new address[](1);
+        makersToAdd[0] = address(matchmaker);
+        address[] memory makersToRemove = new address[](0);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
+        vm.startPrank(BOB);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
+
         // Create a battle with Alice as p0 and zero address as p1
         vm.startPrank(ALICE);
+        bytes32 salt = "";
+        uint96 p0TeamIndex = 0;
+        uint256[] memory p0TeamIndices = defaultRegistry.getMonRegistryIndicesForTeam(ALICE, p0TeamIndex);
+        bytes32 p0TeamHash = keccak256(abi.encodePacked(salt, p0TeamIndex, p0TeamIndices));
         ProposedBattle memory proposal = ProposedBattle({
             p0: ALICE,
             p0TeamIndex: 0,
-            p0TeamHash: keccak256(
-                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-            ),
+            p0TeamHash: p0TeamHash,
             p1: address(0),
             p1TeamIndex: 0,
             teamRegistry: defaultRegistry,
@@ -273,9 +284,10 @@ contract FastEngineTest is Test, BattleHelper {
         });
         bytes32 battleKey = matchmaker.proposeBattle(proposal);
         vm.startPrank(BOB);
-        matchmaker.acceptBattle(battleKey, 0, matchmaker.getBattleProposalIntegrityHash(proposal));
+        // Set battleKey to be updated battle key
+        battleKey = matchmaker.acceptBattle(battleKey, 0, matchmaker.getBattleProposalIntegrityHash(proposal));
         vm.startPrank(ALICE);
-        matchmaker.confirmBattle(battleKey, bytes32(""), 0);
+        matchmaker.confirmBattle(battleKey, salt, p0TeamIndex);
 
         // Verify Bob is now p1
         assertEq(engine.getPlayersForBattle(battleKey)[1], BOB);

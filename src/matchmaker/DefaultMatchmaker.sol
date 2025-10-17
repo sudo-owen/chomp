@@ -11,8 +11,8 @@ contract DefaultMatchmaker is IMatchmaker {
 
     Engine public immutable ENGINE;
 
-    event BattleProposal(address indexed p0, address indexed p1, bytes32 battleKey);
-    event BattleAcceptance(address indexed p1, bytes32 battleKey, uint256 p1TeamIndex);
+    event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1);
+    event BattleAcceptance(bytes32 indexed battleKey, address indexed p1, bytes32 indexed updatedBattleKey);
 
     error ProposerNotP0();
     error AcceptorNotP1();
@@ -22,6 +22,7 @@ contract DefaultMatchmaker is IMatchmaker {
     error BattleNotAccepted();
 
     mapping(bytes32 battleKey => ProposedBattle) private proposals;
+    mapping(bytes32 newBattleKey => bytes32 oldBattleKey) private preP1FillBattleKey;
 
     constructor(Engine engine) {
         ENGINE = engine;
@@ -30,8 +31,6 @@ contract DefaultMatchmaker is IMatchmaker {
     function getBattleProposalIntegrityHash(ProposedBattle memory proposal) public pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
-                proposal.p0,
-                proposal.p1,
                 proposal.p0TeamHash,
                 proposal.validator,
                 proposal.rngOracle,
@@ -51,14 +50,18 @@ contract DefaultMatchmaker is IMatchmaker {
         (battleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
         proposals[battleKey] = proposal;
         proposals[battleKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
-        emit BattleProposal(proposal.p0, proposal.p1, battleKey);
+        emit BattleProposal(battleKey, proposal.p0, proposal.p1);
         return battleKey;
     }
 
-    function acceptBattle(bytes32 battleKey, uint96 p1TeamIndex, bytes32 battleIntegrityHash) external {
-        ProposedBattle memory proposal = proposals[battleKey];
+    function acceptBattle(bytes32 battleKey, uint96 p1TeamIndex, bytes32 battleIntegrityHash) external returns (bytes32 updatedBattleKey) {
+        ProposedBattle storage proposal = proposals[battleKey];
+        // Override battle key if p1 is accepting an open battle proposal
         if (proposal.p1 == address(0)) {
             proposal.p1 = msg.sender;
+            (bytes32 newBattleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
+            preP1FillBattleKey[newBattleKey] = battleKey;
+            updatedBattleKey = newBattleKey;
         }
         else if (proposal.p1 != msg.sender) {
             revert AcceptorNotP1();
@@ -66,12 +69,17 @@ contract DefaultMatchmaker is IMatchmaker {
         if (getBattleProposalIntegrityHash(proposal) != battleIntegrityHash) {
             revert BattleChangedBeforeAcceptance();
         }
-        proposals[battleKey].p1TeamIndex = p1TeamIndex;
-        emit BattleAcceptance(msg.sender, battleKey, p1TeamIndex);
+        proposal.p1TeamIndex = p1TeamIndex;
+        emit BattleAcceptance(battleKey, msg.sender, updatedBattleKey);
     }
 
     function confirmBattle(bytes32 battleKey, bytes32 salt, uint96 p0TeamIndex) external {
-        ProposedBattle memory proposal = proposals[battleKey];
+        bytes32 battleKeyToUse = battleKey;
+        bytes32 battleKeyOverride = preP1FillBattleKey[battleKey];
+        if (battleKeyOverride != bytes32(0)) {
+            battleKeyToUse = battleKeyOverride;
+        }
+        ProposedBattle storage proposal = proposals[battleKeyToUse];
         if (proposal.p1TeamIndex == UNSET_P1_TEAM_INDEX) {
             revert BattleNotAccepted();
         }
@@ -101,7 +109,12 @@ contract DefaultMatchmaker is IMatchmaker {
     }
 
     function validateMatch(bytes32 battleKey, address player) external view returns (bool) {
-        ProposedBattle memory proposal = proposals[battleKey];
+        bytes32 battleKeyToUse = battleKey;
+        bytes32 battleKeyOverride = preP1FillBattleKey[battleKey];
+        if (battleKeyOverride != bytes32(0)) {
+            battleKeyToUse = battleKeyOverride;
+        }
+        ProposedBattle storage proposal = proposals[battleKeyToUse];
         bool isPlayer = player == proposal.p0 || player == proposal.p1;
         return isPlayer;
     }

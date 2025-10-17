@@ -99,10 +99,10 @@ abstract contract BattleHelper is Test {
         address[] memory makersToAdd = new address[](1);
         makersToAdd[0] = address(matchmaker);
         address[] memory makersToRemove = new address[](0);
-        engine.authorizeMatchmaker(makersToAdd, makersToRemove);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
 
         vm.startPrank(BOB);
-        engine.authorizeMatchmaker(makersToAdd, makersToRemove);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
 
         // Compute p0 team hash
         bytes32 salt = "";

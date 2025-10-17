@@ -15,7 +15,7 @@ contract Engine is IEngine {
 
     // Public state variables
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
-    mapping(bytes32 => uint256) public pairHashNonces; // intended to be read by anyone
+    mapping(bytes32 => uint256) public pairHashNonces; // imposes a global ordering across all matches
     mapping(address player => mapping(address maker => bool)) public isMatchmakerFor;
 
     // Private state variables (battles and battleStates values are granularly accessible via getters)
@@ -82,7 +82,7 @@ contract Engine is IEngine {
     event EngineEvent(bytes32 indexed battleKey, EngineEventType eventType, bytes eventData, address source, uint256 step
     );
 
-    function authorizeMatchmaker(address[] memory makersToAdd, address[] memory makersToRemove) external {
+    function updateMatchmakers(address[] memory makersToAdd, address[] memory makersToRemove) external {
         for (uint256 i; i < makersToAdd.length; ++i) {
             isMatchmakerFor[msg.sender][makersToAdd[i]] = true;
         }
