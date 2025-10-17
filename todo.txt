@@ -1,15 +1,11 @@
 # TODO
 
-## Reduce challenges to be just 1 tx needed (or 2)
-- Engine only cares about starting a battle, and relies on a BattleCreator (or just Validator again?) to tell us if it's valid or not
-- start battle takes in 2 teams, and the rest of the info
-- users need to auth/revoke a Creator to start matches
-- a Creator is responsible for handling its own state, and has an interface of IValidateBattle(battle configs)
+1) Create new Matchmaker tests to ensure that all the errors are triggered, think about the edge cases
+2) Ensure the Engine correctly works when both players are KOed (but at different times) (p sure the Engine already supports this with a given test)
+3) Add unsafe propose/start flows to DefaultMatchmaker so people can start matches even faster
 
 ## Engine overhaul
 - Consider letting callers modify battle values (e.g. type / base stats)
-
-- Change interface of CommitManager to be consistent between player index or player address
 
 - Slightly smarter CPU
     - only rest when it makes sense

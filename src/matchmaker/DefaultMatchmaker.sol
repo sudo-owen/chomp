@@ -83,6 +83,7 @@ contract DefaultMatchmaker is IMatchmaker {
         if (revealedP0TeamHash != proposal.p0TeamHash) {
             revert InvalidP0TeamHash();
         }
+        Mon[][] memory emptyTeams = new Mon[][](2);
         ENGINE.startBattle(Battle({
             p0: proposal.p0,
             p0TeamIndex: p0TeamIndex,
@@ -95,7 +96,7 @@ contract DefaultMatchmaker is IMatchmaker {
             engineHook: proposal.engineHook,
             moveManager: proposal.moveManager,
             matchmaker: proposal.matchmaker,
-            teams: new Mon[][](0)
+            teams: emptyTeams
         }));
     }
 

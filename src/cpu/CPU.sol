@@ -157,7 +157,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
         }));
     }
 
-    function validateMatch(bytes32 battleKey, address player) external view returns (bool) {
+    function validateMatch(bytes32, address) external pure returns (bool) {
         return true;
     } 
 }

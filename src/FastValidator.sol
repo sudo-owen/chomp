@@ -9,9 +9,7 @@ import {IEngine} from "./IEngine.sol";
 import {IValidator} from "./IValidator.sol";
 
 import {ICommitManager} from "./ICommitManager.sol";
-import {IMoveManager} from "./IMoveManager.sol";
 import {IMonRegistry} from "./teams/IMonRegistry.sol";
-import {ITeamRegistry} from "./teams/ITeamRegistry.sol";
 
 contract FastValidator is IValidator {
     struct Args {

@@ -15,6 +15,7 @@ import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {BattleHelper} from "./abstract/BattleHelper.sol";
 
 import {MockGachaRNG} from "./mocks/MockGachaRNG.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 import "./mocks/TestTeamRegistry.sol";
 
@@ -25,6 +26,7 @@ contract GachaTest is Test, BattleHelper {
     TestTeamRegistry defaultRegistry;
     DefaultMonRegistry monRegistry;
     MockGachaRNG mockRNG;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
@@ -34,6 +36,7 @@ contract GachaTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         monRegistry = new DefaultMonRegistry();
         mockRNG = new MockGachaRNG();
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_firstRoll() public {
@@ -118,7 +121,7 @@ contract GachaTest is Test, BattleHelper {
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
         FastValidator validator =
             new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
 
         // Alice commits switching to mon index 0
         vm.startPrank(ALICE);
@@ -186,7 +189,7 @@ contract GachaTest is Test, BattleHelper {
             vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + (i + 1));
             FastValidator validator =
                 new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
-            bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
+            bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
 
             // Alice commits switching to mon index 0
             vm.startPrank(ALICE);
@@ -265,7 +268,7 @@ contract GachaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
 
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
         
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
@@ -313,7 +316,7 @@ contract GachaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
 
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
         
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
@@ -337,7 +340,7 @@ contract GachaTest is Test, BattleHelper {
         assertGt(bobPoints, 0);
 
         // Start another battle
-        battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, gachaRegistry);
+        battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
         aliceMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(0)));
         vm.startPrank(ALICE);
         commitManager.commitMove(battleKey, aliceMoveHash);

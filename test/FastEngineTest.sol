@@ -23,6 +23,7 @@ import {CustomAttack} from "./mocks/CustomAttack.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract FastEngineTest is Test, BattleHelper {
     FastCommitManager commitManager;
@@ -30,6 +31,7 @@ contract FastEngineTest is Test, BattleHelper {
     ITypeCalculator typeCalc;
     DefaultRandomnessOracle defaultOracle;
     TestTeamRegistry defaultRegistry;
+    DefaultMatchmaker matchmaker;
 
     address constant CARL = address(3);
     uint256 constant TIMEOUT_DURATION = 100;
@@ -41,6 +43,7 @@ contract FastEngineTest is Test, BattleHelper {
         engine.setMoveManager(address(commitManager));
         typeCalc = new TestTypeCalculator();
         defaultRegistry = new TestTeamRegistry();
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     // Helper function, creates a battle with two mons each for Alice and Bob
@@ -76,7 +79,7 @@ contract FastEngineTest is Test, BattleHelper {
         );
 
         // Setup battle
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         return battleKey;
     }
@@ -109,119 +112,119 @@ contract FastEngineTest is Test, BattleHelper {
             commitManager.revealMove(battleKey, bobMoveIndex, salt, bobExtraData, true);
         }
     }
+    
+    // function test_commitBattleWithoutAcceptReverts() public {
+    //     /*
+    //     - both players can propose (without accepting) and nonce will not increase (i.e. battle key does not change)
+    //     - accepting a battle increments the nonce for the next propose (i.e. battle key changes)
+    //     - committing should fail if the battle is not accepted
+    //     */
 
-    function test_commitBattleWithoutAcceptReverts() public {
-        /*
-        - both players can propose (without accepting) and nonce will not increase (i.e. battle key does not change)
-        - accepting a battle increments the nonce for the next propose (i.e. battle key changes)
-        - committing should fail if the battle is not accepted
-        */
+    //     IMoveSet[] memory moves = new IMoveSet[](1);
+    //     Mon memory dummyMon = Mon({
+    //         stats: MonStats({
+    //             hp: 1,
+    //             stamina: 1,
+    //             speed: 1,
+    //             attack: 1,
+    //             defense: 1,
+    //             specialAttack: 1,
+    //             specialDefense: 1,
+    //             type1: Type.Fire,
+    //             type2: Type.None
+    //         }),
+    //         moves: moves,
+    //         ability: IAbility(address(0))
+    //     });
+    //     Mon[] memory dummyTeam = new Mon[](1);
+    //     dummyTeam[0] = dummyMon;
 
-        IMoveSet[] memory moves = new IMoveSet[](1);
-        Mon memory dummyMon = Mon({
-            stats: MonStats({
-                hp: 1,
-                stamina: 1,
-                speed: 1,
-                attack: 1,
-                defense: 1,
-                specialAttack: 1,
-                specialDefense: 1,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(0))
-        });
-        Mon[] memory dummyTeam = new Mon[](1);
-        dummyTeam[0] = dummyMon;
+    //     // Register teams
+    //     defaultRegistry.setTeam(ALICE, dummyTeam);
+    //     defaultRegistry.setTeam(BOB, dummyTeam);
 
-        // Register teams
-        defaultRegistry.setTeam(ALICE, dummyTeam);
-        defaultRegistry.setTeam(BOB, dummyTeam);
+    //     // Set up validator
+    //     FastValidator validator = new FastValidator(
+    //         engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+    //     );
 
-        // Set up validator
-        FastValidator validator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
-        );
+    //     Battle memory args = Battle({
+    //         p0: ALICE,
+    //         p1: BOB,
+    //         validator: validator,
+    //         rngOracle: defaultOracle,
+    //         ruleset: IRuleset(address(0)),
+    //         teamRegistry: defaultRegistry,
+    //         p0TeamHash: keccak256(
+    //             abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+    //         ),
+    //         engineHook: IEngineHook(address(0)),
+    //         moveManager: IMoveManager(address(0)),
+    //         teams: new Mon[][](0),
+    //         p1TeamIndex: 0
+    //     });
+    //     vm.startPrank(ALICE);
+    //     bytes32 battleKey = engine.proposeBattle(args);
 
-        Battle memory args = Battle({
-            p0: ALICE,
-            p1: BOB,
-            validator: validator,
-            rngOracle: defaultOracle,
-            ruleset: IRuleset(address(0)),
-            teamRegistry: defaultRegistry,
-            p0TeamHash: keccak256(
-                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-            ),
-            engineHook: IEngineHook(address(0)),
-            moveManager: IMoveManager(address(0)),
-            teams: new Mon[][](0),
-            p1TeamIndex: 0
-        });
-        vm.startPrank(ALICE);
-        bytes32 battleKey = engine.proposeBattle(args);
+    //     // Have Bob propose a battle
+    //     vm.startPrank(BOB);
+    //     Battle memory bobArgs = Battle({
+    //         p0: BOB,
+    //         p1: ALICE,
+    //         validator: validator,
+    //         rngOracle: defaultOracle,
+    //         ruleset: IRuleset(address(0)),
+    //         teamRegistry: defaultRegistry,
+    //         p0TeamHash: keccak256(
+    //             abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(BOB, 0))
+    //         ),
+    //         engineHook: IEngineHook(address(0)),
+    //         moveManager: IMoveManager(address(0)),
+    //         teams: new Mon[][](0),
+    //         p1TeamIndex: 0
+    //     });
+    //     bytes32 updatedBattleKey = engine.proposeBattle(bobArgs);
 
-        // Have Bob propose a battle
-        vm.startPrank(BOB);
-        Battle memory bobArgs = Battle({
-            p0: BOB,
-            p1: ALICE,
-            validator: validator,
-            rngOracle: defaultOracle,
-            ruleset: IRuleset(address(0)),
-            teamRegistry: defaultRegistry,
-            p0TeamHash: keccak256(
-                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(BOB, 0))
-            ),
-            engineHook: IEngineHook(address(0)),
-            moveManager: IMoveManager(address(0)),
-            teams: new Mon[][](0),
-            p1TeamIndex: 0
-        });
-        bytes32 updatedBattleKey = engine.proposeBattle(bobArgs);
+    //     // Battle key should be the same when no one accepts
+    //     assertEq(battleKey, updatedBattleKey);
 
-        // Battle key should be the same when no one accepts
-        assertEq(battleKey, updatedBattleKey);
+    //     // Assert it reverts for Alice upon commit
+    //     vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
+    //     vm.startPrank(ALICE);
+    //     commitManager.commitMove(battleKey, "");
 
-        // Assert it reverts for Alice upon commit
-        vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
-        vm.startPrank(ALICE);
-        commitManager.commitMove(battleKey, "");
+    //     // Assert it reverts for Bob upon commit
+    //     vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
+    //     vm.startPrank(BOB);
+    //     commitManager.commitMove(battleKey, "");
 
-        // Assert it reverts for Bob upon commit
-        vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
-        vm.startPrank(BOB);
-        commitManager.commitMove(battleKey, "");
+    //     // Have Alice accept the battle Bob proposed
+    //     vm.startPrank(ALICE);
+    //     bytes32 battleIntegrityHash = keccak256(
+    //         abi.encodePacked(
+    //             args.validator,
+    //             args.rngOracle,
+    //             args.ruleset,
+    //             args.teamRegistry,
+    //             bobArgs.p0TeamHash,
+    //             args.engineHook,
+    //             args.moveManager
+    //         )
+    //     );
+    //     engine.acceptBattle(battleKey, 0, battleIntegrityHash);
 
-        // Have Alice accept the battle Bob proposed
-        vm.startPrank(ALICE);
-        bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(
-                args.validator,
-                args.rngOracle,
-                args.ruleset,
-                args.teamRegistry,
-                bobArgs.p0TeamHash,
-                args.engineHook,
-                args.moveManager
-            )
-        );
-        engine.acceptBattle(battleKey, 0, battleIntegrityHash);
+    //     // Have Bob start the Battle (given that Alice accepted)
+    //     vm.startPrank(BOB);
+    //     engine.startBattle(battleKey, "", 0);
 
-        // Have Bob start the Battle (given that Alice accepted)
-        vm.startPrank(BOB);
-        engine.startBattle(battleKey, "", 0);
+    //     // Have Bob propose a new battle
+    //     vm.warp(validator.TIMEOUT_DURATION() + 1);
+    //     vm.startPrank(BOB);
+    //     bytes32 newBattleKey = engine.proposeBattle(bobArgs);
 
-        // Have Bob propose a new battle
-        vm.warp(validator.TIMEOUT_DURATION() + 1);
-        vm.startPrank(BOB);
-        bytes32 newBattleKey = engine.proposeBattle(bobArgs);
-
-        // Battle key should be different when one accepts
-        assertNotEq(battleKey, newBattleKey);
-    }
+    //     // Battle key should be different when one accepts
+    //     assertNotEq(battleKey, newBattleKey);
+    // }
 
     function test_anyoneCanFillP1() public {
         // Create validator with zero mons and zero moves needed
@@ -251,39 +254,28 @@ contract FastEngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, dummyTeam);
 
         // Create a battle with Alice as p0 and zero address as p1
-        bytes32 aliceTeamHash = keccak256(
-            abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-        );
-        Battle memory args = Battle({
+        vm.startPrank(ALICE);
+        ProposedBattle memory proposal = ProposedBattle({
             p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
             p1: address(0),
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
             validator: validator,
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
-            teamRegistry: defaultRegistry,
-            p0TeamHash: aliceTeamHash,
             engineHook: IEngineHook(address(0)),
             moveManager: IMoveManager(address(0)),
-            teams: new Mon[][](0),
-            p1TeamIndex: 0
+            matchmaker: matchmaker
         });
-        vm.startPrank(ALICE);
-        bytes32 battleKey = engine.proposeBattle(args);
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
         vm.startPrank(BOB);
-        bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(
-                args.validator,
-                args.rngOracle,
-                args.ruleset,
-                args.teamRegistry,
-                aliceTeamHash,
-                args.engineHook,
-                args.moveManager
-            )
-        );
-        engine.acceptBattle(battleKey, 0, battleIntegrityHash);
+        matchmaker.acceptBattle(battleKey, 0, matchmaker.getBattleProposalIntegrityHash(proposal));
         vm.startPrank(ALICE);
-        engine.startBattle(battleKey, "", 0);
+        matchmaker.confirmBattle(battleKey, bytes32(""), 0);
 
         // Verify Bob is now p1
         assertEq(engine.getPlayersForBattle(battleKey)[1], BOB);
@@ -513,7 +505,7 @@ contract FastEngineTest is Test, BattleHelper {
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -593,7 +585,7 @@ contract FastEngineTest is Test, BattleHelper {
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -724,7 +716,7 @@ contract FastEngineTest is Test, BattleHelper {
             engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(

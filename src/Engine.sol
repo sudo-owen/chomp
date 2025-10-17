@@ -108,6 +108,9 @@ contract Engine is IEngine {
             revert MatchmakerError();
         }
 
+        // Store the values in storage
+        battles[battleKey] = battle;
+
         // Set the team for p0 and p1
         battles[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
         battles[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
@@ -118,7 +121,7 @@ contract Engine is IEngine {
             battleStates[battleKey].activeMonIndex.push();
 
             // Initialize empty mon delta states for each mon on the team
-            for (uint256 j; j < battle.teams[i].length; ++j) {
+            for (uint256 j; j < battles[battleKey].teams[i].length; ++j) {
                 battleStates[battleKey].monStates[i].push();
             }
         }
