@@ -19,6 +19,7 @@ contract LookupTeamRegistry is ITeamRegistry {
 
     error InvalidTeamSize();
     error DuplicateMonId();
+    error InvalidTeamIndex();
 
     IMonRegistry immutable REGISTRY;
     uint256 immutable MONS_PER_TEAM;
@@ -115,6 +116,9 @@ contract LookupTeamRegistry is ITeamRegistry {
     }
 
     function getMonRegistryIndicesForTeam(address player, uint256 teamIndex) public view returns (uint256[] memory) {
+        if (teamIndex >= numTeams[player]) {
+            revert InvalidTeamIndex();
+        }
         uint256[] memory ids = new uint256[](MONS_PER_TEAM);
         for (uint256 i; i < MONS_PER_TEAM; ++i) {
             ids[i] = _getMonRegistryIndex(player, teamIndex, i);

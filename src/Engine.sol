@@ -7,6 +7,7 @@ import "./Enums.sol";
 import "./Structs.sol";
 import "./moves/IMoveSet.sol";
 
+import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 import {IEngine} from "./IEngine.sol";
 
@@ -15,6 +16,7 @@ contract Engine is IEngine {
     // Public state variables
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
     mapping(bytes32 => uint256) public pairHashNonces; // intended to be read by anyone
+    mapping(address player => mapping(address maker => bool)) public isMatchmakerFor;
 
     // Private state variables (battles and battleStates values are granularly accessible via getters)
     mapping(bytes32 battleKey => Battle) private battles;
@@ -23,22 +25,20 @@ contract Engine is IEngine {
     mapping(bytes32 battleKeyPlusPlayerOffset => uint256) private monsKOedBitmap;
     uint256 transient private currentStep; // Used to bubble up step data for events
     int32 transient private damageDealt; // Used to provide access to onAfterDamage hook for effects
-    IMoveManager private moveManager; // default move manager (e.g. for normal commit-reveal PVP)
-    address private transient upstreamCaller;
+    IMoveManager private moveManager; // Default move manager (e.g. for normal commit-reveal PVP)
+    address private transient upstreamCaller; // Used to bubble up caller data for events
 
     // Errors
     error NoWriteAllowed();
     error WrongCaller();
     error MoveManagerAlreadySet();
-    error BattleChangedBeforeAcceptance();
-    error InvalidP0TeamHash();
+    error MatchmakerNotAuthorized();
+    error MatchmakerError();
     error InvalidBattleConfig();
     error GameAlreadyOver();
 
     // Events
-    event BattleProposal(address indexed p1, address p0, bytes32 battleKey, bytes32 p0TeamHash);
-    event BattleAcceptance(bytes32 indexed battleKey, uint256 p1TeamIndex);
-    event BattleStart(bytes32 indexed battleKey, uint256 p0TeamIndex, address p0, address p1);
+    event BattleStart(bytes32 indexed battleKey, address p0, address p1);
     event EngineExecute(
         bytes32 indexed battleKey, uint256 turnId, uint256 playerSwitchForTurnFlag, uint256 priorityPlayerIndex
     );
@@ -82,103 +82,35 @@ contract Engine is IEngine {
     event EngineEvent(bytes32 indexed battleKey, EngineEventType eventType, bytes eventData, address source, uint256 step
     );
 
-    /**
-     * - Core game functions
-     */
-    function proposeBattle(Battle memory args) external returns (bytes32) {
-        // Caller must be p0
-        if (msg.sender != args.p0) {
-            revert WrongCaller();
+    function authorizeMatchmaker(address[] memory makersToAdd, address[] memory makersToRemove) external {
+        for (uint256 i; i < makersToAdd.length; ++i) {
+            isMatchmakerFor[msg.sender][makersToAdd[i]] = true;
         }
-
-        // Compute the battle key and pair hash
-        (bytes32 battleKey, bytes32 pairHash) = _computeBattleKey(args);
-        Battle storage existingBattle = battles[battleKey];
-
-        // Update nonce if the previous battle was past being proposed (i.e. accepted/started/ended) and update battle key
-        if (existingBattle.status != BattleProposalStatus.Proposed) {
-            pairHashNonces[pairHash] += 1;
-            (battleKey,) = _computeBattleKey(args);
+        for (uint256 i; i < makersToRemove.length; ++i) {
+            isMatchmakerFor[msg.sender][makersToRemove[i]] = false;
         }
-
-        // Initialize empty teams to start
-        Mon[][] memory teams = new Mon[][](2);
-
-        // Store the battle
-        battles[battleKey] = args;
-        battles[battleKey].teams = teams;
-        battles[battleKey].status = BattleProposalStatus.Proposed;
-
-        emit BattleProposal(args.p1, msg.sender, battleKey, args.p0TeamHash);
-        return battleKey;
     }
 
-    function getBattleIntegrityHash(Battle memory battle) public pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked(
-                battle.validator, 
-                battle.rngOracle, 
-                battle.ruleset, 
-                battle.teamRegistry, 
-                battle.p0TeamHash,
-                battle.engineHook,
-                battle.moveManager
-            )
-        );
-    }
+    function startBattle(Battle memory battle) external {
 
-    function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external {
-        Battle storage battle = battles[battleKey];
-
-        // Allow anyone to fill battles if p1 is set to address(0)
-        if (battle.p1 == address(0)) {
-            battle.p1 = msg.sender;
-        }
-        else if (msg.sender != battle.p1) {
-            revert WrongCaller();
+        // Ensure that the matchmaker is authorized for both players
+        IMatchmaker matchmaker = IMatchmaker(battle.matchmaker);
+        if (! isMatchmakerFor[battle.p0][address(matchmaker)] || ! isMatchmakerFor[battle.p1][address(matchmaker)]) {
+            revert MatchmakerNotAuthorized();
         }
 
-        battle.status = BattleProposalStatus.Accepted;
+        // Compute battle key and update the nonce
+        (bytes32 battleKey, bytes32 pairHash) = computeBattleKey(battle.p0, battle.p1);
+        pairHashNonces[pairHash] += 1;
 
-        // Set the team for p1
-        battle.teams[1] = battle.teamRegistry.getTeam(msg.sender, p1TeamIndex);
-
-        // Store the p1 team index (we likely are not going to go over, this packs things nicely)
-        battle.p1TeamIndex = uint96(p1TeamIndex);
-
-        // Validate the integrity hash of the battle parameters
-        if (
-            battleIntegrityHash != getBattleIntegrityHash(battle)
-        ) {
-            revert BattleChangedBeforeAcceptance();
+        // Ensure that the matchmaker validates the match for both players
+        if (!matchmaker.validateMatch(battleKey, battle.p0) || !matchmaker.validateMatch(battleKey, battle.p1)) {
+            revert MatchmakerError();
         }
 
-        emit BattleAcceptance(battleKey, p1TeamIndex);
-    }
-
-    function startBattle(bytes32 battleKey, bytes32 salt, uint256 p0TeamIndex) external {
-        Battle storage battle = battles[battleKey];
-        if (msg.sender != battle.p0) {
-            revert WrongCaller();
-        }
-
-        // Set the status to be started
-        battle.status = BattleProposalStatus.Started;
-
-        // Calculate the p0 team hash
-        uint256[] memory p0TeamIndices = battle.teamRegistry.getMonRegistryIndicesForTeam(msg.sender, p0TeamIndex);
-        bytes32 revealedP0TeamHash = keccak256(abi.encodePacked(salt, p0TeamIndex, p0TeamIndices));
-
-        // Validate the team hash
-        if (revealedP0TeamHash != battle.p0TeamHash) {
-            revert InvalidP0TeamHash();
-        }
-
-        // Set the teamHash to be teamIndex after verification
-        battle.p0TeamHash = bytes32(p0TeamIndex);
-
-        // Set the team for p0
-        battles[battleKey].teams[0] = battle.teamRegistry.getTeam(msg.sender, p0TeamIndex);
+        // Set the team for p0 and p1
+        battles[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
+        battles[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
 
         // Initialize empty mon state, move history, and active mon index for each team
         for (uint256 i; i < 2; ++i) {
@@ -206,9 +138,7 @@ contract Engine is IEngine {
 
         // Validate the battle config
         if (
-            !battle.validator.validateGameStart(
-                battles[battleKey], battle.teamRegistry, p0TeamIndex, battleKey, msg.sender
-            )
+            !battle.validator.validateGameStart(battles[battleKey])
         ) {
             revert InvalidBattleConfig();
         }
@@ -220,7 +150,7 @@ contract Engine is IEngine {
             battle.engineHook.onBattleStart(battleKey);
         }
 
-        emit BattleStart(battleKey, p0TeamIndex, battle.p0, battle.p1);
+        emit BattleStart(battleKey, battle.p0, battle.p1);
     }
 
     // THE IMPORTANT FUNCTION
@@ -301,7 +231,7 @@ contract Engine is IEngine {
             state.pRNGStream.push(rng);
 
             // Calculate the priority and non-priority player indices
-            priorityPlayerIndex = battle.validator.computePriorityPlayerIndex(battleKey, rng);
+            priorityPlayerIndex = _computePriorityPlayerIndex(battleKey, rng);
             uint256 otherPlayerIndex;
             if (priorityPlayerIndex == 0) {
                 otherPlayerIndex = 1;
@@ -382,7 +312,7 @@ contract Engine is IEngine {
             address afkResult = battle.validator.validateTimeout(battleKey, i);
             if (afkResult != address(0)) {
                 state.winner = afkResult;
-                battle.status = BattleProposalStatus.Ended;
+                state.status = GameStatus.Ended;
                 if (address(battle.engineHook) != address(0)) {
                     battle.engineHook.onBattleEnd(battleKey);
                 }
@@ -568,14 +498,14 @@ contract Engine is IEngine {
     /**
      * - Internal helper functions
      */
-    function _computeBattleKey(Battle memory args)
-        internal
+    function computeBattleKey(address p0, address p1)
+        public
         view
         returns (bytes32 battleKey, bytes32 pairHash)
     {
-        pairHash = keccak256(abi.encode(args.p0, args.p1));
-        if (uint256(uint160(args.p0)) > uint256(uint160(args.p1))) {
-            pairHash = keccak256(abi.encode(args.p1, args.p0));
+        pairHash = keccak256(abi.encode(p0, p1));
+        if (uint256(uint160(p0)) > uint256(uint160(p1))) {
+            pairHash = keccak256(abi.encode(p1, p0));
         }
         uint256 pairHashNonce = pairHashNonces[pairHash];
         battleKey = keccak256(abi.encode(pairHash, pairHashNonce));
@@ -598,7 +528,7 @@ contract Engine is IEngine {
             // Ensure we only emit the event / update the state once (we may call this multiple times during one stack frame)
             if (state.winner == address(0)) {
                 state.winner = gameResult;
-                battle.status = BattleProposalStatus.Ended;
+                state.status = GameStatus.Ended;
                 emit BattleComplete(battleKey, gameResult);   
             }
             isGameOver = true;
@@ -845,6 +775,62 @@ contract Engine is IEngine {
         return playerSwitchForTurnFlag;
     }
 
+    function _computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) internal view returns (uint256) {
+        Battle storage battle = battles[battleKey];
+        BattleState storage state = battleStates[battleKey];
+        IMoveManager moveManagerToUse = battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
+        RevealedMove memory p0Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
+        RevealedMove memory p1Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
+        uint256 p0ActiveMonIndex = state.activeMonIndex[0];
+        uint256 p1ActiveMonIndex = state.activeMonIndex[1];
+        uint256 p0Priority;
+        uint256 p1Priority;
+
+        // Call the move for its priority, unless it's the switch or no op move index
+        {
+            if (p0Move.moveIndex == SWITCH_MOVE_INDEX || p0Move.moveIndex == NO_OP_MOVE_INDEX) {
+                p0Priority = SWITCH_PRIORITY;
+            } else {
+                IMoveSet p0MoveSet = battle.teams[0][p0ActiveMonIndex].moves[p0Move.moveIndex];
+                p0Priority = p0MoveSet.priority(battleKey, 0);
+            }
+
+            if (p1Move.moveIndex == SWITCH_MOVE_INDEX || p1Move.moveIndex == NO_OP_MOVE_INDEX) {
+                p1Priority = SWITCH_PRIORITY;
+            } else {
+                IMoveSet p1MoveSet = battle.teams[1][p1ActiveMonIndex].moves[p1Move.moveIndex];
+                p1Priority = p1MoveSet.priority(battleKey, 1);
+            }
+        }
+
+        // Determine priority based on (in descending order of importance):
+        // - the higher priority tier
+        // - within same priority, the higher speed
+        // - if both are tied, use the rng value
+        if (p0Priority > p1Priority) {
+            return 0;
+        } else if (p0Priority < p1Priority) {
+            return 1;
+        } else {
+            // Calculate speeds by combining base stats with deltas
+            uint32 p0MonSpeed = uint32(
+                int32(battle.teams[0][p0ActiveMonIndex].stats.speed)
+                    + state.monStates[0][p0ActiveMonIndex].speedDelta
+            );
+            uint32 p1MonSpeed = uint32(
+                int32(battle.teams[1][p1ActiveMonIndex].stats.speed)
+                    + state.monStates[1][p1ActiveMonIndex].speedDelta
+            );
+            if (p0MonSpeed > p1MonSpeed) {
+                return 0;
+            } else if (p0MonSpeed < p1MonSpeed) {
+                return 1;
+            } else {
+                return rng % 2;
+            }
+        }
+    }
+
     function _getUpstreamCaller() internal view returns (address) {
         address source = upstreamCaller;
         if (source == address(0)) {
@@ -866,8 +852,8 @@ contract Engine is IEngine {
         return battleStates[battleKey];
     }
 
-    function getBattleStatus(bytes32 battleKey) external view returns (BattleProposalStatus) {
-        return battles[battleKey].status;
+    function getBattleStatus(bytes32 battleKey) external view returns (GameStatus) {
+        return battleStates[battleKey].status;
     }
 
     function getBattleValidator(bytes32 battleKey) external view returns (IValidator) {

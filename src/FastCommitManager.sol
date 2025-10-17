@@ -70,7 +70,7 @@ contract FastCommitManager is ICommitManager, IMoveManager {
         // 2) Can only commit moves to battles with a Started status
         // (reveal relies on commit, and execute relies on both of those)
         // (so transitively, it's safe to just check battle proposal status on commit)
-        if (ENGINE.getBattleStatus(battleKey) != BattleProposalStatus.Started) {
+        if (ENGINE.getBattleStatus(battleKey) != GameStatus.Started) {
             revert BattleNotStarted();
         }
 

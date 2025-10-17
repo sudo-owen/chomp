@@ -70,7 +70,6 @@ abstract contract BattleHelper is Test {
             engineHook: IEngineHook(address(0)),
             moveManager: IMoveManager(address(0)),
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
@@ -106,7 +105,6 @@ abstract contract BattleHelper is Test {
             engineHook: engineHook,
             moveManager: IMoveManager(address(0)),
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);

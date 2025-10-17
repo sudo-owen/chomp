@@ -20,9 +20,7 @@ enum Type {
     None
 }
 
-enum BattleProposalStatus {
-    Proposed,
-    Accepted,
+enum GameStatus {
     Started,
     Ended
 }

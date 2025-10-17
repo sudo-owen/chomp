@@ -193,7 +193,6 @@ contract CPUTest is Test {
             engineHook: IEngineHook(address(0)),
             moveManager: cpuMoveManager,
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
@@ -307,7 +306,6 @@ contract CPUTest is Test {
             engineHook: IEngineHook(address(0)),
             moveManager: cpuMoveManager,
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
@@ -351,7 +349,6 @@ contract CPUTest is Test {
             engineHook: IEngineHook(address(0)),
             moveManager: playerCPUMoveManager,
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
@@ -396,7 +393,6 @@ contract CPUTest is Test {
             engineHook: IEngineHook(address(0)),
             moveManager: playerCPUMoveManager,
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);

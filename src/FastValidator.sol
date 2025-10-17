@@ -38,35 +38,31 @@ contract FastValidator is IValidator {
 
     // Validates that there are MONS_PER_TEAM mons per team w/ MOVES_PER_MON moves each
     function validateGameStart(
-        Battle calldata b,
-        ITeamRegistry teamRegistry,
-        uint256 p0TeamIndex,
-        bytes32 battleKey,
-        address gameStartCaller
+        Battle calldata b
     ) external returns (bool) {
-        IMonRegistry monRegistry = teamRegistry.getMonRegistry();
+        IMonRegistry monRegistry = b.teamRegistry.getMonRegistry();
 
         // p0 and p1 each have 6 mons, each mon has 4 moves
         uint256[2] memory playerIndices = [uint256(0), uint256(1)];
         address[2] memory players = [b.p0, b.p1];
-        uint256[2] memory teamIndex = [p0TeamIndex, b.p1TeamIndex];
+        uint256[2] memory teamIndex = [uint256(b.p0TeamIndex), uint256(b.p1TeamIndex)];
 
         // If either player has a team count of zero, then it's invalid
         {
-            uint256 p0teamCount = teamRegistry.getTeamCount(b.p0);
-            uint256 p1TeamCount = teamRegistry.getTeamCount(b.p1);
+            uint256 p0teamCount = b.teamRegistry.getTeamCount(b.p0);
+            uint256 p1TeamCount = b.teamRegistry.getTeamCount(b.p1);
             if (p0teamCount == 0 || p1TeamCount == 0) {
                 return false;
             }
         }
-
+        // Otherwise,we check team and move length
         for (uint256 i; i < playerIndices.length; ++i) {
             if (b.teams[i].length != MONS_PER_TEAM) {
                 return false;
             }
 
             // Should be the same length as teams[i].length
-            uint256[] memory teamIndices = teamRegistry.getMonRegistryIndicesForTeam(players[i], teamIndex[i]);
+            uint256[] memory teamIndices = b.teamRegistry.getMonRegistryIndicesForTeam(players[i], teamIndex[i]);
 
             // Check that each mon is still up to date with the current mon registry values
             for (uint256 j; j < MONS_PER_TEAM; ++j) {
@@ -79,14 +75,6 @@ contract FastValidator is IValidator {
                 }
             }
         }
-        uint256 previousProposalTimestamp = proposalTimestampForProposer[gameStartCaller][battleKey];
-        // Ensures that proposers cannot quickly modify in-flight proposed matches by rate limiting
-        if (previousProposalTimestamp != 0) {
-            if (block.timestamp - previousProposalTimestamp < TIMEOUT_DURATION) {
-                return false;
-            }
-        }
-        proposalTimestampForProposer[gameStartCaller][battleKey] = block.timestamp;
         return true;
     }
 
@@ -281,61 +269,5 @@ contract FastValidator is IValidator {
             }
         }
         return address(0);
-    }
-
-    function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256) {
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-
-        IMoveManager moveManager = ENGINE.getMoveManager(battleKey);
-        
-        RevealedMove memory p0Move = moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
-        RevealedMove memory p1Move = moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
-        uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
-
-        uint256 p0Priority;
-        uint256 p1Priority;
-
-        // Call the move for its priority, unless it's the switch or no op move index
-        {
-            if (p0Move.moveIndex == SWITCH_MOVE_INDEX || p0Move.moveIndex == NO_OP_MOVE_INDEX) {
-                p0Priority = SWITCH_PRIORITY;
-            } else {
-                IMoveSet p0MoveSet = ENGINE.getMoveForMonForBattle(battleKey, 0, activeMonIndex[0], p0Move.moveIndex);
-                p0Priority = p0MoveSet.priority(battleKey, 0);
-            }
-
-            if (p1Move.moveIndex == SWITCH_MOVE_INDEX || p1Move.moveIndex == NO_OP_MOVE_INDEX) {
-                p1Priority = SWITCH_PRIORITY;
-            } else {
-                IMoveSet p1MoveSet = ENGINE.getMoveForMonForBattle(battleKey, 1, activeMonIndex[1], p1Move.moveIndex);
-                p1Priority = p1MoveSet.priority(battleKey, 1);
-            }
-        }
-
-        // Determine priority based on (in descending order of importance):
-        // - the higher priority tier
-        // - within same priority, the higher speed
-        // - if both are tied, use the rng value
-        if (p0Priority > p1Priority) {
-            return 0;
-        } else if (p0Priority < p1Priority) {
-            return 1;
-        } else {
-            uint32 p0MonSpeed = uint32(
-                int32(ENGINE.getMonValueForBattle(battleKey, 0, activeMonIndex[0], MonStateIndexName.Speed))
-                    + ENGINE.getMonStateForBattle(battleKey, 0, activeMonIndex[0], MonStateIndexName.Speed)
-            );
-            uint32 p1MonSpeed = uint32(
-                int32(ENGINE.getMonValueForBattle(battleKey, 1, activeMonIndex[1], MonStateIndexName.Speed))
-                    + ENGINE.getMonStateForBattle(battleKey, 1, activeMonIndex[1], MonStateIndexName.Speed)
-            );
-            if (p0MonSpeed > p1MonSpeed) {
-                return 0;
-            } else if (p0MonSpeed < p1MonSpeed) {
-                return 1;
-            } else {
-                return rng % 2;
-            }
-        }
     }
 }

@@ -7,8 +7,8 @@ import "../../src/Structs.sol";
 import "../../src/Constants.sol";
 
 import {IAbility} from "../../src/abilities/IAbility.sol";
-import {CommitManager} from "../../src/deprecated/CommitManager.sol";
-import {DefaultValidator} from "../../src/deprecated/DefaultValidator.sol";
+import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {FastValidator} from "../../src/FastValidator.sol";
 import {AttackCalculator} from "../../src/moves/AttackCalculator.sol";
 
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
@@ -24,8 +24,8 @@ contract AttackCalculatorTest is Test, BattleHelper {
     MockRandomnessOracle defaultOracle;
     TestTeamRegistry defaultRegistry;
     MockRandomnessOracle mockOracle;
-    CommitManager commitManager;
-    DefaultValidator validator;
+    FastCommitManager commitManager;
+    FastValidator validator;
 
     bytes32 battleKey;
 
@@ -34,10 +34,10 @@ contract AttackCalculatorTest is Test, BattleHelper {
         engine = new Engine();
         typeCalc = new TypeCalculator();
         mockOracle = new MockRandomnessOracle();
-        commitManager = new CommitManager(engine);
+        commitManager = new FastCommitManager(engine);
         engine.setMoveManager(address(commitManager));
-        validator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        validator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         defaultRegistry = new TestTeamRegistry();
 

@@ -7,11 +7,7 @@ import "./teams/ITeamRegistry.sol";
 interface IValidator {
     // Validates that e.g. there are 6 mons per team w/ 4 moves each
     function validateGameStart(
-        Battle calldata b,
-        ITeamRegistry monRegistry,
-        uint256 p0TeamIndex,
-        bytes32 battleKey,
-        address gameStartCaller
+        Battle calldata b
     ) external returns (bool);
 
     // Validates that you can't switch to the same mon, you have enough stamina, the move isn't disabled, etc.
@@ -35,7 +31,4 @@ interface IValidator {
 
     // Validates that there is a valid timeout, returns address(0) if no winner, otherwise returns the winner
     function validateTimeout(bytes32 battleKey, uint256 presumedAFKPlayerIndex) external returns (address);
-
-    // Computes the priority player
-    function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256);
 }

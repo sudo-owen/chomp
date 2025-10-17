@@ -158,7 +158,6 @@ contract FastEngineTest is Test, BattleHelper {
             engineHook: IEngineHook(address(0)),
             moveManager: IMoveManager(address(0)),
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);
@@ -179,7 +178,6 @@ contract FastEngineTest is Test, BattleHelper {
             engineHook: IEngineHook(address(0)),
             moveManager: IMoveManager(address(0)),
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         bytes32 updatedBattleKey = engine.proposeBattle(bobArgs);
@@ -267,7 +265,6 @@ contract FastEngineTest is Test, BattleHelper {
             engineHook: IEngineHook(address(0)),
             moveManager: IMoveManager(address(0)),
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
         vm.startPrank(ALICE);

@@ -9,8 +9,8 @@ import "../../src/Structs.sol";
 
 import {Engine} from "../../src/Engine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
-import {CommitManager} from "../../src/deprecated/CommitManager.sol";
-import {DefaultValidator} from "../../src/deprecated/DefaultValidator.sol";
+import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {FastValidator} from "../../src/FastValidator.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
@@ -38,9 +38,9 @@ import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
 contract EffectTest is Test, BattleHelper {
-    CommitManager commitManager;
+    FastCommitManager commitManager;
     Engine engine;
-    DefaultValidator oneMonOneMoveValidator;
+    FastValidator oneMonOneMoveValidator;
     ITypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -72,10 +72,10 @@ contract EffectTest is Test, BattleHelper {
     function setUp() public {
         mockOracle = new MockRandomnessOracle();
         engine = new Engine();
-        commitManager = new CommitManager(engine);
+        commitManager = new FastCommitManager(engine);
         engine.setMoveManager(address(commitManager));
-        oneMonOneMoveValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        oneMonOneMoveValidator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         typeCalc = new TestTypeCalculator();
         defaultRegistry = new TestTeamRegistry();
@@ -90,27 +90,6 @@ contract EffectTest is Test, BattleHelper {
         panicStatus = new PanicStatus(engine);
         burnStatus = new BurnStatus(engine, statBoosts);
         zapStatus = new ZapStatus(engine);
-    }
-
-    function _commitRevealExecuteForAliceAndBob(
-        bytes32 battleKey,
-        uint256 aliceMoveIndex,
-        uint256 bobMoveIndex,
-        bytes memory aliceExtraData,
-        bytes memory bobExtraData
-    ) internal {
-        bytes32 salt = "";
-        bytes32 aliceMoveHash = keccak256(abi.encodePacked(aliceMoveIndex, salt, aliceExtraData));
-        bytes32 bobMoveHash = keccak256(abi.encodePacked(bobMoveIndex, salt, bobExtraData));
-        vm.startPrank(ALICE);
-        commitManager.commitMove(battleKey, aliceMoveHash);
-        vm.startPrank(BOB);
-        commitManager.commitMove(battleKey, bobMoveHash);
-        vm.startPrank(ALICE);
-        commitManager.revealMove(battleKey, aliceMoveIndex, salt, aliceExtraData, false);
-        vm.startPrank(BOB);
-        commitManager.revealMove(battleKey, bobMoveIndex, salt, bobExtraData, false);
-        engine.execute(battleKey);
     }
 
     function test_frostbite() public {
@@ -240,8 +219,8 @@ contract EffectTest is Test, BattleHelper {
         team[0] = mon;
         team[1] = mon;
 
-        DefaultValidator twoMonOneMoveValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        FastValidator twoMonOneMoveValidator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register both teams
@@ -324,8 +303,8 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, fastTeam);
 
         // Two Mon Validator
-        DefaultValidator twoMonValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        FastValidator twoMonValidator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         bytes32 battleKey = _startBattle(twoMonValidator, engine, mockOracle, defaultRegistry);
@@ -685,8 +664,8 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        DefaultValidator twoMonOneMoveValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        FastValidator twoMonOneMoveValidator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry);
@@ -786,7 +765,6 @@ contract EffectTest is Test, BattleHelper {
             engineHook: IEngineHook(address(0)),
             moveManager: IMoveManager(address(0)),
             teams: new Mon[][](0),
-            status: BattleProposalStatus.Proposed,
             p1TeamIndex: 0
         });
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {BattleProposalStatus, Type} from "./Enums.sol";
+import {GameStatus, Type} from "./Enums.sol";
 import {IRuleset} from "./IRuleset.sol";
 import {IValidator} from "./IValidator.sol";
 import {IEngineHook} from "./IEngineHook.sol";
@@ -11,20 +11,36 @@ import {IMoveSet} from "./moves/IMoveSet.sol";
 import {IRandomnessOracle} from "./rng/IRandomnessOracle.sol";
 import {ITeamRegistry} from "./teams/ITeamRegistry.sol";
 import {IMoveManager} from "./IMoveManager.sol";
+import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 
-struct Battle {
+struct ProposedBattle {
     address p0;
+    uint96 p0TeamIndex;
+    bytes32 p0TeamHash;
     address p1;
+    uint96 p1TeamIndex;
     ITeamRegistry teamRegistry;
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    bytes32 p0TeamHash;
     IEngineHook engineHook;
     IMoveManager moveManager;
-    Mon[][] teams; // Set during battle proposal
-    BattleProposalStatus status; // Set during battle proposal
-    uint96 p1TeamIndex; // Set during battle acceptance
+    IMatchmaker matchmaker;
+}
+
+struct Battle {
+    address p0;
+    uint96 p0TeamIndex;
+    address p1;
+    uint96 p1TeamIndex;
+    ITeamRegistry teamRegistry;
+    IValidator validator;
+    IRandomnessOracle rngOracle;
+    IRuleset ruleset;
+    IEngineHook engineHook;
+    IMoveManager moveManager;
+    IMatchmaker matchmaker;
+    Mon[][] teams;
 }
 
 struct BattleState {
@@ -36,6 +52,7 @@ struct BattleState {
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
+    GameStatus status;
 }
 
 struct MonStats {
