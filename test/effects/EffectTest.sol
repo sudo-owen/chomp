@@ -36,6 +36,7 @@ import {DefaultRuleset} from "../../src/DefaultRuleset.sol";
 // Import standard attack factory and template
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EffectTest is Test, BattleHelper {
     FastCommitManager commitManager;
@@ -52,6 +53,7 @@ contract EffectTest is Test, BattleHelper {
     PanicStatus panicStatus;
     BurnStatus burnStatus;
     ZapStatus zapStatus;
+    DefaultMatchmaker matchmaker;
 
     uint256 constant TIMEOUT_DURATION = 100;
 
@@ -90,6 +92,7 @@ contract EffectTest is Test, BattleHelper {
         panicStatus = new PanicStatus(engine);
         burnStatus = new BurnStatus(engine, statBoosts);
         zapStatus = new ZapStatus(engine);
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_frostbite() public {
@@ -137,7 +140,7 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -227,7 +230,7 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -307,7 +310,7 @@ contract EffectTest is Test, BattleHelper {
             engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(twoMonValidator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(twoMonValidator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -450,7 +453,7 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -536,7 +539,7 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -668,7 +671,7 @@ contract EffectTest is Test, BattleHelper {
             engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(

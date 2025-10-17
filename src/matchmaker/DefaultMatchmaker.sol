@@ -55,7 +55,7 @@ contract DefaultMatchmaker is IMatchmaker {
         return battleKey;
     }
 
-    function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external {
+    function acceptBattle(bytes32 battleKey, uint96 p1TeamIndex, bytes32 battleIntegrityHash) external {
         ProposedBattle memory proposal = proposals[battleKey];
         if (proposal.p1 == address(0)) {
             proposal.p1 = msg.sender;
@@ -70,7 +70,7 @@ contract DefaultMatchmaker is IMatchmaker {
         emit BattleAcceptance(msg.sender, battleKey, p1TeamIndex);
     }
 
-    function confirmBattle(bytes32 battleKey, bytes32 salt, uint256 p0TeamIndex) external {
+    function confirmBattle(bytes32 battleKey, bytes32 salt, uint96 p0TeamIndex) external {
         ProposedBattle memory proposal = proposals[battleKey];
         if (proposal.p1TeamIndex == UNSET_P1_TEAM_INDEX) {
             revert BattleNotAccepted();

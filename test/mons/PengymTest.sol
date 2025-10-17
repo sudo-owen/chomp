@@ -35,6 +35,7 @@ import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {ChillOut} from "../../src/mons/pengym/ChillOut.sol";
 import {DeepFreeze} from "../../src/mons/pengym/DeepFreeze.sol";
 import {PistolSquat} from "../../src/mons/pengym/PistolSquat.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract PengymTest is Test, BattleHelper {
 
@@ -49,6 +50,7 @@ contract PengymTest is Test, BattleHelper {
     PanicStatus panicStatus;
     FrostbiteStatus frostbiteStatus;
     StatBoosts statBoost;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -65,6 +67,7 @@ contract PengymTest is Test, BattleHelper {
         panicStatus = new PanicStatus(IEngine(address(engine)));
         statBoost = new StatBoosts(IEngine(address(engine)));
         frostbiteStatus = new FrostbiteStatus(IEngine(address(engine)), statBoost);
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_postWorkoutClearsPanicStatusAndGainsStamina() public {
@@ -177,7 +180,7 @@ contract PengymTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -354,7 +357,7 @@ contract PengymTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -464,7 +467,7 @@ contract PengymTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -568,7 +571,7 @@ contract PengymTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(

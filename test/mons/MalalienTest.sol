@@ -29,6 +29,7 @@ import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
 import {ActusReus} from "../../src/mons/malalien/ActusReus.sol";
 import {TripleThink} from "../../src/mons/malalien/TripleThink.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract MalalienTest is Test, BattleHelper {
     Engine engine;
@@ -39,6 +40,7 @@ contract MalalienTest is Test, BattleHelper {
     ActusReus actusReus;
     StandardAttackFactory attackFactory;
     StatBoosts statBoosts;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -50,6 +52,7 @@ contract MalalienTest is Test, BattleHelper {
         actusReus = new ActusReus(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         statBoosts = new StatBoosts(engine);
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_actusReusIndictment() public {
@@ -125,7 +128,7 @@ contract MalalienTest is Test, BattleHelper {
         );
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -196,7 +199,7 @@ contract MalalienTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Start battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Alice and Bob both send in mon index 0
         _commitRevealExecuteForAliceAndBob(

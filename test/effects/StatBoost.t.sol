@@ -23,6 +23,7 @@ import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 
 import {BattleHelper} from "../abstract/BattleHelper.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract StatBoostTest is Test, BattleHelper {
     Engine engine;
@@ -33,6 +34,7 @@ contract StatBoostTest is Test, BattleHelper {
     IValidator validator;
     StatBoosts statBoosts;
     StatBoostsMove statBoostMove;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -48,6 +50,7 @@ contract StatBoostTest is Test, BattleHelper {
         // Create the StatBoosts effect and move
         statBoosts = new StatBoosts(IEngine(address(engine)));
         statBoostMove = new StatBoostsMove(IEngine(address(engine)), statBoosts);
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_statBoostMove() public {
@@ -99,7 +102,7 @@ contract StatBoostTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -295,7 +298,7 @@ contract StatBoostTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(

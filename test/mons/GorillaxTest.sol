@@ -25,6 +25,7 @@ import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
 import {Angery} from "../../src/mons/gorillax/Angery.sol";
 import {RockPull} from "../../src/mons/gorillax/RockPull.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract GorillaxTest is Test, BattleHelper {
 
@@ -34,6 +35,7 @@ contract GorillaxTest is Test, BattleHelper {
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
     StandardAttackFactory attackFactory;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -43,6 +45,7 @@ contract GorillaxTest is Test, BattleHelper {
         commitManager = new FastCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_angery() public {
@@ -94,7 +97,7 @@ contract GorillaxTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -165,7 +168,7 @@ contract GorillaxTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(

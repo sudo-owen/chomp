@@ -17,6 +17,7 @@ import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {Test} from "forge-std/Test.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract AttackCalculatorTest is Test, BattleHelper {
     Engine engine;
@@ -26,6 +27,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
     MockRandomnessOracle mockOracle;
     FastCommitManager commitManager;
     FastValidator validator;
+    DefaultMatchmaker matchmaker;
 
     bytes32 battleKey;
 
@@ -40,6 +42,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         defaultRegistry = new TestTeamRegistry();
+        matchmaker = new DefaultMatchmaker(engine);
 
         // Create a battle with two mons
         battleKey = _setupBattle();
@@ -89,7 +92,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start battle
-        battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
         return battleKey;
     }
 

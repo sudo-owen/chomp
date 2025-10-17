@@ -34,6 +34,7 @@ import {SetAblaze} from "../../src/mons/embursa/SetAblaze.sol";
 import {DummyStatus} from "../mocks/DummyStatus.sol";
 import {HoneyBribe} from "../../src/mons/embursa/HoneyBribe.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EmbursaTest is Test, BattleHelper {
     Engine engine;
@@ -44,6 +45,7 @@ contract EmbursaTest is Test, BattleHelper {
     FastValidator validator;
     SplitThePot splitThePot;
     StandardAttackFactory attackFactory;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -57,6 +59,7 @@ contract EmbursaTest is Test, BattleHelper {
         engine.setMoveManager(address(commitManager));
         splitThePot = new SplitThePot(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_splitThePot_healing() public {
@@ -131,7 +134,7 @@ contract EmbursaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -236,7 +239,7 @@ contract EmbursaTest is Test, BattleHelper {
         );
 
         // Start battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -361,7 +364,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Set Ablaze, Bob uses KO move
         // Verify Alice's priority boost is cleared
         // Verify Alice's mon is KO'ed but Bob has taken damage
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -385,7 +388,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon, Bob does nothing
         // Alice uses Heat Beacon again, Bob uses KO Move
         // Verify Alice's mon is KO'ed but Bob's mon now has 2x Dummy status
-        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -403,7 +406,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon, Bob does nothing
         // Alice uses Q5, Bob uses KO move
         // Verify Q5 was applied to global effects, verify Alice is KOed
-        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -422,7 +425,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon, Bob does nothing
         // Alice uses Honey Bribe, Bob uses KO move
         // Verify Honey Bribe applied stat boost to Bob's mon, verify Alice is KOed
-        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );

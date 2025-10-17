@@ -5,14 +5,15 @@ import {IEngine} from "../IEngine.sol";
 
 import {IMoveSet} from "../moves/IMoveSet.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
+import {IMatchmaker} from "../matchmaker/IMatchmaker.sol";
 import {ICPU} from "./ICPU.sol";
 
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
-import {Battle, BattleState, RevealedMove} from "../Structs.sol";
+import {Battle, BattleState, RevealedMove, ProposedBattle, Mon} from "../Structs.sol";
 
-abstract contract CPU is ICPU, ICPURNG {
+abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
 
     uint256 private immutable NUM_MOVES;
     
@@ -139,7 +140,24 @@ abstract contract CPU is ICPU, ICPURNG {
         return uint256(seed);
     }
 
-    function acceptBattle(bytes32 battleKey, uint256 p1TeamIndex, bytes32 battleIntegrityHash) external {
-        ENGINE.acceptBattle(battleKey, p1TeamIndex, battleIntegrityHash);
+    function startBattle(ProposedBattle memory proposal) external {
+        ENGINE.startBattle(Battle({
+            p0: proposal.p0,
+            p0TeamIndex: proposal.p0TeamIndex,
+            p1: proposal.p1,
+            p1TeamIndex: proposal.p1TeamIndex,
+            teamRegistry: proposal.teamRegistry,
+            validator: proposal.validator,
+            rngOracle: proposal.rngOracle,
+            ruleset: proposal.ruleset,
+            engineHook: proposal.engineHook,
+            moveManager: proposal.moveManager,
+            matchmaker: proposal.matchmaker,
+            teams: new Mon[][](0)
+        }));
     }
+
+    function validateMatch(bytes32 battleKey, address player) external view returns (bool) {
+        return true;
+    } 
 }

@@ -11,6 +11,7 @@ import {IRandomnessOracle} from "../../src/rng/IRandomnessOracle.sol";
 import {ITeamRegistry} from "../../src/teams/ITeamRegistry.sol";
 import {IEngineHook} from "../../src/IEngineHook.sol";
 import {IMoveManager} from "../../src/IMoveManager.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -54,34 +55,10 @@ abstract contract BattleHelper is Test {
         IValidator validator,
         Engine engine,
         IRandomnessOracle rngOracle,
-        ITeamRegistry defaultRegistry
+        ITeamRegistry defaultRegistry,
+        DefaultMatchmaker matchmaker
     ) internal returns (bytes32) {
-        // Start a battle
-        Battle memory args = Battle({
-            p0: ALICE,
-            p1: BOB,
-            validator: validator,
-            rngOracle: rngOracle,
-            ruleset: IRuleset(address(0)),
-            teamRegistry: defaultRegistry,
-            p0TeamHash: keccak256(
-                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-            ),
-            engineHook: IEngineHook(address(0)),
-            moveManager: IMoveManager(address(0)),
-            teams: new Mon[][](0),
-            p1TeamIndex: 0
-        });
-        vm.startPrank(ALICE);
-        bytes32 battleKey = engine.proposeBattle(args);
-        bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook, args.moveManager)
-        );
-        vm.startPrank(BOB);
-        engine.acceptBattle(battleKey, 0, battleIntegrityHash);
-        vm.startPrank(ALICE);
-        engine.startBattle(battleKey, "", 0);
-        return battleKey;
+        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, IEngineHook(address(0)));
     }
 
     function _startBattle(
@@ -89,33 +66,79 @@ abstract contract BattleHelper is Test {
         Engine engine,
         IRandomnessOracle rngOracle,
         ITeamRegistry defaultRegistry,
+        DefaultMatchmaker matchmaker,
         IEngineHook engineHook
     ) internal returns (bytes32) {
-        // Start a battle
-        Battle memory args = Battle({
+        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHook, IRuleset(address(0)));
+    }
+
+    function _startBattle(
+        IValidator validator,
+        Engine engine,
+        IRandomnessOracle rngOracle,
+        ITeamRegistry defaultRegistry,
+        DefaultMatchmaker matchmaker,
+        IEngineHook engineHook,
+        IRuleset ruleset
+    ) internal returns (bytes32) {
+        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHook, ruleset, IMoveManager(address(0)));
+    }
+
+    function _startBattle(
+        IValidator validator,
+        Engine engine,
+        IRandomnessOracle rngOracle,
+        ITeamRegistry defaultRegistry,
+        DefaultMatchmaker matchmaker,
+        IEngineHook engineHook,
+        IRuleset ruleset,
+        IMoveManager moveManager
+    ) internal returns (bytes32) {
+        // Both players authorize the matchmaker
+        vm.startPrank(ALICE);
+        address[] memory makersToAdd = new address[](1);
+        makersToAdd[0] = address(matchmaker);
+        address[] memory makersToRemove = new address[](0);
+        engine.authorizeMatchmaker(makersToAdd, makersToRemove);
+
+        vm.startPrank(BOB);
+        engine.authorizeMatchmaker(makersToAdd, makersToRemove);
+
+        // Compute p0 team hash
+        bytes32 salt = "";
+        uint96 p0TeamIndex = 0;
+        uint256[] memory p0TeamIndices = defaultRegistry.getMonRegistryIndicesForTeam(ALICE, p0TeamIndex);
+        bytes32 p0TeamHash = keccak256(abi.encodePacked(salt, p0TeamIndex, p0TeamIndices));
+
+        // Create proposal
+        ProposedBattle memory proposal = ProposedBattle({
             p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: p0TeamHash,
             p1: BOB,
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
             validator: validator,
             rngOracle: rngOracle,
-            ruleset: IRuleset(address(0)),
-            teamRegistry: defaultRegistry,
-            p0TeamHash: keccak256(
-                abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-            ),
+            ruleset: ruleset,
             engineHook: engineHook,
-            moveManager: IMoveManager(address(0)),
-            teams: new Mon[][](0),
-            p1TeamIndex: 0
+            moveManager: moveManager,
+            matchmaker: matchmaker
         });
+
+        // Propose battle
         vm.startPrank(ALICE);
-        bytes32 battleKey = engine.proposeBattle(args);
-        bytes32 battleIntegrityHash = keccak256(
-            abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, args.p0TeamHash, args.engineHook, args.moveManager)
-        );
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
+
+        // Accept battle
+        bytes32 battleIntegrityHash = matchmaker.getBattleProposalIntegrityHash(proposal);
         vm.startPrank(BOB);
-        engine.acceptBattle(battleKey, 0, battleIntegrityHash);
+        matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
+
+        // Confirm and start battle
         vm.startPrank(ALICE);
-        engine.startBattle(battleKey, "", 0);
+        matchmaker.confirmBattle(battleKey, salt, p0TeamIndex);
+
         return battleKey;
     }
 }

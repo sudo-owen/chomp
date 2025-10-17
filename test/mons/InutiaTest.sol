@@ -29,6 +29,7 @@ import {Interweaving} from "../../src/mons/inutia/Interweaving.sol";
 import {ShrineStrike} from "../../src/mons/inutia/ShrineStrike.sol";
 import {Initialize} from "../../src/mons/inutia/Initialize.sol";
 import {ChainExpansion} from "../../src/mons/inutia/ChainExpansion.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract InutiaTest is Test, BattleHelper {
     Engine engine;
@@ -39,6 +40,7 @@ contract InutiaTest is Test, BattleHelper {
     Interweaving interweaving;
     StatBoosts statBoost;
     StandardAttackFactory attackFactory;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -50,6 +52,7 @@ contract InutiaTest is Test, BattleHelper {
         statBoost = new StatBoosts(IEngine(address(engine)));
         interweaving = new Interweaving(IEngine(address(engine)), statBoost);
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_interweaving() public {
@@ -106,7 +109,7 @@ contract InutiaTest is Test, BattleHelper {
         );
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Store Bob's mon initial Attack stat
         int32 bobInitialAttack = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
@@ -220,7 +223,7 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(oneMonOneMove, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(oneMonOneMove, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their mons
         _commitRevealExecuteForAliceAndBob(
@@ -283,7 +286,7 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Send in mons
         _commitRevealExecuteForAliceAndBob(
@@ -429,7 +432,7 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(v, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(v, engine, mockOracle, defaultRegistry, matchmaker);
 
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)

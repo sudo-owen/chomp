@@ -36,6 +36,7 @@ import {Overclock} from "../../src/mons/volthare/Overclock.sol";
 import {DummyStatus} from "../mocks/DummyStatus.sol";
 
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract VolthareTest is Test, BattleHelper {
     Engine engine;
@@ -48,6 +49,7 @@ contract VolthareTest is Test, BattleHelper {
     Storm storm;
     StatBoosts statBoost;
     StandardAttackFactory attackFactory;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -63,6 +65,7 @@ contract VolthareTest is Test, BattleHelper {
         storm = new Storm(IEngine(address(engine)), statBoost);
         overclock = new Overclock(IEngine(address(engine)), storm);
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_overclockAppliesStorm() public {
@@ -116,7 +119,7 @@ contract VolthareTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -222,7 +225,7 @@ contract VolthareTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -323,7 +326,7 @@ contract VolthareTest is Test, BattleHelper {
         );
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -421,7 +424,8 @@ contract VolthareTest is Test, BattleHelper {
             ),
             engine,
             mockOracle,
-            defaultRegistry
+            defaultRegistry,
+            matchmaker
         );
 
         // First move: Both players select their first mon (index 0)

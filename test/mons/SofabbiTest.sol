@@ -28,6 +28,7 @@ import {CarrotHarvest} from "../../src/mons/sofabbi/CarrotHarvest.sol";
 import {GuestFeature} from "../../src/mons/sofabbi/GuestFeature.sol";
 import {SnackBreak} from "../../src/mons/sofabbi/SnackBreak.sol";
 import {Gachachacha} from "../../src/mons/sofabbi/Gachachacha.sol";
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract SofabbiTest is Test, BattleHelper {
     Engine engine;
@@ -36,6 +37,7 @@ contract SofabbiTest is Test, BattleHelper {
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
     CarrotHarvest carrotHarvest;
+    DefaultMatchmaker matchmaker;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -47,6 +49,7 @@ contract SofabbiTest is Test, BattleHelper {
 
         // Initialize the CarrotHarvest ability
         carrotHarvest = new CarrotHarvest(IEngine(address(engine)));
+        matchmaker = new DefaultMatchmaker(engine);
     }
 
     function test_carrotHarvestAppliesOnSwitchIn() public {
@@ -104,7 +107,7 @@ contract SofabbiTest is Test, BattleHelper {
         defaultRegistry.setTeam(BattleHelper.BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -184,7 +187,7 @@ contract SofabbiTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Start battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Set oracle to return 1 (ie both mons gain staminaDelta)
         mockOracle.setRNG(1);
@@ -298,7 +301,7 @@ contract SofabbiTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // First move: Both players select their first mon (index 0, the Air mon)
         _commitRevealExecuteForAliceAndBob(
@@ -377,7 +380,7 @@ contract SofabbiTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Both players send in mon index 0
         _commitRevealExecuteForAliceAndBob(
@@ -466,7 +469,7 @@ contract SofabbiTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Both players send in mon index 0
          _commitRevealExecuteForAliceAndBob(
