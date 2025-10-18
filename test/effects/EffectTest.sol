@@ -19,7 +19,6 @@ import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 import {IEngineHook} from "../../src/IEngineHook.sol";
-import {IMoveManager} from "../../src/IMoveManager.sol";
 
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 

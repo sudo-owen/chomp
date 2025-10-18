@@ -18,6 +18,8 @@ contract FastValidator is IValidator {
         uint256 TIMEOUT_DURATION;
     }
 
+    uint256 constant PREV_TURN_MULTIPLIER = 2;
+
     uint256 immutable MONS_PER_TEAM;
     uint256 immutable BITMAP_VALUE_FOR_MONS_PER_TEAM;
     uint256 immutable MOVES_PER_MON;
@@ -35,9 +37,7 @@ contract FastValidator is IValidator {
     }
 
     // Validates that there are MONS_PER_TEAM mons per team w/ MOVES_PER_MON moves each
-    function validateGameStart(
-        Battle calldata b
-    ) external returns (bool) {
+    function validateGameStart(Battle calldata b) external returns (bool) {
         IMonRegistry monRegistry = b.teamRegistry.getMonRegistry();
 
         // p0 and p1 each have 6 mons, each mon has 4 moves
@@ -140,9 +140,10 @@ contract FastValidator is IValidator {
         // - if the active mon is knocked out
         {
             bool isTurnZero = ENGINE.getTurnIdForBattleState(battleKey) == 0;
-            bool isActiveMonKnockedOut = ENGINE.getMonStateForBattle(
-                battleKey, playerIndex, activeMonIndex[playerIndex], MonStateIndexName.IsKnockedOut
-            ) == 1;
+            bool isActiveMonKnockedOut =
+                ENGINE.getMonStateForBattle(
+                    battleKey, playerIndex, activeMonIndex[playerIndex], MonStateIndexName.IsKnockedOut
+                ) == 1;
             if (isTurnZero || isActiveMonKnockedOut) {
                 if (moveIndex != SWITCH_MOVE_INDEX) {
                     return false;
@@ -205,10 +206,11 @@ contract FastValidator is IValidator {
         address[] memory players = ENGINE.getPlayersForBattle(battleKey);
         uint256 lastTurnTimestamp;
         if (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1) {
-            lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
-        }
-        else {
-            lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag % 2]);
+            lastTurnTimestamp =
+                commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
+        } else {
+            lastTurnTimestamp =
+                commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag % 2]);
         }
         uint256 currentPlayerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
 
@@ -239,21 +241,53 @@ contract FastValidator is IValidator {
         */
 
         // It's a single player turn, and it's our turn:
-        if (currentPlayerSwitchForTurnFlag == 0 || currentPlayerSwitchForTurnFlag == 1) {
-            if (currentPlayerSwitchForTurnFlag == playerIndexToCheck) {
-                if (block.timestamp >= lastTurnTimestamp + TIMEOUT_DURATION) {
-                    return players[playerIndexToCheck];
-                }
+        if (currentPlayerSwitchForTurnFlag == playerIndexToCheck) {
+            if (block.timestamp >= lastTurnTimestamp + PREV_TURN_MULTIPLIER * TIMEOUT_DURATION) {
+                return players[playerIndexToCheck];
             }
         }
         // It's a two player turn:
         else {
             // We are committing + revealing:
             if (turnId % 2 == playerIndexToCheck) {
+                MoveCommitment memory playerCommitment =
+                    commitManager.getCommitment(battleKey, players[playerIndexToCheck]);
+                // If we have already committed:
+                if (playerCommitment.turnId == turnId) {
+                    // Check if other player has already revealed
+                    uint256 numMovesOtherPlayerRevealed = commitManager.getMoveCountForBattleState(
+                        battleKey, (playerIndexToCheck + 1) % 2
+                    );
+                    uint256 otherPlayerTimestamp = commitManager.getLastMoveTimestampForPlayer(
+                        battleKey, players[(playerIndexToCheck + 1) % 2]
+                    );
+                    // If so, then check for timeout
+                    if (numMovesOtherPlayerRevealed > turnId) {
+                        if (block.timestamp >=  otherPlayerTimestamp + TIMEOUT_DURATION) {
+                            return players[playerIndexToCheck];
+                        }
+                    }
+                }
+                // If we have not committed yet:
+                else {
+                    if (block.timestamp >= lastTurnTimestamp + PREV_TURN_MULTIPLIER * TIMEOUT_DURATION) {
+                        return players[playerIndexToCheck];
+                    }
+                }
             }
             // We are revealing:
             else {
-
+                MoveCommitment memory otherPlayerCommitment =
+                    commitManager.getCommitment(battleKey, players[(playerIndexToCheck + 1) % 2]);
+                // If other player has already committed:
+                if (otherPlayerCommitment.turnId == turnId) {
+                    uint256 otherPlayerTimestamp = commitManager.getLastMoveTimestampForPlayer(
+                        battleKey, players[(playerIndexToCheck + 1) % 2]
+                    );
+                    if (block.timestamp >=  otherPlayerTimestamp + TIMEOUT_DURATION) {
+                        return players[playerIndexToCheck];
+                    }
+                }
             }
         }
 
@@ -318,7 +352,7 @@ contract FastValidator is IValidator {
         // If it's a one-player turn, and it's the presumed afk player's turn...
         if (
             (playerSwitchForTurnFlag != 2 && playerSwitchForTurnFlag == presumedAFKPlayerIndex)
-        ) { 
+        ) {
             // Check if the presumed AFK player has revealed yet
             uint256 movesPresumedAFKPlayerRevealed =
                 commitManager.getMoveCountForBattleState(battleKey, presumedAFKPlayerIndex);
