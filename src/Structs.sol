@@ -40,6 +40,7 @@ struct Battle {
     IEngineHook engineHook;
     IMoveManager moveManager;
     IMatchmaker matchmaker;
+    uint96 startTimestamp;
     Mon[][] teams;
 }
 

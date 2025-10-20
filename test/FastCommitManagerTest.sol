@@ -29,16 +29,4 @@ contract FastCommitManagerTest is Test {
         vm.expectRevert(FastCommitManager.NotP0OrP1.selector);
         commitManager.commitMove(bytes32(0), "");
     }
-
-    function test_cannotPushToBattleMoveHistory() public {
-        vm.expectRevert(FastCommitManager.NotEngine.selector);
-        commitManager.initMoveHistory(bytes32(0));
-    }
-
-    function test_cannotDoublePushToBattleMoveHistory() public {
-        vm.startPrank(address(engine));
-        commitManager.initMoveHistory(bytes32(0));
-        bool result = commitManager.initMoveHistory(bytes32(0));
-        assertEq(result, false);
-    }
 }

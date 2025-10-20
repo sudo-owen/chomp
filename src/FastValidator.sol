@@ -18,7 +18,7 @@ contract FastValidator is IValidator {
         uint256 TIMEOUT_DURATION;
     }
 
-    uint256 constant PREV_TURN_MULTIPLIER = 2;
+    uint256 public constant PREV_TURN_MULTIPLIER = 2;
 
     uint256 immutable MONS_PER_TEAM;
     uint256 immutable BITMAP_VALUE_FOR_MONS_PER_TEAM;
@@ -198,19 +198,30 @@ contract FastValidator is IValidator {
         return address(0);
     }
 
-    function validateTimeout(bytes32 battleKey, uint256 playerIndexToCheck) external view returns (address winner) {
+    function validateTimeout(bytes32 battleKey, uint256 playerIndexToCheck) external view returns (address loser) {
+        uint256 otherPlayerIndex = (playerIndexToCheck + 1) % 2;
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
         ICommitManager commitManager = ICommitManager(address(ENGINE.getMoveManager(battleKey)));
         uint256[] memory switchForTurnFlagHistory = ENGINE.getPlayerSwitchForTurnFlagHistory(battleKey);
-        uint256 prevPlayerSwitchForTurnFlag = switchForTurnFlagHistory[switchForTurnFlagHistory.length - 1];
+        uint256 prevPlayerSwitchForTurnFlag;
+        if (switchForTurnFlagHistory.length > 0) {
+            prevPlayerSwitchForTurnFlag = switchForTurnFlagHistory[switchForTurnFlagHistory.length - 1];
+        }
         address[] memory players = ENGINE.getPlayersForBattle(battleKey);
         uint256 lastTurnTimestamp;
+        // If the last turn was a single player turn, we get the timestamp from their last move
         if (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1) {
             lastTurnTimestamp =
                 commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
-        } else {
-            lastTurnTimestamp =
-                commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag % 2]);
+        } 
+        // Otherwise it was either turn 0 (we grab the battle start time), or a two player turn (we grab the timestamp whoever made the last move)
+        else {
+            if (turnId == 0) {
+                Battle memory battle = ENGINE.getBattle(battleKey);
+                lastTurnTimestamp = battle.startTimestamp;
+            } else {
+                lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[(turnId - 1) % 2]);
+            }
         }
         uint256 currentPlayerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
 
@@ -253,17 +264,15 @@ contract FastValidator is IValidator {
                 MoveCommitment memory playerCommitment =
                     commitManager.getCommitment(battleKey, players[playerIndexToCheck]);
                 // If we have already committed:
-                if (playerCommitment.turnId == turnId) {
+                if (playerCommitment.turnId == turnId && playerCommitment.moveHash != bytes32(0)) {
                     // Check if other player has already revealed
-                    uint256 numMovesOtherPlayerRevealed = commitManager.getMoveCountForBattleState(
-                        battleKey, (playerIndexToCheck + 1) % 2
-                    );
-                    uint256 otherPlayerTimestamp = commitManager.getLastMoveTimestampForPlayer(
-                        battleKey, players[(playerIndexToCheck + 1) % 2]
-                    );
-                    // If so, then check for timeout
+                    uint256 numMovesOtherPlayerRevealed =
+                        commitManager.getMoveCountForBattleState(battleKey, otherPlayerIndex);
+                    uint256 otherPlayerTimestamp =
+                        commitManager.getLastMoveTimestampForPlayer(battleKey, players[otherPlayerIndex]);
+                    // If so, then check for timeout (no need to check if this player revealed, we assume reveal() auto-executes)
                     if (numMovesOtherPlayerRevealed > turnId) {
-                        if (block.timestamp >=  otherPlayerTimestamp + TIMEOUT_DURATION) {
+                        if (block.timestamp >= otherPlayerTimestamp + TIMEOUT_DURATION) {
                             return players[playerIndexToCheck];
                         }
                     }
@@ -278,98 +287,17 @@ contract FastValidator is IValidator {
             // We are revealing:
             else {
                 MoveCommitment memory otherPlayerCommitment =
-                    commitManager.getCommitment(battleKey, players[(playerIndexToCheck + 1) % 2]);
+                    commitManager.getCommitment(battleKey, players[otherPlayerIndex]);
                 // If other player has already committed:
                 if (otherPlayerCommitment.turnId == turnId) {
-                    uint256 otherPlayerTimestamp = commitManager.getLastMoveTimestampForPlayer(
-                        battleKey, players[(playerIndexToCheck + 1) % 2]
-                    );
-                    if (block.timestamp >=  otherPlayerTimestamp + TIMEOUT_DURATION) {
+                    uint256 otherPlayerTimestamp =
+                        commitManager.getLastMoveTimestampForPlayer(battleKey, players[otherPlayerIndex]);
+                    if (block.timestamp >= otherPlayerTimestamp + TIMEOUT_DURATION) {
                         return players[playerIndexToCheck];
                     }
                 }
             }
         }
-
         return address(0);
     }
-
-    /*
-    function validateTimeout(bytes32 battleKey, uint256 presumedAFKPlayerIndex) external view returns (address winner) {
-        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
-        uint256 presumedHonestPlayerIndex = (presumedAFKPlayerIndex + 1) % 2;
-        address presumedHonestPlayer;
-        address presumedAFKPlayer;
-        if (presumedHonestPlayerIndex == 0) {
-            presumedHonestPlayer = players[0];
-            presumedAFKPlayer = players[1];
-        } else {
-            presumedHonestPlayer = players[1];
-            presumedAFKPlayer = players[0];
-        }
-
-        ICommitManager commitManager = ICommitManager(address(ENGINE.getMoveManager(battleKey)));
-
-        // Grab latest reference time out of both players
-        uint256 lastMoveTimestamp;
-        {
-            uint256 p0LastTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[0]);
-            uint256 p1LastTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[1]);
-            lastMoveTimestamp = p0LastTimestamp > p1LastTimestamp ? p0LastTimestamp : p1LastTimestamp;
-        }
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        uint256 playerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
-
-        // If the presumed AFK player has to commit and it's a 2 player turn...
-        if ((playerSwitchForTurnFlag == 2) && (turnId % 2 == presumedAFKPlayerIndex)) {
-            // Check existing commitment to see if a commitment for this turn exists yet
-            MoveCommitment memory playerCommitment = commitManager.getCommitment(battleKey, presumedAFKPlayer);
-            // If a commitment doesn't exist, and it's been more than TIMEOUT, then they lose
-            bool noCommitment = (playerCommitment.turnId < turnId)
-                || (playerCommitment.turnId == 0 && playerCommitment.moveHash == bytes32(0));
-            if (noCommitment && (block.timestamp >= lastMoveTimestamp + TIMEOUT_DURATION)) {
-                return presumedHonestPlayer;
-            }
-            // If a commitment from the player does exist...
-            if (playerCommitment.turnId == turnId) {
-                uint256 movesPresumedHonestPlayerRevealed =
-                    commitManager.getMoveCountForBattleState(battleKey, presumedHonestPlayerIndex);
-                // And the other player has already revealed...
-                if (movesPresumedHonestPlayerRevealed > turnId) {
-                    // Check if the presumed AFK player has revealed yet
-                    uint256 movesPresumedAFKPlayerRevealed =
-                        commitManager.getMoveCountForBattleState(battleKey, presumedAFKPlayerIndex);
-                    // If not, and it's been more than TIMEOUT, then they lose (i.e. return the other player)
-                    if (
-                        (movesPresumedAFKPlayerRevealed <= turnId)
-                            && (block.timestamp >= lastMoveTimestamp + TIMEOUT_DURATION)
-                    ) {
-                        return presumedHonestPlayer;
-                    }
-                }
-            }
-        }
-        // If it's a one-player turn, and it's the presumed afk player's turn...
-        if (
-            (playerSwitchForTurnFlag != 2 && playerSwitchForTurnFlag == presumedAFKPlayerIndex)
-        ) {
-            // Check if the presumed AFK player has revealed yet
-            uint256 movesPresumedAFKPlayerRevealed =
-                commitManager.getMoveCountForBattleState(battleKey, presumedAFKPlayerIndex);
-            // If not, and it's been more than TIMEOUT, then they lose (i.e. return the other player)
-            if ((movesPresumedAFKPlayerRevealed <= turnId) && (block.timestamp >= lastMoveTimestamp + TIMEOUT_DURATION))
-            {
-                return presumedHonestPlayer;
-            }
-        }
-        // If it's a two-player turn, and it's the presumed afk player only has to reveal (and the other player has already committed)...
-        else if (playerSwitchForTurnFlag == 2 && turnId % 2 != presumedAFKPlayerIndex) {
-            MoveCommitment memory otherPlayerCommitment = commitManager.getCommitment(battleKey, presumedHonestPlayer);
-            if (otherPlayerCommitment.turnId == turnId) {
-            }
-
-        }
-        return address(0);
-    }
-    */
 }

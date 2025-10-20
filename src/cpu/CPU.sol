@@ -153,6 +153,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
             engineHook: proposal.engineHook,
             moveManager: proposal.moveManager,
             matchmaker: proposal.matchmaker,
+            startTimestamp: 0,
             teams: new Mon[][](0)
         }));
     }

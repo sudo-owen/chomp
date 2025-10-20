@@ -104,6 +104,7 @@ contract DefaultMatchmaker is IMatchmaker {
             engineHook: proposal.engineHook,
             moveManager: proposal.moveManager,
             matchmaker: proposal.matchmaker,
+            startTimestamp: 0, // This gets filled in by the Engine
             teams: emptyTeams
         }));
     }

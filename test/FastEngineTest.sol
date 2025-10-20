@@ -724,7 +724,7 @@ contract FastEngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        IValidator validator = new FastValidator(
+        FastValidator validator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
@@ -739,8 +739,8 @@ contract FastEngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(battleKey, 0, 0, "", "");
 
         // Alice should knock out Bob, but let Bob do nothing
-        // Skip ahead TIMEOUT_DURATION + 1
-        vm.warp(TIMEOUT_DURATION + 1);
+        // Skip ahead TIMEOUT_DURATION * multiplier (as it's a new turn)
+        vm.warp((TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
 
         // Call end on the battle
         engine.end(battleKey);

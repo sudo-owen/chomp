@@ -37,21 +37,6 @@ contract FastCommitManager is ICommitManager, IMoveManager {
         ENGINE = engine;
     }
 
-    function initMoveHistory(bytes32 battleKey) external returns (bool) {
-        if (msg.sender != address(ENGINE)) {
-            revert NotEngine();
-        }
-        // Only if the length is zero
-        if (moveHistory[battleKey].length != 0) {
-            // No need to revert as someone could be overriding a proposed battle, just don't do anything
-            return false;
-        } else {
-            moveHistory[battleKey].push();
-            moveHistory[battleKey].push();
-            return true;
-        }
-    }
-
     /**
      * Committing is for:
      *     - p0 if the turn index % 2 == 0
@@ -106,7 +91,12 @@ contract FastCommitManager is ICommitManager, IMoveManager {
         commitments[battleKey][caller] = MoveCommitment({moveHash: moveHash, turnId: turnId});
         lastMoveTimestamp[battleKey][caller] = block.timestamp;
 
-        // 8) Emit event
+        // 8) Initialize move history if it's the first commit
+        if (moveHistory[battleKey].length == 0) {
+            moveHistory[battleKey].push();
+            moveHistory[battleKey].push();
+        }
+
         emit MoveCommit(battleKey, caller);
     }
 

@@ -1,7 +1,8 @@
 # TODO
 
-1) Create new Matchmaker tests to ensure that all the errors are triggered, think about the edge cases
-2) Ensure the Engine correctly works when both players are KOed (but at different times) (p sure the Engine already supports this with a given test)
+1) FastValidator bug:
+- No timestamp is recorded when a match starts, so there is no way to look up a reference timestamp for the first commit/reveal flow (turn 0)
+- This means someone calling end() can force p0 to lose immediately after a match starts.
 3) Add unsafe propose/start flows to DefaultMatchmaker so people can start matches even faster
 
 ## Engine overhaul

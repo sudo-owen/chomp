@@ -566,7 +566,7 @@ contract EngineTest is Test, BattleHelper {
         engine.execute(battleKey);
 
         // Check that timeout succeeds for Bob in this case
-        vm.warp(TIMEOUT_DURATION + 1);
+        vm.warp((TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
         engine.end(battleKey);
 
         // Assert Bob wins
@@ -587,8 +587,8 @@ contract EngineTest is Test, BattleHelper {
 
         // Assume Alice AFKs
 
-        // Check that timeout succeeds for Bob in this case
-        vm.warp(TIMEOUT_DURATION + 1);
+        // Check that timeout succeeds for Bob in this case, Alice is the loser
+        vm.warp((TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
         engine.end(battleKey);
 
         // Assert Bob wins

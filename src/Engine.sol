@@ -111,6 +111,9 @@ contract Engine is IEngine {
         // Store the values in storage
         battles[battleKey] = battle;
 
+        // Set start timestamp
+        battles[battleKey].startTimestamp = uint96(block.timestamp);
+
         // Set the team for p0 and p1
         battles[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
         battles[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
@@ -134,10 +137,6 @@ contract Engine is IEngine {
                 battleStates[battleKey].extraDataForGlobalEffects = data;
             }
         }
-
-        // Call the moveManager to initialize the move history
-        IMoveManager moveManagerToUse = battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
-        moveManagerToUse.initMoveHistory(battleKey);
 
         // Validate the battle config
         if (
@@ -315,14 +314,15 @@ contract Engine is IEngine {
             revert GameAlreadyOver();
         }
         for (uint256 i; i < 2; ++i) {
-            address afkResult = battle.validator.validateTimeout(battleKey, i);
-            if (afkResult != address(0)) {
-                state.winner = afkResult;
+            address potentialLoser = battle.validator.validateTimeout(battleKey, i);
+            if (potentialLoser != address(0)) {
+                address winner = potentialLoser == battle.p0 ? battle.p1 : battle.p0;
+                state.winner = winner;
                 state.status = GameStatus.Ended;
                 if (address(battle.engineHook) != address(0)) {
                     battle.engineHook.onBattleEnd(battleKey);
                 }
-                emit BattleComplete(battleKey, afkResult);
+                emit BattleComplete(battleKey, winner);
                 return;
             }
         }

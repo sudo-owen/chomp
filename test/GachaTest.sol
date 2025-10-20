@@ -281,15 +281,16 @@ contract GachaTest is Test, BattleHelper {
         vm.startPrank(ALICE);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(0), true);
 
-        // Bob wins the battle
+        // Alice wins the battle because timeout duration is 0, so we auto force a lose
+        // It's turn id 1 which means Bob had to commit, so any inaction is a lose from him
         engine.end(battleKey);
-        assertEq(engine.getWinner(battleKey), BOB);
+        assertEq(engine.getWinner(battleKey), ALICE);
 
         // Verify points are correct
         assertEq(
-            gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_LOSS()
+            gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_WIN()
         );
-        assertEq(gachaRegistry.pointsBalance(BOB), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_WIN());
+        assertEq(gachaRegistry.pointsBalance(BOB), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_LOSS());
     }
 
     function test_cooldown() public {
@@ -329,9 +330,9 @@ contract GachaTest is Test, BattleHelper {
         vm.startPrank(ALICE);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(0), true);
 
-        // Bob wins the battle
+        // Alice wins the battle
         engine.end(battleKey);
-        assertEq(engine.getWinner(battleKey), BOB);
+        assertEq(engine.getWinner(battleKey), ALICE);
 
         // Assert Alice and Bob have nonzero points 
         uint256 alicePoints = gachaRegistry.pointsBalance(ALICE);
@@ -349,9 +350,9 @@ contract GachaTest is Test, BattleHelper {
         vm.startPrank(ALICE);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(0), true);
 
-        // Bob wins the battle
+        // Alice wins the battle
         engine.end(battleKey);
-        assertEq(engine.getWinner(battleKey), BOB);
+        assertEq(engine.getWinner(battleKey), ALICE);
 
         // Assert Alice and Bob have the same points as before
         assertEq(gachaRegistry.pointsBalance(ALICE), alicePoints);
