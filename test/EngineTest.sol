@@ -1025,20 +1025,11 @@ contract EngineTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Commit move index 0 for Alice
-        uint256 moveIndex = 0;
-        vm.startPrank(ALICE);
-        bytes32 aliceMoveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), ""));
-        commitManager.commitMove(battleKey, aliceMoveHash);
-
         // Commit move index 0 for Bob
+        uint256 moveIndex = 0;
         vm.startPrank(BOB);
         bytes32 bobMoveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), ""));
         commitManager.commitMove(battleKey, bobMoveHash);
-
-        // Reveal Bob's move (valid)
-        vm.startPrank(BOB);
-        commitManager.revealMove(battleKey, moveIndex, bytes32(""), "", false);
 
         // Assert that Alice cannot reveal anything because of the stamina cost (she has the high stamina cost mon)
         vm.startPrank(ALICE);
@@ -1218,12 +1209,9 @@ contract EngineTest is Test, BattleHelper {
 
         // Now only Alice should be able to switch
         vm.startPrank(ALICE);
-        bytes32 salt = "";
-        bytes32 moveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(1)));
-        commitManager.commitMove(battleKey, moveHash);
 
         // Alice should be able to reveal because she is the only player (player flag should be set)
-        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
+        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, bytes32(""), abi.encode(1), false);
 
         // Execute the switch
         engine.execute(battleKey);
@@ -1848,23 +1836,21 @@ contract EngineTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Let Alice commit to switching to mon index 0 (invalid target) with player index 0 (herself)
-        bytes32 salt = "";
-        uint256 moveIndex = 0;
-        vm.startPrank(ALICE);
-        commitManager.commitMove(battleKey, keccak256(abi.encodePacked(moveIndex, salt, abi.encode(0, 0))));
-
         // Let Bob commit and reveal to attack (move index 0)
         bytes memory extraData = "";
+        bytes32 salt = "";
+        uint256 moveIndex = 0;
         vm.startPrank(BOB);
         commitManager.commitMove(battleKey, keccak256(abi.encodePacked(moveIndex, salt, extraData)));
 
-        // Ensure Bob can reveal
-        commitManager.revealMove(battleKey, moveIndex, salt, extraData, false);
-
+        // Let Alice commit to switching to mon index 0 (invalid target) with player index 0 (herself)
         // Alice can now reveal, but the switchActiveMon call inside ForceSwitchMove will revert
         vm.startPrank(ALICE);
         commitManager.revealMove(battleKey, moveIndex, salt, abi.encode(0, 0), false);
+
+        // Ensure Bob can reveal
+        vm.startPrank(BOB);
+        commitManager.revealMove(battleKey, moveIndex, salt, extraData, false);
 
         // Execute the battle - the invalid switch should be ignored
         engine.execute(battleKey);
@@ -1944,23 +1930,20 @@ contract EngineTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Let Alice commit to switching to mon index 1 (invalid target) with player index 0 (same mon)
-        bytes32 salt = "";
-        uint256 moveIndex = 0;
-        vm.startPrank(ALICE);
-        commitManager.commitMove(battleKey, keccak256(abi.encodePacked(moveIndex, salt, abi.encode(1, 0))));
-
         // Let Bob commit and reveal to attack (move index 0)
         bytes memory extraData = "";
+        bytes32 salt = "";
+        uint256 moveIndex = 0;
         vm.startPrank(BOB);
         commitManager.commitMove(battleKey, keccak256(abi.encodePacked(moveIndex, salt, extraData)));
 
-        // Ensure Bob can reveal
-        commitManager.revealMove(battleKey, moveIndex, salt, extraData, false);
-
         // Alice can now reveal, but the switchActiveMon call inside ForceSwitchMove will revert
         vm.startPrank(ALICE);
-        commitManager.revealMove(battleKey, moveIndex, salt, abi.encode(1, 0), false);
+        commitManager.revealMove(battleKey, 0, salt, abi.encode(1, 0), false);
+
+        // Ensure Bob can reveal
+        vm.startPrank(BOB);
+        commitManager.revealMove(battleKey, moveIndex, salt, extraData, false);
 
         // Execute the battle - the invalid switch should be ignored
         engine.execute(battleKey);
@@ -2696,7 +2679,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(state.monStates[1][0].hpDelta, 0);
     }
 
-    function test_doubleRevealReverts() public {
+    function test_doubleCommitOrDoubleRevealReverts() public {
         IMoveSet[] memory moves = new IMoveSet[](0);
         Mon memory mon = Mon({
             stats: MonStats({
@@ -2731,21 +2714,29 @@ contract EngineTest is Test, BattleHelper {
         // Start battle
         bytes32 battleKey = _startBattle(twoMoveValidator, engine, defaultOracle, defaultRegistry, matchmaker);
 
-        // Both Alice and Bob commit to switching to mon index 1
+        // Alice commits to swapping in mon index 1
         bytes32 salt = "";
         bytes32 aliceMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(1)));
-        bytes32 bobMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(1)));
         vm.startPrank(ALICE);
         commitManager.commitMove(battleKey, aliceMoveHash);
 
-        vm.startPrank(BOB);
-        commitManager.commitMove(battleKey, bobMoveHash);
+        // Alice cannot commit again
+        vm.expectRevert(FastCommitManager.AlreadyCommited.selector);
+        commitManager.commitMove(battleKey, aliceMoveHash);
 
-        // Alice double reveals
+        // Bob reveals
+        vm.startPrank(BOB);
+        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
+
+        // Bob cannot reveal twice
+        vm.expectRevert(FastCommitManager.AlreadyRevealed.selector);
+        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
+
+        // Alice reveals but does not execute
         vm.startPrank(ALICE);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
-        // This isn't allowed
+        // Second reveal should also fail
         vm.expectRevert(FastCommitManager.AlreadyRevealed.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
     }
