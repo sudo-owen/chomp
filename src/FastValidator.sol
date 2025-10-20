@@ -289,7 +289,7 @@ contract FastValidator is IValidator {
                 MoveCommitment memory otherPlayerCommitment =
                     commitManager.getCommitment(battleKey, players[otherPlayerIndex]);
                 // If other player has already committed:
-                if (otherPlayerCommitment.turnId == turnId) {
+                if (otherPlayerCommitment.turnId == turnId && otherPlayerCommitment.moveHash != bytes32(0)) {
                     uint256 otherPlayerTimestamp =
                         commitManager.getLastMoveTimestampForPlayer(battleKey, players[otherPlayerIndex]);
                     if (block.timestamp >= otherPlayerTimestamp + TIMEOUT_DURATION) {
