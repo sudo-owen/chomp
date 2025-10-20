@@ -11,6 +11,7 @@ import {Engine} from "../src/Engine.sol";
 import {FastCommitManager} from "../src/FastCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {IValidator} from "../src/IValidator.sol";
+import {FastValidator} from "../src/FastValidator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 
 import {IEngineHook} from "../src/IEngineHook.sol";
@@ -618,8 +619,11 @@ contract FastEngineTest is Test, BattleHelper {
     function test_timeoutSucceedsCommitPlayerNoSwitchFlag() public {
         bytes32 battleKey = _startDummyBattle();
 
-        // Wait for TIMEOUT_DURATION + 1
-        vm.warp(TIMEOUT_DURATION + 1);
+        // Wait for TIMEOUT_DURATION * PREV_TURN_MULTIPLIER + 1
+        FastValidator validator = new FastValidator(
+            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        );
+        vm.warp(TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER() + 1);
 
         // Call end on the battle
         engine.end(battleKey);

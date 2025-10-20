@@ -258,7 +258,7 @@ contract FastValidator is IValidator {
             }
         }
         // It's a two player turn:
-        else {
+        else if (currentPlayerSwitchForTurnFlag == 2) {
             // We are committing + revealing:
             if (turnId % 2 == playerIndexToCheck) {
                 MoveCommitment memory playerCommitment =
