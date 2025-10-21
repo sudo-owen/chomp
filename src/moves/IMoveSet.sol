@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "../Enums.sol";
 import "../Structs.sol";
 
-
 interface IMoveSet {
     function name() external view returns (string memory);
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng) external;

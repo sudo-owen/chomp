@@ -73,9 +73,8 @@ contract DefaultTeamRegistry is ITeamRegistry {
         // Initialize team and set indices
         uint256 teamId = numTeams[user];
         for (uint256 i; i < MONS_PER_TEAM; i++) {
-            teams[user][teamId].push(
-                Mon({stats: REGISTRY.getMonStats(monIndices[i]), moves: moves[i], ability: abilities[i]})
-            );
+            teams[user][teamId]
+            .push(Mon({stats: REGISTRY.getMonStats(monIndices[i]), moves: moves[i], ability: abilities[i]}));
             _setMonRegistryIndices(teamId, uint32(monIndices[i]), i, user);
         }
 
@@ -162,11 +161,7 @@ contract DefaultTeamRegistry is ITeamRegistry {
         monRegistryIndicesForTeamPacked[caller][teamIndex] = clearedValue | valueBitmask;
     }
 
-    function _getMonRegistryIndex(address player, uint256 teamIndex, uint256 position)
-        internal
-        view
-        returns (uint256)
-    {
+    function _getMonRegistryIndex(address player, uint256 teamIndex, uint256 position) internal view returns (uint256) {
         return uint32(monRegistryIndicesForTeamPacked[player][teamIndex] >> (position * BITS_PER_MON_INDEX));
     }
 

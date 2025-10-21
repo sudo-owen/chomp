@@ -6,9 +6,9 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, Type} from "../../src/Enums.sol";
-import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
@@ -35,8 +35,8 @@ import {Overclock} from "../../src/mons/volthare/Overclock.sol";
 
 import {DummyStatus} from "../mocks/DummyStatus.sol";
 
-import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 
 contract VolthareTest is Test, BattleHelper {
     Engine engine;

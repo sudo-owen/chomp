@@ -4,12 +4,11 @@ pragma solidity ^0.8.0;
 import "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
 
+import {StatBoosts} from "../StatBoosts.sol";
 import {StatusEffect} from "./StatusEffect.sol";
 import {StatusEffectLib} from "./StatusEffectLib.sol";
-import {StatBoosts} from "../StatBoosts.sol";
 
 contract BurnStatus is StatusEffect {
-
     uint256 public constant MAX_BURN_DEGREE = 3;
 
     int32 public constant ATTACK_PERCENT = 50;
@@ -30,11 +29,9 @@ contract BurnStatus is StatusEffect {
 
     function shouldRunAtStep(EffectStep r) external pure override returns (bool) {
         // Need to also return OnRemove to remove the global status flag
-        return (
-            r == EffectStep.RoundStart || 
-            r == EffectStep.RoundEnd || 
-            r == EffectStep.OnApply || 
-            r == EffectStep.OnRemove);    
+        return
+            (r == EffectStep.RoundStart || r == EffectStep.RoundEnd || r == EffectStep.OnApply
+                    || r == EffectStep.OnRemove);
     }
 
     function shouldApply(bytes memory, uint256 targetIndex, uint256 monIndex) public override returns (bool) {
@@ -83,18 +80,31 @@ contract BurnStatus is StatusEffect {
         _increaseBurnDegree(targetIndex, monIndex);
 
         // Reduce attack by 1/ATTACK_DENOM of base attack stat
-        STAT_BOOSTS.addStatBoost(targetIndex, monIndex, uint256(MonStateIndexName.Attack), ATTACK_PERCENT, StatBoostType.Divide, StatBoostFlag.Perm);
+        STAT_BOOSTS.addStatBoost(
+            targetIndex,
+            monIndex,
+            uint256(MonStateIndexName.Attack),
+            ATTACK_PERCENT,
+            StatBoostType.Divide,
+            StatBoostFlag.Perm
+        );
 
         return ("", false);
     }
 
     function onRemove(bytes memory, uint256 targetIndex, uint256 monIndex) public override {
-
         // Remove the base status flag
         super.onRemove("", targetIndex, monIndex);
 
         // Reset the attack reduction
-        STAT_BOOSTS.removeStatBoost(targetIndex, monIndex, uint256(MonStateIndexName.Attack), ATTACK_PERCENT, StatBoostType.Divide, StatBoostFlag.Perm);
+        STAT_BOOSTS.removeStatBoost(
+            targetIndex,
+            monIndex,
+            uint256(MonStateIndexName.Attack),
+            ATTACK_PERCENT,
+            StatBoostType.Divide,
+            StatBoostFlag.Perm
+        );
 
         // Reset the burn degree
         ENGINE.setGlobalKV(getKeyForMonIndex(targetIndex, monIndex), bytes32(0));
@@ -114,7 +124,9 @@ contract BurnStatus is StatusEffect {
         if (burnDegree == 3) {
             damageDenom = DEG3_DAMAGE_DENOM;
         }
-        int32 damage = int32(ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp)) / damageDenom;
+        int32 damage =
+            int32(ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp))
+            / damageDenom;
         ENGINE.dealDamage(targetIndex, monIndex, damage);
         return ("", false);
     }

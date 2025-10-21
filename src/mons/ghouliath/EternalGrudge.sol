@@ -28,8 +28,7 @@ contract EternalGrudge is IMoveSet {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         // Apply the debuff (50% debuff to both attack and special attack)
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
-        uint256 defenderMonIndex =
-            ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
+        uint256 defenderMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
         STAT_BOOSTS.addStatBoost(
             defenderPlayerIndex,
             defenderMonIndex,
@@ -46,12 +45,13 @@ contract EternalGrudge is IMoveSet {
             StatBoostType.Divide,
             StatBoostFlag.Perm
         );
-        uint256 attackerMonIndex =
-            ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        uint256 attackerMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
 
         // KO self by dealing just enough damage
-        int32 currentDamage = ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, attackerMonIndex, MonStateIndexName.Hp);
-        uint32 maxHp = ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, attackerMonIndex, MonStateIndexName.Hp);
+        int32 currentDamage =
+            ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, attackerMonIndex, MonStateIndexName.Hp);
+        uint32 maxHp =
+            ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, attackerMonIndex, MonStateIndexName.Hp);
         int32 damageNeededToKOSelf = int32(maxHp) + currentDamage;
         ENGINE.dealDamage(attackerPlayerIndex, attackerMonIndex, damageNeededToKOSelf);
     }

@@ -7,20 +7,18 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
-import {Engine} from "../src/Engine.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
+import {Engine} from "../src/Engine.sol";
 import {FastValidator} from "../src/FastValidator.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
-import {IEngineHook} from "../src/IEngineHook.sol";
+import {BattleHelper} from "./abstract/BattleHelper.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
-import {BattleHelper} from "./abstract/BattleHelper.sol";
 
 contract DefaultCommitManagerTest is Test, BattleHelper {
-
     address constant CARL = address(3);
     uint256 constant TIMEOUT = 10;
 
@@ -105,7 +103,9 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
     function test_RevealBeforeSelfCommit() public {
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
         // Alice sets commitment
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
         // Bob sets commitment
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
         // Alice sets commitment

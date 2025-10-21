@@ -9,13 +9,13 @@ import "../src/Structs.sol";
 
 import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 
-import {Engine} from "../src/Engine.sol";
-import {IAbility} from "../src/abilities/IAbility.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
+import {Engine} from "../src/Engine.sol";
 import {FastValidator} from "../src/FastValidator.sol";
+import {IAbility} from "../src/abilities/IAbility.sol";
 
-import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
+import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
@@ -40,9 +40,9 @@ import {SkipTurnMove} from "./mocks/SkipTurnMove.sol";
 import {TempStatBoostEffect} from "./mocks/TempStatBoostEffect.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {BattleHelper} from "./abstract/BattleHelper.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EngineTest is Test, BattleHelper {
     DefaultCommitManager commitManager;
@@ -120,9 +120,7 @@ contract EngineTest is Test, BattleHelper {
         );
 
         // Let Alice and Bob do a no-op
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // Turn ID should now be 2
         BattleState memory state = engine.getBattleState(battleKey);
@@ -696,7 +694,9 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, teams[0]);
         defaultRegistry.setTeam(BOB, teams[1]);
 
-        bytes32 battleKey = _startBattle(twoMonValidator, engine, defaultOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules);
+        bytes32 battleKey = _startBattle(
+            twoMonValidator, engine, defaultOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules
+        );
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -2633,9 +2633,8 @@ contract EngineTest is Test, BattleHelper {
         // Register teams
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
-        FastValidator noMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
-        );
+        FastValidator noMoveValidator =
+            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         bytes32 battleKey = _startBattle(noMoveValidator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         // Both players send in mon index 0

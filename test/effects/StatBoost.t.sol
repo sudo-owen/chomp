@@ -7,8 +7,8 @@ import "../../src/Constants.sol";
 import "../../src/Enums.sol";
 import "../../src/Structs.sol";
 
-import {Engine} from "../../src/Engine.sol";
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
+import {Engine} from "../../src/Engine.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IValidator} from "../../src/IValidator.sol";
@@ -22,8 +22,8 @@ import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 
-import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {BattleHelper} from "../abstract/BattleHelper.sol";
 
 contract StatBoostTest is Test, BattleHelper {
     Engine engine;
@@ -333,8 +333,7 @@ contract StatBoostTest is Test, BattleHelper {
             (IEffect[] memory statEffects,) = engine.getEffects(battleKey, 0, 0);
             bool foundStatEffect = false;
             for (uint256 j = 0; j < statEffects.length; j++) {
-                if (keccak256(abi.encodePacked(statEffects[j].name())) == keccak256(abi.encodePacked("Stat Boost")))
-                {
+                if (keccak256(abi.encodePacked(statEffects[j].name())) == keccak256(abi.encodePacked("Stat Boost"))) {
                     foundStatEffect = true;
                     break;
                 }

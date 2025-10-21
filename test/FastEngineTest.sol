@@ -7,11 +7,11 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
-import {Engine} from "../src/Engine.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
+import {Engine} from "../src/Engine.sol";
+import {FastValidator} from "../src/FastValidator.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {IValidator} from "../src/IValidator.sol";
-import {FastValidator} from "../src/FastValidator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 
 import {IEngineHook} from "../src/IEngineHook.sol";
@@ -23,8 +23,8 @@ import {BattleHelper} from "./abstract/BattleHelper.sol";
 import {CustomAttack} from "./mocks/CustomAttack.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 
-import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
+import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 
 contract FastEngineTest is Test, BattleHelper {
     DefaultCommitManager commitManager;

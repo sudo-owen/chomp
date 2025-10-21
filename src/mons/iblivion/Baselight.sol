@@ -31,11 +31,7 @@ contract Baselight is IMoveSet {
         return keccak256(abi.encode(playerIndex, monIndex, name()));
     }
 
-    function getBaselightLevel(bytes32 battleKey, uint256 playerIndex, uint256 monIndex)
-        public
-        view
-        returns (uint256)
-    {
+    function getBaselightLevel(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) public view returns (uint256) {
         return uint256(ENGINE.getGlobalKV(battleKey, _baselightKey(playerIndex, monIndex)));
     }
 

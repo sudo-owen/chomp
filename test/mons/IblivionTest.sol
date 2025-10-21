@@ -6,9 +6,9 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
@@ -16,21 +16,21 @@ import {IEffect} from "../../src/effects/IEffect.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {IntrinsicValue} from "../../src/mons/iblivion/IntrinsicValue.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
+import {StandardAttack} from "../../src/moves/StandardAttack.sol";
+import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
+import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
+import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
-import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
-import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
-import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 
-import {Baselight} from "../../src/mons/iblivion/Baselight.sol";
-import {Loop} from "../../src/mons/iblivion/Loop.sol";
-import {FirstResort} from "../../src/mons/iblivion/FirstResort.sol";
-import {Brightback} from "../../src/mons/iblivion/Brightback.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {Baselight} from "../../src/mons/iblivion/Baselight.sol";
+import {Brightback} from "../../src/mons/iblivion/Brightback.sol";
+import {FirstResort} from "../../src/mons/iblivion/FirstResort.sol";
+import {Loop} from "../../src/mons/iblivion/Loop.sol";
 
 contract IblivionTest is Test, BattleHelper {
     Engine engine;
@@ -137,7 +137,7 @@ contract IblivionTest is Test, BattleHelper {
         // Check that Alice's mon has the IntrinsicValue effect
         (IEffect[] memory aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         bool hasIntrinsicValueEffect = false;
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(intrinsicValue))) {
                 hasIntrinsicValueEffect = true;
                 break;
@@ -154,17 +154,27 @@ contract IblivionTest is Test, BattleHelper {
         // Bob uses debuff attack on Alice's mon
         // The debuff applies -1% to the specified stat, which then gets reset at end of round
         bytes memory debuffData = abi.encode(0, 0, uint256(statType), int32(-1));
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", debuffData
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", debuffData);
 
         // Check that Alice's mon's stat debuff has been reset
         int32 statAfterReset = engine.getMonStateForBattle(battleKey, 0, 0, statType);
-        assertEq(statAfterReset, statBefore, string(abi.encodePacked("Stat debuff for ", _getStatName(statType), " should be reset")));
+        assertEq(
+            statAfterReset,
+            statBefore,
+            string(abi.encodePacked("Stat debuff for ", _getStatName(statType), " should be reset"))
+        );
 
         // Check that Baselight level has been increased
         uint256 baselightLevelAfter = baselight.getBaselightLevel(battleKey, 0, 0);
-        assertEq(baselightLevelAfter, baselightLevelBefore + 1, string(abi.encodePacked("Baselight level should be increased by 1 after resetting ", _getStatName(statType), " debuff")));
+        assertEq(
+            baselightLevelAfter,
+            baselightLevelBefore + 1,
+            string(
+                abi.encodePacked(
+                    "Baselight level should be increased by 1 after resetting ", _getStatName(statType), " debuff"
+                )
+            )
+        );
     }
 
     // Helper function to get stat name for better error messages
@@ -240,7 +250,11 @@ contract IblivionTest is Test, BattleHelper {
         for (uint256 i = 0; i < baselight.MAX_BASELIGHT_LEVEL(); i++) {
             // Get current Baselight level before the move
             uint256 currentBaselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
-            assertEq(currentBaselightLevel, i, string(abi.encodePacked("Baselight level should be ", vm.toString(i), " before move")));
+            assertEq(
+                currentBaselightLevel,
+                i,
+                string(abi.encodePacked("Baselight level should be ", vm.toString(i), " before move"))
+            );
 
             // Get current stamina before the move
             int32 aliceStaminaBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
@@ -249,33 +263,56 @@ contract IblivionTest is Test, BattleHelper {
             int32 bobHpBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
 
             // Alice uses Baselight, Bob uses NO_OP
-            _commitRevealExecuteForAliceAndBob(
-                engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-            );
+            _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
             // Get new Baselight level after the move
             uint256 newBaselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
-            assertEq(newBaselightLevel, i + 1, string(abi.encodePacked("Baselight level should be ", vm.toString(i + 1), " after move")));
+            assertEq(
+                newBaselightLevel,
+                i + 1,
+                string(abi.encodePacked("Baselight level should be ", vm.toString(i + 1), " after move"))
+            );
 
             // Get stamina after the move
             int32 aliceStaminaAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
 
             // Verify stamina cost (should be equal to the Baselight level before the move)
             int32 expectedStaminaCost = int32(int256(currentBaselightLevel));
-            assertEq(aliceStaminaBefore - aliceStaminaAfter, expectedStaminaCost,
-                string(abi.encodePacked("Stamina cost should be ", vm.toString(uint256(uint32(expectedStaminaCost))), " at level ", vm.toString(currentBaselightLevel))));
+            assertEq(
+                aliceStaminaBefore - aliceStaminaAfter,
+                expectedStaminaCost,
+                string(
+                    abi.encodePacked(
+                        "Stamina cost should be ",
+                        vm.toString(uint256(uint32(expectedStaminaCost))),
+                        " at level ",
+                        vm.toString(currentBaselightLevel)
+                    )
+                )
+            );
 
             // Get Bob's HP after the move
             int32 bobHpAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
-            uint32 expectedBasePower = baselight.BASE_POWER() + (uint32(currentBaselightLevel) * baselight.BASELIGHT_LEVEL_BOOST());
+            uint32 expectedBasePower =
+                baselight.BASE_POWER() + (uint32(currentBaselightLevel) * baselight.BASELIGHT_LEVEL_BOOST());
             uint32 damageDealt = uint32(bobHpBefore - bobHpAfter);
-            assertApproxEqRel(damageDealt, expectedBasePower, 2e17, string(abi.encodePacked("Damage dealt should be ", vm.toString(expectedBasePower), " at level ", vm.toString(currentBaselightLevel))));
+            assertApproxEqRel(
+                damageDealt,
+                expectedBasePower,
+                2e17,
+                string(
+                    abi.encodePacked(
+                        "Damage dealt should be ",
+                        vm.toString(expectedBasePower),
+                        " at level ",
+                        vm.toString(currentBaselightLevel)
+                    )
+                )
+            );
         }
 
         // Do it one more time and verify that Baselight does not go up more
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         uint256 finalBaselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
         assertEq(finalBaselightLevel, baselight.MAX_BASELIGHT_LEVEL(), "Baselight level should not exceed max level");
@@ -365,18 +402,14 @@ contract IblivionTest is Test, BattleHelper {
         );
 
         // Alice uses high stamina cost attack, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Get the stamina delta (staminaDelta is stored in the Stamina field)
         int32 staminaDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
         assertEq(staminaDelta, -5, "Stamina should be 0 after using high stamina cost attack");
 
         // Alice uses Loop, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, "", "");
 
         // Check that Alice's mon's stamina delta is reset
         int32 staminaDeltaAfterLoop = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
@@ -449,9 +482,7 @@ contract IblivionTest is Test, BattleHelper {
         // Alice chooses move index 1 (First Resort), Bob chooses move index 0 (Baselight)
         // Bob should move first and KO Alice's mon index 0 without taking damage
         // (even though both choose to attack)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 1, 0, abi.encode(0), abi.encode(0)
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 0, abi.encode(0), abi.encode(0));
 
         // Assert Bob's mon index 0's HP delta is also 0 (Bob took no damage)
         int32 hpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
@@ -462,7 +493,7 @@ contract IblivionTest is Test, BattleHelper {
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(1), true);
 
         // Alice levels up Baselight to level 2, Bob does nothing
-        for (uint i; i < firstResort.BASELIGHT_THRESHOLD(); i++) {
+        for (uint256 i; i < firstResort.BASELIGHT_THRESHOLD(); i++) {
             _commitRevealExecuteForAliceAndBob(
                 engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), abi.encode(0)
             );
@@ -523,14 +554,14 @@ contract IblivionTest is Test, BattleHelper {
 
         // Alice does Brightback, no hp should be regained
         int32 aliceDamageBefore = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
-         _commitRevealExecuteForAliceAndBob(
+        _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
         int32 aliceDamageAfter = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
         assertEq(aliceDamageBefore, aliceDamageAfter, "No healing yet, Baselight is lv 0");
 
         // Alice levels up Baselight, Bob does nothing
-        for (uint i; i < brightback.BASELIGHT_THRESHOLD(); i++) {
+        for (uint256 i; i < brightback.BASELIGHT_THRESHOLD(); i++) {
             _commitRevealExecuteForAliceAndBob(
                 engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), abi.encode(0)
             );

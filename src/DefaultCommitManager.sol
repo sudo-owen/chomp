@@ -5,12 +5,11 @@ import "./Constants.sol";
 import "./Enums.sol";
 import "./Structs.sol";
 
-import {IEngine} from "./IEngine.sol";
 import {ICommitManager} from "./ICommitManager.sol";
+import {IEngine} from "./IEngine.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 
 contract DefaultCommitManager is ICommitManager, IMoveManager {
-
     IEngine private immutable ENGINE;
 
     mapping(bytes32 battleKey => mapping(address player => MoveCommitment)) private commitments;
@@ -43,7 +42,6 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
      *     - UNLESS there is a player switch for turn flag, in which case, no commits at all
      */
     function commitMove(bytes32 battleKey, bytes32 moveHash) external {
-
         // Can only commit moves to battles with nonzero timestamp and address(0) winner
         uint256 startTimestamp = ENGINE.getStartTimestamp(battleKey);
         if (startTimestamp == 0) {
@@ -62,7 +60,7 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         if (winner != address(0)) {
             revert BattleAlreadyComplete();
         }
-        
+
         // 3) Validate no commitment already exists for this turn:
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
 
@@ -107,13 +105,12 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
     function revealMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes calldata extraData, bool autoExecute)
         external
     {
-
         // Can only commit moves to battles with nonzero timestamp and address(0) winner
         uint256 startTimestamp = ENGINE.getStartTimestamp(battleKey);
         if (startTimestamp == 0) {
             revert BattleNotYetStarted();
         }
-        
+
         // Only battle participants can reveal
         address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
         if (msg.sender != p0AndP1[0] && msg.sender != p0AndP1[1]) {
@@ -207,9 +204,8 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
 
         // 5) Validate that the commited moves are legal
         // (e.g. there is enough stamina, move is not disabled, etc.)
-        if (
-            !ENGINE.getBattleValidator(battleKey).validatePlayerMove(battleKey, moveIndex, currentPlayerIndex, extraData)
-        ) {
+        if (!ENGINE.getBattleValidator(battleKey)
+                .validatePlayerMove(battleKey, moveIndex, currentPlayerIndex, extraData)) {
             revert InvalidMove(msg.sender);
         }
 

@@ -4,14 +4,14 @@ pragma solidity ^0.8.0;
 
 import "../../src/Structs.sol";
 
-import {Engine} from "../../src/Engine.sol";
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
-import {IValidator} from "../../src/IValidator.sol";
-import {IRandomnessOracle} from "../../src/rng/IRandomnessOracle.sol";
-import {ITeamRegistry} from "../../src/teams/ITeamRegistry.sol";
+import {Engine} from "../../src/Engine.sol";
 import {IEngineHook} from "../../src/IEngineHook.sol";
 import {IMoveManager} from "../../src/IMoveManager.sol";
+import {IValidator} from "../../src/IValidator.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {IRandomnessOracle} from "../../src/rng/IRandomnessOracle.sol";
+import {ITeamRegistry} from "../../src/teams/ITeamRegistry.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -81,7 +81,9 @@ abstract contract BattleHelper is Test {
         IEngineHook engineHook,
         IRuleset ruleset
     ) internal returns (bytes32) {
-        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHook, ruleset, IMoveManager(address(0)));
+        return _startBattle(
+            validator, engine, rngOracle, defaultRegistry, matchmaker, engineHook, ruleset, IMoveManager(address(0))
+        );
     }
 
     function _startBattle(

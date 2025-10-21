@@ -54,8 +54,10 @@ contract FirstResort is IMoveSet {
     function priority(bytes32 battleKey, uint256 attackerPlayerIndex) external view returns (uint32) {
         if (
             BASELIGHT.getBaselightLevel(
-                battleKey, attackerPlayerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex]
-            ) >= BASELIGHT_THRESHOLD
+                    battleKey,
+                    attackerPlayerIndex,
+                    ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex]
+                ) >= BASELIGHT_THRESHOLD
         ) {
             return DEFAULT_PRIORITY + 1;
         } else {

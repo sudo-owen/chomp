@@ -6,29 +6,29 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
+import {StandardAttack} from "../../src/moves/StandardAttack.sol";
+import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
+import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {TypeCalculator} from "../../src/types/TypeCalculator.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
-import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
-import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {CarrotHarvest} from "../../src/mons/sofabbi/CarrotHarvest.sol";
+import {Gachachacha} from "../../src/mons/sofabbi/Gachachacha.sol";
 import {GuestFeature} from "../../src/mons/sofabbi/GuestFeature.sol";
 import {SnackBreak} from "../../src/mons/sofabbi/SnackBreak.sol";
-import {Gachachacha} from "../../src/mons/sofabbi/Gachachacha.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract SofabbiTest is Test, BattleHelper {
     Engine engine;
@@ -225,11 +225,11 @@ contract SofabbiTest is Test, BattleHelper {
         moves[0] = gf;
 
         /**
-            Air (defender)
-            Ice (2x)
-            Earth (0x)
-            Nature (1/2x)
-        */
+         *     Air (defender)
+         *     Ice (2x)
+         *     Earth (0x)
+         *     Nature (1/2x)
+         */
 
         Mon memory airMon = Mon({
             stats: MonStats({
@@ -330,8 +330,7 @@ contract SofabbiTest is Test, BattleHelper {
         );
         newBobDmg = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
         bobDmg = bobDmg - newBobDmg;
-        assertApproxEqRel(bobDmg, int32(gf.BASE_POWER()/2), 2e17);
-
+        assertApproxEqRel(bobDmg, int32(gf.BASE_POWER() / 2), 2e17);
     }
 
     function test_snackBreak() public {
@@ -388,52 +387,40 @@ contract SofabbiTest is Test, BattleHelper {
         );
 
         // Alice uses nothing, Bob uses move index 1, puts Alice at 1 HP
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, "", "");
 
         int32 hpBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
         // Alice uses Snack Break, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         int32 hpAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
         assertEq(hpAfter - hpBefore, 64, "Healing worked");
 
         // Alice uses Snack Break, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         int32 hpAfter2 = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
         assertEq(hpAfter2 - hpAfter, 32, "Healing worked, went down");
 
         // Alice uses Snack Break, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         int32 hpAfter3 = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
         assertEq(hpAfter3 - hpAfter2, 16, "Healing worked, went down");
 
         // Alice uses Snack Break, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         int32 hpAfter4 = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
         assertEq(hpAfter4 - hpAfter3, 8, "Healing worked, went down");
 
         // Alice uses Snack Break, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         int32 hpAfter5 = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
@@ -472,7 +459,7 @@ contract SofabbiTest is Test, BattleHelper {
         bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
 
         // Both players send in mon index 0
-         _commitRevealExecuteForAliceAndBob(
+        _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 

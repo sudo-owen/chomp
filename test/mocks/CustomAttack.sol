@@ -9,9 +9,9 @@ import {IEngine} from "../../src/IEngine.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 
+import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
-import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 
 contract CustomAttack is IMoveSet {
     struct Args {
@@ -36,12 +36,12 @@ contract CustomAttack is IMoveSet {
                 ACCURACY: args.ACCURACY,
                 PRIORITY: args.PRIORITY,
                 MOVE_TYPE: args.TYPE,
-                EFFECT_ACCURACY: 0,  // No effect
+                EFFECT_ACCURACY: 0, // No effect
                 MOVE_CLASS: MoveClass.Physical,
-                CRIT_RATE: 0,        // No critical hits
-                VOLATILITY: 0,        // No volatility
+                CRIT_RATE: 0, // No critical hits
+                VOLATILITY: 0, // No volatility
                 NAME: "CustomAttack",
-                EFFECT: IEffect(address(0))  // No effect
+                EFFECT: IEffect(address(0)) // No effect
             })
         );
     }

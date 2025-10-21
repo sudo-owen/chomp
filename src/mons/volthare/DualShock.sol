@@ -12,7 +12,6 @@ import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract DualShock is StandardAttack {
-    
     constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR, IEffect ZAP_STATUS)
         StandardAttack(
             address(msg.sender),

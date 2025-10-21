@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
+import "../Constants.sol";
 import "../Enums.sol";
 import "../Structs.sol";
-import "../Constants.sol";
 
 import {IEngine} from "../IEngine.sol";
 import {IMoveManager} from "../IMoveManager.sol";
@@ -27,9 +27,8 @@ contract StaminaRegen is BasicEffect {
 
     // No overhealing stamina
     function _regenStamina(uint256 playerIndex, uint256 monIndex) internal {
-        int256 currentActiveMonStaminaDelta = ENGINE.getMonStateForBattle(
-            ENGINE.battleKeyForWrite(), playerIndex, monIndex, MonStateIndexName.Stamina
-        );
+        int256 currentActiveMonStaminaDelta =
+            ENGINE.getMonStateForBattle(ENGINE.battleKeyForWrite(), playerIndex, monIndex, MonStateIndexName.Stamina);
         if (currentActiveMonStaminaDelta < 0) {
             ENGINE.updateMonState(playerIndex, monIndex, MonStateIndexName.Stamina, 1);
         }
@@ -50,7 +49,11 @@ contract StaminaRegen is BasicEffect {
     }
 
     // Regen stamina if the mon did a No Op (i.e. resting)
-    function onAfterMove(uint256, bytes memory, uint256 targetIndex, uint256 monIndex) external override returns (bytes memory, bool) {
+    function onAfterMove(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+        external
+        override
+        returns (bytes memory, bool)
+    {
         IMoveManager moveManager = ENGINE.getMoveManager(ENGINE.battleKeyForWrite());
         RevealedMove memory move = moveManager.getMoveForBattleStateForTurn(
             ENGINE.battleKeyForWrite(), targetIndex, ENGINE.getTurnIdForBattleState(ENGINE.battleKeyForWrite())

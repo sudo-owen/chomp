@@ -9,9 +9,8 @@ import {IEngine} from "../../IEngine.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract SnackBreak is IMoveSet {
-
-    uint256 constant public DEFAULT_HEAL_DENOM = 2;
-    uint256 constant public MAX_DIVISOR = 3;
+    uint256 public constant DEFAULT_HEAL_DENOM = 2;
+    uint256 public constant MAX_DIVISOR = 3;
 
     IEngine immutable ENGINE;
 
@@ -35,14 +34,14 @@ contract SnackBreak is IMoveSet {
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
-        uint256 activeMonIndex =
-            ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
         uint256 snackLevel = _getSnackLevel(battleKey, attackerPlayerIndex, activeMonIndex);
         uint32 maxHp = ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
-        
+
         // Heal active mon by max HP / 2**snackLevel
-        int32 healAmount = int32(uint32(maxHp / (DEFAULT_HEAL_DENOM * (2**snackLevel))));
-        int32 currentDamage = ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
+        int32 healAmount = int32(uint32(maxHp / (DEFAULT_HEAL_DENOM * (2 ** snackLevel))));
+        int32 currentDamage =
+            ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
         if (currentDamage + healAmount > 0) {
             healAmount = -1 * currentDamage;
         }

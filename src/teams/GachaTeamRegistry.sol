@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import "./LookupTeamRegistry.sol";
 import {IOwnableMon} from "../gacha/IOwnableMon.sol";
 import {Ownable} from "../lib/Ownable.sol";
+import "./LookupTeamRegistry.sol";
 
 contract GachaTeamRegistry is LookupTeamRegistry, Ownable {
-
     IOwnableMon immutable OWNER_LOOKUP;
 
     error NotOwner();
@@ -18,28 +17,23 @@ contract GachaTeamRegistry is LookupTeamRegistry, Ownable {
 
     function _validateOwnership(uint256[] memory monIndices) internal view {
         for (uint256 i; i < monIndices.length; i++) {
-            if (! OWNER_LOOKUP.isOwner(msg.sender, monIndices[i])) {
+            if (!OWNER_LOOKUP.isOwner(msg.sender, monIndices[i])) {
                 revert NotOwner();
             }
         }
     }
 
-    function createTeam(uint256[] memory monIndices) override public {
+    function createTeam(uint256[] memory monIndices) public override {
         _validateOwnership(monIndices);
         super.createTeam(monIndices);
     }
 
-    function createTeamForUser(
-        address user,
-        uint256[] memory monIndices
-    ) external onlyOwner {
+    function createTeamForUser(address user, uint256[] memory monIndices) external onlyOwner {
         _createTeamForUser(user, monIndices);
     }
 
     // TODO: For prod we won't want this
-    function updateTeamForUser(
-        uint256[] memory newMonIndices
-    ) external {
+    function updateTeamForUser(uint256[] memory newMonIndices) external {
         uint256[] memory teamMonIndicesToOverride = new uint256[](MONS_PER_TEAM);
         for (uint256 i; i < MONS_PER_TEAM; i++) {
             teamMonIndicesToOverride[i] = i;
@@ -47,11 +41,10 @@ contract GachaTeamRegistry is LookupTeamRegistry, Ownable {
         super.updateTeam(0, teamMonIndicesToOverride, newMonIndices);
     }
 
-    function updateTeam(
-        uint256 teamIndex,
-        uint256[] memory teamMonIndicesToOverride,
-        uint256[] memory newMonIndices
-    ) override public {
+    function updateTeam(uint256 teamIndex, uint256[] memory teamMonIndicesToOverride, uint256[] memory newMonIndices)
+        public
+        override
+    {
         _validateOwnership(newMonIndices);
         super.updateTeam(teamIndex, teamMonIndicesToOverride, newMonIndices);
     }

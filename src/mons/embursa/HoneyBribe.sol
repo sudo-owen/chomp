@@ -6,15 +6,14 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {StatBoosts} from "../../effects/StatBoosts.sol";
+import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {HeatBeaconLib} from "./HeatBeaconLib.sol";
 
 contract HoneyBribe is IMoveSet {
-
-    uint256 constant public DEFAULT_HEAL_DENOM = 2;
-    uint256 constant public MAX_DIVISOR = 3;
-    int32 constant public SP_DEF_PERCENT = 50;
+    uint256 public constant DEFAULT_HEAL_DENOM = 2;
+    uint256 public constant MAX_DIVISOR = 3;
+    int32 public constant SP_DEF_PERCENT = 50;
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;
@@ -41,12 +40,12 @@ contract HoneyBribe is IMoveSet {
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         // Heal active mon by max HP / 2**bribeLevel
-        uint256 activeMonIndex =
-            ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
         uint256 bribeLevel = _getBribeLevel(battleKey, attackerPlayerIndex, activeMonIndex);
         uint32 maxHp = ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
-        int32 healAmount = int32(uint32(maxHp / (DEFAULT_HEAL_DENOM * (2**bribeLevel))));
-        int32 currentDamage = ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
+        int32 healAmount = int32(uint32(maxHp / (DEFAULT_HEAL_DENOM * (2 ** bribeLevel))));
+        int32 currentDamage =
+            ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
         if (currentDamage + healAmount > 0) {
             healAmount = -1 * currentDamage;
         }
@@ -54,10 +53,10 @@ contract HoneyBribe is IMoveSet {
 
         // Heal opposing active mon by max HP / 2**(bribeLevel + 1)
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
-        uint256 defenderMonIndex =
-            ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
-        healAmount = int32(uint32(maxHp / (DEFAULT_HEAL_DENOM * (2**(bribeLevel + 1)))));
-        currentDamage = ENGINE.getMonStateForBattle(battleKey, defenderPlayerIndex, defenderMonIndex, MonStateIndexName.Hp);
+        uint256 defenderMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
+        healAmount = int32(uint32(maxHp / (DEFAULT_HEAL_DENOM * (2 ** (bribeLevel + 1)))));
+        currentDamage =
+            ENGINE.getMonStateForBattle(battleKey, defenderPlayerIndex, defenderMonIndex, MonStateIndexName.Hp);
         if (currentDamage + healAmount > 0) {
             healAmount = -1 * currentDamage;
         }

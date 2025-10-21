@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {Engine} from "../../src/Engine.sol";
-import {MoveClass, Type, EngineEventType} from "../../src/Enums.sol";
-import "../../src/Structs.sol";
 import "../../src/Constants.sol";
+import {Engine} from "../../src/Engine.sol";
+import {EngineEventType, MoveClass, Type} from "../../src/Enums.sol";
+import "../../src/Structs.sol";
 
-import {IAbility} from "../../src/abilities/IAbility.sol";
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
+import {IAbility} from "../../src/abilities/IAbility.sol";
 import {AttackCalculator} from "../../src/moves/AttackCalculator.sol";
 
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 import {TypeCalculator} from "../../src/types/TypeCalculator.sol";
+import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
-import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {Test} from "forge-std/Test.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract AttackCalculatorTest is Test, BattleHelper {
     Engine engine;
@@ -38,9 +38,8 @@ contract AttackCalculatorTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
-        validator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
-        );
+        validator =
+            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10}));
         defaultRegistry = new TestTeamRegistry();
         matchmaker = new DefaultMatchmaker(engine);
 
@@ -107,7 +106,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0; // No crits
 
         // Calculate damage (Alice attacking Bob)
-        (int32 damage, ) = AttackCalculator._calculateDamageView(
+        (int32 damage,) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -140,7 +139,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0; // No crits
 
         // Calculate damage (Bob attacking Alice)
-        (int32 damage, ) = AttackCalculator._calculateDamageView(
+        (int32 damage,) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -172,13 +171,35 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0;
 
         // With rng = 49, attack should hit (rng < accuracy)
-        (int32 damage1, ) = AttackCalculator._calculateDamageView(
-            engine, typeCalc, battleKey, 0, 1, basePower, accuracy, volatility, attackType, attackSupertype, 49, critRate
+        (int32 damage1,) = AttackCalculator._calculateDamageView(
+            engine,
+            typeCalc,
+            battleKey,
+            0,
+            1,
+            basePower,
+            accuracy,
+            volatility,
+            attackType,
+            attackSupertype,
+            49,
+            critRate
         );
 
         // With rng = 50, attack should miss (rng >= accuracy)
         (int32 damage2, EngineEventType eventType) = AttackCalculator._calculateDamageView(
-            engine, typeCalc, battleKey, 0, 1, basePower, accuracy, volatility, attackType, attackSupertype, 50, critRate
+            engine,
+            typeCalc,
+            battleKey,
+            0,
+            1,
+            basePower,
+            accuracy,
+            volatility,
+            attackType,
+            attackSupertype,
+            50,
+            critRate
         );
         assertEq(uint256(eventType), uint256(EngineEventType.MoveMiss), "Should emit miss");
 
@@ -202,7 +223,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         // For simplicity, we'll test both scenarios
 
         // First, force a non-crit by setting critRate to 0
-        (int32 normalDamage, ) = AttackCalculator._calculateDamageView(
+        (int32 normalDamage,) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -248,7 +269,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint256 critRate = 0;
 
         // With even RNG, damage should increase
-        (int32 damageScaledUp, ) = AttackCalculator._calculateDamageView(
+        (int32 damageScaledUp,) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -264,7 +285,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // With odd RNG, damage should decrease
-        (int32 damageScaledDown, ) = AttackCalculator._calculateDamageView(
+        (int32 damageScaledDown,) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -280,7 +301,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // Reset volatility and get base damage
-        (int32 baseDamage, ) = AttackCalculator._calculateDamageView(
+        (int32 baseDamage,) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,

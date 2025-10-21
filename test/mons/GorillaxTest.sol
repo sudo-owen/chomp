@@ -6,29 +6,28 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
+import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
+import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
-import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
-import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {Angery} from "../../src/mons/gorillax/Angery.sol";
 import {RockPull} from "../../src/mons/gorillax/RockPull.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract GorillaxTest is Test, BattleHelper {
-
     Engine engine;
     DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
@@ -117,7 +116,7 @@ contract GorillaxTest is Test, BattleHelper {
     }
 
     function test_rockPull() public {
-         FastValidator validator = new FastValidator(
+        FastValidator validator = new FastValidator(
             IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         RockPull rockPull = new RockPull(engine, typeCalc);
@@ -145,7 +144,7 @@ contract GorillaxTest is Test, BattleHelper {
                 hp: 1000,
                 stamina: 5,
                 speed: 5,
-                attack: 10, 
+                attack: 10,
                 defense: 10, // Same defense here to ensure things work as intended
                 specialAttack: 5,
                 specialDefense: 5,
@@ -182,7 +181,9 @@ contract GorillaxTest is Test, BattleHelper {
 
         // Assert that Bob's mon index 0 took damage
         int32 bobMonHPDelta = -1 * engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
-        assertApproxEqRel(bobMonHPDelta, int32(rockPull.OPPONENT_BASE_POWER()), 2e17, "Damage dealt to opponent is within range");
+        assertApproxEqRel(
+            bobMonHPDelta, int32(rockPull.OPPONENT_BASE_POWER()), 2e17, "Damage dealt to opponent is within range"
+        );
 
         // Alice uses Rock Pull, Bob does not switch
         _commitRevealExecuteForAliceAndBob(
@@ -192,6 +193,8 @@ contract GorillaxTest is Test, BattleHelper {
         // Assert that Alice's mon index 0 took damage
         int32 aliceMonHPDelta = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
         // Note we multiply by 2 here to account for the self-damage, our stats are imbalanced to ensure the math is working as expected
-        assertApproxEqRel(aliceMonHPDelta, int32(2*rockPull.SELF_DAMAGE_BASE_POWER()), 2e17, "Damage dealt to self is within range");
+        assertApproxEqRel(
+            aliceMonHPDelta, int32(2 * rockPull.SELF_DAMAGE_BASE_POWER()), 2e17, "Damage dealt to self is within range"
+        );
     }
 }

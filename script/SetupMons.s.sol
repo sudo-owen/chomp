@@ -2,12 +2,12 @@
 // Created by mon_stats_to_sol.py
 pragma solidity ^0.8.0;
 
-import {Script} from "forge-std/Script.sol";
-import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
-import {MonStats} from "../src/Structs.sol";
 import {Type} from "../src/Enums.sol";
-import {IMoveSet} from "../src/moves/IMoveSet.sol";
+import {MonStats} from "../src/Structs.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
+import {IMoveSet} from "../src/moves/IMoveSet.sol";
+import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
+import {Script} from "forge-std/Script.sol";
 
 import {IEngine} from "../src/IEngine.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
@@ -64,6 +64,7 @@ struct DeployData {
     string name;
     address contractAddress;
 }
+
 contract SetupMons is Script {
     function run() external returns (DeployData[] memory deployedContracts) {
         vm.startBroadcast();
@@ -109,39 +110,35 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        EternalGrudge eternalgrudge = new EternalGrudge(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Eternal Grudge",
-            contractAddress: address(eternalgrudge)
-        });
+        EternalGrudge eternalgrudge =
+            new EternalGrudge(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({name: "Eternal Grudge", contractAddress: address(eternalgrudge)});
         contractIndex++;
 
-        InfernalFlame infernalflame = new InfernalFlame(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("BURN_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Infernal Flame",
-            contractAddress: address(infernalflame)
-        });
+        InfernalFlame infernalflame = new InfernalFlame(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("BURN_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Infernal Flame", contractAddress: address(infernalflame)});
         contractIndex++;
 
-        WitherAway witheraway = new WitherAway(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("PANIC_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Wither Away",
-            contractAddress: address(witheraway)
-        });
+        WitherAway witheraway = new WitherAway(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("PANIC_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Wither Away", contractAddress: address(witheraway)});
         contractIndex++;
 
-        Osteoporosis osteoporosis = new Osteoporosis(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Osteoporosis",
-            contractAddress: address(osteoporosis)
-        });
+        Osteoporosis osteoporosis =
+            new Osteoporosis(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Osteoporosis", contractAddress: address(osteoporosis)});
         contractIndex++;
 
         RiseFromTheGrave risefromthegrave = new RiseFromTheGrave(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Rise From The Grave",
-            contractAddress: address(risefromthegrave)
-        });
+        deployedContracts[contractIndex] =
+            DeployData({name: "Rise From The Grave", contractAddress: address(risefromthegrave)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -173,39 +170,30 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        ChainExpansion chainexpansion = new ChainExpansion(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Chain Expansion",
-            contractAddress: address(chainexpansion)
-        });
+        ChainExpansion chainexpansion =
+            new ChainExpansion(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] =
+            DeployData({name: "Chain Expansion", contractAddress: address(chainexpansion)});
         contractIndex++;
 
-        Initialize initialize = new Initialize(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Initialize",
-            contractAddress: address(initialize)
-        });
+        Initialize initialize =
+            new Initialize(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({name: "Initialize", contractAddress: address(initialize)});
         contractIndex++;
 
-        BigBite bigbite = new BigBite(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Big Bite",
-            contractAddress: address(bigbite)
-        });
+        BigBite bigbite =
+            new BigBite(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Big Bite", contractAddress: address(bigbite)});
         contractIndex++;
 
-        ShrineStrike shrinestrike = new ShrineStrike(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Shrine Strike",
-            contractAddress: address(shrinestrike)
-        });
+        ShrineStrike shrinestrike =
+            new ShrineStrike(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Shrine Strike", contractAddress: address(shrinestrike)});
         contractIndex++;
 
-        Interweaving interweaving = new Interweaving(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Interweaving",
-            contractAddress: address(interweaving)
-        });
+        Interweaving interweaving =
+            new Interweaving(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({name: "Interweaving", contractAddress: address(interweaving)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -237,39 +225,37 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        TripleThink triplethink = new TripleThink(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Triple Think",
-            contractAddress: address(triplethink)
-        });
+        TripleThink triplethink =
+            new TripleThink(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({name: "Triple Think", contractAddress: address(triplethink)});
         contractIndex++;
 
-        FederalInvestigation federalinvestigation = new FederalInvestigation(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Federal Investigation",
-            contractAddress: address(federalinvestigation)
-        });
+        FederalInvestigation federalinvestigation = new FederalInvestigation(
+            IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR"))
+        );
+        deployedContracts[contractIndex] =
+            DeployData({name: "Federal Investigation", contractAddress: address(federalinvestigation)});
         contractIndex++;
 
-        NegativeThoughts negativethoughts = new NegativeThoughts(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("PANIC_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Negative Thoughts",
-            contractAddress: address(negativethoughts)
-        });
+        NegativeThoughts negativethoughts = new NegativeThoughts(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("PANIC_STATUS"))
+        );
+        deployedContracts[contractIndex] =
+            DeployData({name: "Negative Thoughts", contractAddress: address(negativethoughts)});
         contractIndex++;
 
-        InfiniteLove infinitelove = new InfiniteLove(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("SLEEP_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Infinite Love",
-            contractAddress: address(infinitelove)
-        });
+        InfiniteLove infinitelove = new InfiniteLove(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("SLEEP_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Infinite Love", contractAddress: address(infinitelove)});
         contractIndex++;
 
         ActusReus actusreus = new ActusReus(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Actus Reus",
-            contractAddress: address(actusreus)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Actus Reus", contractAddress: address(actusreus)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -301,39 +287,36 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        Baselight baselight = new Baselight(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Baselight",
-            contractAddress: address(baselight)
-        });
+        Baselight baselight =
+            new Baselight(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Baselight", contractAddress: address(baselight)});
         contractIndex++;
 
         Loop loop = new Loop(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Loop",
-            contractAddress: address(loop)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Loop", contractAddress: address(loop)});
         contractIndex++;
 
-        FirstResort firstresort = new FirstResort(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
-        deployedContracts[contractIndex] = DeployData({
-            name: "First Resort",
-            contractAddress: address(firstresort)
-        });
+        FirstResort firstresort = new FirstResort(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            Baselight(address(baselight))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "First Resort", contractAddress: address(firstresort)});
         contractIndex++;
 
-        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Brightback",
-            contractAddress: address(brightback)
-        });
+        Brightback brightback = new Brightback(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            Baselight(address(baselight))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Brightback", contractAddress: address(brightback)});
         contractIndex++;
 
-        IntrinsicValue intrinsicvalue = new IntrinsicValue(IEngine(vm.envAddress("ENGINE")), Baselight(address(baselight)), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Intrinsic Value",
-            contractAddress: address(intrinsicvalue)
-        });
+        IntrinsicValue intrinsicvalue = new IntrinsicValue(
+            IEngine(vm.envAddress("ENGINE")), Baselight(address(baselight)), StatBoosts(vm.envAddress("STAT_BOOSTS"))
+        );
+        deployedContracts[contractIndex] =
+            DeployData({name: "Intrinsic Value", contractAddress: address(intrinsicvalue)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -365,39 +348,27 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        RockPull rockpull = new RockPull(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Rock Pull",
-            contractAddress: address(rockpull)
-        });
+        RockPull rockpull =
+            new RockPull(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Rock Pull", contractAddress: address(rockpull)});
         contractIndex++;
 
-        PoundGround poundground = new PoundGround(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Pound Ground",
-            contractAddress: address(poundground)
-        });
+        PoundGround poundground =
+            new PoundGround(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Pound Ground", contractAddress: address(poundground)});
         contractIndex++;
 
         Blow blow = new Blow(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Blow",
-            contractAddress: address(blow)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Blow", contractAddress: address(blow)});
         contractIndex++;
 
-        ThrowPebble throwpebble = new ThrowPebble(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Throw Pebble",
-            contractAddress: address(throwpebble)
-        });
+        ThrowPebble throwpebble =
+            new ThrowPebble(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Throw Pebble", contractAddress: address(throwpebble)});
         contractIndex++;
 
         Angery angery = new Angery(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Angery",
-            contractAddress: address(angery)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Angery", contractAddress: address(angery)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -429,39 +400,28 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        Gachachacha gachachacha = new Gachachacha(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Gachachacha",
-            contractAddress: address(gachachacha)
-        });
+        Gachachacha gachachacha =
+            new Gachachacha(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Gachachacha", contractAddress: address(gachachacha)});
         contractIndex++;
 
-        GuestFeature guestfeature = new GuestFeature(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Guest Feature",
-            contractAddress: address(guestfeature)
-        });
+        GuestFeature guestfeature =
+            new GuestFeature(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Guest Feature", contractAddress: address(guestfeature)});
         contractIndex++;
 
-        UnexpectedCarrot unexpectedcarrot = new UnexpectedCarrot(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Unexpected Carrot",
-            contractAddress: address(unexpectedcarrot)
-        });
+        UnexpectedCarrot unexpectedcarrot =
+            new UnexpectedCarrot(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] =
+            DeployData({name: "Unexpected Carrot", contractAddress: address(unexpectedcarrot)});
         contractIndex++;
 
         SnackBreak snackbreak = new SnackBreak(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Snack Break",
-            contractAddress: address(snackbreak)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Snack Break", contractAddress: address(snackbreak)});
         contractIndex++;
 
         CarrotHarvest carrotharvest = new CarrotHarvest(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Carrot Harvest",
-            contractAddress: address(carrotharvest)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Carrot Harvest", contractAddress: address(carrotharvest)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -493,39 +453,33 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        ChillOut chillout = new ChillOut(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("FROSTBITE_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Chill Out",
-            contractAddress: address(chillout)
-        });
+        ChillOut chillout = new ChillOut(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("FROSTBITE_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Chill Out", contractAddress: address(chillout)});
         contractIndex++;
 
         Deadlift deadlift = new Deadlift(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Deadlift",
-            contractAddress: address(deadlift)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Deadlift", contractAddress: address(deadlift)});
         contractIndex++;
 
-        DeepFreeze deepfreeze = new DeepFreeze(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("FROSTBITE_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Deep Freeze",
-            contractAddress: address(deepfreeze)
-        });
+        DeepFreeze deepfreeze = new DeepFreeze(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("FROSTBITE_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Deep Freeze", contractAddress: address(deepfreeze)});
         contractIndex++;
 
-        PistolSquat pistolsquat = new PistolSquat(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Pistol Squat",
-            contractAddress: address(pistolsquat)
-        });
+        PistolSquat pistolsquat =
+            new PistolSquat(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Pistol Squat", contractAddress: address(pistolsquat)});
         contractIndex++;
 
         PostWorkout postworkout = new PostWorkout(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Post-Workout",
-            contractAddress: address(postworkout)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Post-Workout", contractAddress: address(postworkout)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -557,39 +511,29 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        HoneyBribe honeybribe = new HoneyBribe(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Honey Bribe",
-            contractAddress: address(honeybribe)
-        });
+        HoneyBribe honeybribe =
+            new HoneyBribe(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({name: "Honey Bribe", contractAddress: address(honeybribe)});
         contractIndex++;
 
-        SetAblaze setablaze = new SetAblaze(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("BURN_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Set Ablaze",
-            contractAddress: address(setablaze)
-        });
+        SetAblaze setablaze = new SetAblaze(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("BURN_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Set Ablaze", contractAddress: address(setablaze)});
         contractIndex++;
 
         HeatBeacon heatbeacon = new HeatBeacon(IEngine(vm.envAddress("ENGINE")), IEffect(vm.envAddress("BURN_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Heat Beacon",
-            contractAddress: address(heatbeacon)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Heat Beacon", contractAddress: address(heatbeacon)});
         contractIndex++;
 
         Q5 q5 = new Q5(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Q5",
-            contractAddress: address(q5)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Q5", contractAddress: address(q5)});
         contractIndex++;
 
         SplitThePot splitthepot = new SplitThePot(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Split The Pot",
-            contractAddress: address(splitthepot)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Split The Pot", contractAddress: address(splitthepot)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -621,39 +565,39 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        Electrocute electrocute = new Electrocute(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Electrocute",
-            contractAddress: address(electrocute)
-        });
+        Electrocute electrocute = new Electrocute(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("ZAP_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Electrocute", contractAddress: address(electrocute)});
         contractIndex++;
 
-        RoundTrip roundtrip = new RoundTrip(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Round Trip",
-            contractAddress: address(roundtrip)
-        });
+        RoundTrip roundtrip =
+            new RoundTrip(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({name: "Round Trip", contractAddress: address(roundtrip)});
         contractIndex++;
 
-        MegaStarBlast megastarblast = new MegaStarBlast(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), IEffect(vm.envAddress("STORM")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Mega Star Blast",
-            contractAddress: address(megastarblast)
-        });
+        MegaStarBlast megastarblast = new MegaStarBlast(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("ZAP_STATUS")),
+            IEffect(vm.envAddress("STORM"))
+        );
+        deployedContracts[contractIndex] =
+            DeployData({name: "Mega Star Blast", contractAddress: address(megastarblast)});
         contractIndex++;
 
-        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Dual Shock",
-            contractAddress: address(dualshock)
-        });
+        DualShock dualshock = new DualShock(
+            IEngine(vm.envAddress("ENGINE")),
+            ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")),
+            IEffect(vm.envAddress("ZAP_STATUS"))
+        );
+        deployedContracts[contractIndex] = DeployData({name: "Dual Shock", contractAddress: address(dualshock)});
         contractIndex++;
 
         Overclock overclock = new Overclock(IEngine(vm.envAddress("ENGINE")), Storm(vm.envAddress("STORM")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Overclock",
-            contractAddress: address(overclock)
-        });
+        deployedContracts[contractIndex] = DeployData({name: "Overclock", contractAddress: address(overclock)});
         contractIndex++;
 
         MonStats memory stats = MonStats({
@@ -680,5 +624,4 @@ contract SetupMons is Script {
 
         return deployedContracts;
     }
-
 }

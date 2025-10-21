@@ -213,7 +213,7 @@ contract FastValidator is IValidator {
         if (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1) {
             lastTurnTimestamp =
                 commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
-        } 
+        }
         // Otherwise it was either turn 0 (we grab the battle start time), or a two player turn (we grab the timestamp whoever made the last move)
         else {
             if (turnId == 0) {

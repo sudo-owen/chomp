@@ -14,8 +14,8 @@ import {IGachaRNG} from "../src/rng/IGachaRNG.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {BattleHelper} from "./abstract/BattleHelper.sol";
 
-import {MockGachaRNG} from "./mocks/MockGachaRNG.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
+import {MockGachaRNG} from "./mocks/MockGachaRNG.sol";
 
 import "./mocks/TestTeamRegistry.sol";
 
@@ -187,9 +187,11 @@ contract GachaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
         for (uint256 i = 0; i < 6; i++) {
             vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + (i + 1));
-            FastValidator validator =
-                new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
-            bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
+            FastValidator validator = new FastValidator(
+                engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
+            );
+            bytes32 battleKey =
+                _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
 
             // Alice commits switching to mon index 0
             vm.startPrank(ALICE);
@@ -269,7 +271,7 @@ contract GachaTest is Test, BattleHelper {
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
-        
+
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
 
@@ -287,9 +289,7 @@ contract GachaTest is Test, BattleHelper {
         assertEq(engine.getWinner(battleKey), ALICE);
 
         // Verify points are correct
-        assertEq(
-            gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_WIN()
-        );
+        assertEq(gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_WIN());
         assertEq(gachaRegistry.pointsBalance(BOB), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_LOSS());
     }
 
@@ -318,7 +318,7 @@ contract GachaTest is Test, BattleHelper {
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, gachaRegistry);
-        
+
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
 
@@ -334,7 +334,7 @@ contract GachaTest is Test, BattleHelper {
         engine.end(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE);
 
-        // Assert Alice and Bob have nonzero points 
+        // Assert Alice and Bob have nonzero points
         uint256 alicePoints = gachaRegistry.pointsBalance(ALICE);
         uint256 bobPoints = gachaRegistry.pointsBalance(BOB);
         assertGt(alicePoints, 0);

@@ -45,9 +45,9 @@ contract ShrineStrike is StandardAttack {
 
         // Heal HP for heal denom
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
-        int32 healAmount = int32(
-            ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp)
-        ) / HEAL_DENOM;
+        int32 healAmount =
+            int32(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp))
+            / HEAL_DENOM;
 
         // Prevent overhealing
         int32 existingHpDelta =

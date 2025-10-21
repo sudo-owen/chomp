@@ -3,20 +3,19 @@ pragma solidity ^0.8.0;
 
 import {IEngine} from "../IEngine.sol";
 
+import {IMatchmaker} from "../matchmaker/IMatchmaker.sol";
 import {IMoveSet} from "../moves/IMoveSet.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
-import {IMatchmaker} from "../matchmaker/IMatchmaker.sol";
 import {ICPU} from "./ICPU.sol";
 
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
-import {Battle, BattleState, RevealedMove, ProposedBattle, Mon} from "../Structs.sol";
+import {Battle, BattleState, Mon, ProposedBattle, RevealedMove} from "../Structs.sol";
 
 abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
-
     uint256 private immutable NUM_MOVES;
-    
+
     IEngine public immutable ENGINE;
     ICPURNG public immutable RNG;
     uint256 public nonceToUse;
@@ -36,12 +35,13 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
      *     Otherwise, randomly selects a valid move, switch index, or no op
      */
     function selectMove(bytes32 battleKey, uint256 playerIndex)
-        external virtual
+        external
+        virtual
         returns (uint256 moveIndex, bytes memory extraData);
 
     /**
-     - If it's a switch needed turn, returns [VALID SWITCHES]
-     - If it's a non-switch turn, returns [NO_OP | VALID MOVES | VALID SWITCHES]
+     *  - If it's a switch needed turn, returns [VALID SWITCHES]
+     *  - If it's a non-switch turn, returns [NO_OP | VALID MOVES | VALID SWITCHES]
      */
     function calculateValidMoves(bytes32 battleKey, uint256 playerIndex)
         public
@@ -68,11 +68,8 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                 validSwitchIndices = new uint256[](teamSize);
                 for (uint256 i = 0; i < teamSize; i++) {
                     if (i != activeMonIndex[playerIndex]) {
-                        if (
-                            battle.validator.validatePlayerMove(
-                                battleKey, SWITCH_MOVE_INDEX, playerIndex, abi.encode(i)
-                            )
-                        ) {
+                        if (battle.validator
+                            .validatePlayerMove(battleKey, SWITCH_MOVE_INDEX, playerIndex, abi.encode(i))) {
                             validSwitchIndices[validSwitchCount++] = i;
                         }
                     }
@@ -86,9 +83,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                     RevealedMove[] memory switchChoices = new RevealedMove[](validSwitchCount);
                     for (uint256 i = 0; i < validSwitchCount; i++) {
                         switchChoices[i] = RevealedMove({
-                            moveIndex: SWITCH_MOVE_INDEX,
-                            salt: "",
-                            extraData: abi.encode(validSwitchIndices[i])
+                            moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])
                         });
                     }
                     return (switchChoices, nonce);
@@ -125,8 +120,9 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
             RevealedMove[] memory moveChoices = new RevealedMove[](validMoves);
             moveChoices[0] = RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""});
             for (uint256 i = 0; i < validSwitchCount; i++) {
-                moveChoices[i + 1] =
-                    RevealedMove({moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])});
+                moveChoices[i + 1] = RevealedMove({
+                    moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])
+                });
             }
             for (uint256 i = 0; i < validMoveCount; i++) {
                 moveChoices[i + validSwitchCount + 1] =
@@ -141,25 +137,27 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
     }
 
     function startBattle(ProposedBattle memory proposal) external returns (bytes32 battleKey) {
-        (battleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
-        ENGINE.startBattle(Battle({
-            p0: proposal.p0,
-            p0TeamIndex: proposal.p0TeamIndex,
-            p1: proposal.p1,
-            p1TeamIndex: proposal.p1TeamIndex,
-            teamRegistry: proposal.teamRegistry,
-            validator: proposal.validator,
-            rngOracle: proposal.rngOracle,
-            ruleset: proposal.ruleset,
-            engineHook: proposal.engineHook,
-            moveManager: proposal.moveManager,
-            matchmaker: proposal.matchmaker,
-            startTimestamp: 0,
-            teams: new Mon[][](2)
-        }));
+        (battleKey,) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
+        ENGINE.startBattle(
+            Battle({
+                p0: proposal.p0,
+                p0TeamIndex: proposal.p0TeamIndex,
+                p1: proposal.p1,
+                p1TeamIndex: proposal.p1TeamIndex,
+                teamRegistry: proposal.teamRegistry,
+                validator: proposal.validator,
+                rngOracle: proposal.rngOracle,
+                ruleset: proposal.ruleset,
+                engineHook: proposal.engineHook,
+                moveManager: proposal.moveManager,
+                matchmaker: proposal.matchmaker,
+                startTimestamp: 0,
+                teams: new Mon[][](2)
+            })
+        );
     }
 
     function validateMatch(bytes32, address) external pure returns (bool) {
         return true;
-    } 
+    }
 }

@@ -7,19 +7,18 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
-import {Engine} from "../src/Engine.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
+import {Engine} from "../src/Engine.sol";
 import {FastValidator} from "../src/FastValidator.sol";
+import {IEngineHook} from "../src/IEngineHook.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
-import {IEngineHook} from "../src/IEngineHook.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract MatchmakerTest is Test {
-
     address constant ALICE = address(1);
     address constant BOB = address(2);
     uint256 constant TIMEOUT = 10;

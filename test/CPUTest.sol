@@ -3,17 +3,17 @@ pragma solidity ^0.8.0;
 
 import "../lib/forge-std/src/Test.sol";
 
+import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
-import "../src/Constants.sol";
 
 import {Engine} from "../src/Engine.sol";
 
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
-import {RandomCPU} from "../src/cpu/RandomCPU.sol";
 import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
+import {RandomCPU} from "../src/cpu/RandomCPU.sol";
 
 import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
@@ -25,11 +25,11 @@ import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {GuestFeature} from "../src/mons/sofabbi/GuestFeature.sol";
 import {RoundTrip} from "../src/mons/volthare/RoundTrip.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {ATTACK_PARAMS} from "../src/moves/StandardAttackStructs.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract CPUTest is Test {
     Engine engine;
@@ -216,7 +216,7 @@ contract CPUTest is Test {
 
         // Check that the CPU enumerates mon indices 0 to 4
         {
-            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 4);
         }
 
@@ -230,7 +230,7 @@ contract CPUTest is Test {
 
         // Check that the CPU now has 6 moves (can swap to any one of the other 3 mons, 2 valid moves, and a no op)
         {
-            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 6);
         }
 
@@ -240,7 +240,7 @@ contract CPUTest is Test {
 
         // Check that the CPU now has 3 moves, all of which are switching to mon index 0, 2, or 3
         {
-            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 3);
             uint256[] memory swapIds = new uint256[](3);
             swapIds[0] = 0;
@@ -260,7 +260,7 @@ contract CPUTest is Test {
 
         // Assert that there are now 5 moves, switching to mon index 2, 3, the two moves, and no op
         {
-            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 5);
         }
 
@@ -272,7 +272,7 @@ contract CPUTest is Test {
 
         // Assert that there are now 3 moves, switching to mon index 2, 3, and no op (all stamina has been consumed)
         {
-            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 3);
         }
 
@@ -286,7 +286,7 @@ contract CPUTest is Test {
         // Assert that there are now 4 moves, switching to mon index 0, 2, the two moves, and no op
         // Assert that both moves generate a valid self team index (either mon 0 or mon 2)
         {
-            (RevealedMove[] memory moves, ) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
             assertEq(moves.length, 5);
             assertEq(abi.decode(moves[3].extraData, (uint256)), 0); // rng is set to 2, which % 2 is 0
             assertEq(abi.decode(moves[4].extraData, (uint256)), 0);

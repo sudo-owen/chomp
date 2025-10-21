@@ -8,7 +8,6 @@ import {StatBoosts} from "../StatBoosts.sol";
 import {StatusEffect} from "./StatusEffect.sol";
 
 contract FrostbiteStatus is StatusEffect {
-
     int32 constant DAMAGE_DENOM = 16;
     int32 constant SP_ATTACK_PERCENT = 50;
 
@@ -32,7 +31,14 @@ contract FrostbiteStatus is StatusEffect {
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
         // Reduce special attack by half
-        STAT_BOOST.addStatBoost(targetIndex, monIndex, uint256(MonStateIndexName.SpecialAttack), SP_ATTACK_PERCENT, StatBoostType.Divide, StatBoostFlag.Perm);
+        STAT_BOOST.addStatBoost(
+            targetIndex,
+            monIndex,
+            uint256(MonStateIndexName.SpecialAttack),
+            SP_ATTACK_PERCENT,
+            StatBoostType.Divide,
+            StatBoostFlag.Perm
+        );
 
         // Do not update data
         return (extraData, false);
@@ -42,7 +48,14 @@ contract FrostbiteStatus is StatusEffect {
         super.onRemove(data, targetIndex, monIndex);
 
         // Reset the special attack reduction
-        STAT_BOOST.removeStatBoost(targetIndex, monIndex, uint256(MonStateIndexName.SpecialAttack), SP_ATTACK_PERCENT, StatBoostType.Divide, StatBoostFlag.Perm);
+        STAT_BOOST.removeStatBoost(
+            targetIndex,
+            monIndex,
+            uint256(MonStateIndexName.SpecialAttack),
+            SP_ATTACK_PERCENT,
+            StatBoostType.Divide,
+            StatBoostFlag.Perm
+        );
     }
 
     function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)

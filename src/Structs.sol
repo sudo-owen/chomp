@@ -2,16 +2,16 @@
 pragma solidity ^0.8.0;
 
 import {Type} from "./Enums.sol";
+import {IEngineHook} from "./IEngineHook.sol";
+import {IMoveManager} from "./IMoveManager.sol";
 import {IRuleset} from "./IRuleset.sol";
 import {IValidator} from "./IValidator.sol";
-import {IEngineHook} from "./IEngineHook.sol";
 import {IAbility} from "./abilities/IAbility.sol";
 import {IEffect} from "./effects/IEffect.sol";
+import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 import {IMoveSet} from "./moves/IMoveSet.sol";
 import {IRandomnessOracle} from "./rng/IRandomnessOracle.sol";
 import {ITeamRegistry} from "./teams/ITeamRegistry.sol";
-import {IMoveManager} from "./IMoveManager.sol";
-import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 
 struct ProposedBattle {
     address p0;

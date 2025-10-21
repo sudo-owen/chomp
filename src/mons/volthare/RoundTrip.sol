@@ -39,7 +39,7 @@ contract RoundTrip is StandardAttack {
         override
     {
         // Deal the damage
-        (int32 damage, ) = _move(battleKey, attackerPlayerIndex, rng);
+        (int32 damage,) = _move(battleKey, attackerPlayerIndex, rng);
 
         if (damage > 0) {
             // Decode the swap index from extraData and swap the active mon

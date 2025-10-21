@@ -8,17 +8,16 @@ pragma solidity ^0.8.20;
  * @dev String operations.
  */
 library Strings {
-
     bytes16 private constant HEX_DIGITS = "0123456789abcdef";
     uint8 private constant ADDRESS_LENGTH = 20;
     uint256 private constant SPECIAL_CHARS_LOOKUP =
-        (1 << 0x08) | // backspace
-            (1 << 0x09) | // tab
-            (1 << 0x0a) | // newline
-            (1 << 0x0c) | // form feed
-            (1 << 0x0d) | // carriage return
-            (1 << 0x22) | // double quote
-            (1 << 0x5c); // backslash
+        (1 << 0x08) // backspace
+        | (1 << 0x09) // tab
+        | (1 << 0x0a) // newline
+        | (1 << 0x0c) // form feed
+        | (1 << 0x0d) // carriage return
+        | (1 << 0x22) // double quote
+        | (1 << 0x5c); // backslash
 
     function log10(uint256 value) internal pure returns (uint256) {
         uint256 result = 0;
@@ -53,7 +52,6 @@ library Strings {
         }
         return result;
     }
-
 
     /**
      * @dev Converts a `uint256` to its ASCII `string` decimal representation.

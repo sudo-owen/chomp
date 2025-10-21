@@ -8,7 +8,6 @@ import {IEngine} from "../IEngine.sol";
 import {BasicEffect} from "./BasicEffect.sol";
 
 contract StatBoosts is BasicEffect {
-
     uint256 public constant SCALE = 100;
 
     IEngine immutable ENGINE;
@@ -19,15 +18,15 @@ contract StatBoosts is BasicEffect {
 
     /**
      * Should only be applied once per mon
-
-        getKeyForMonIndex => hash(targetIndex, monIndex, statIndex, name(), TEMP/PERM/EXISTENCE)
-        TEMP/PERM
-        layout: [multiply factor | divide factor]:
-        [120 bits: total multiplier, 8 bits: divisor]/[120 bits: total divider, 8 bits: divisor]
-
-        EXISTENCE
-        layout: [1 bit: exists]
-    */
+     *
+     *     getKeyForMonIndex => hash(targetIndex, monIndex, statIndex, name(), TEMP/PERM/EXISTENCE)
+     *     TEMP/PERM
+     *     layout: [multiply factor | divide factor]:
+     *     [120 bits: total multiplier, 8 bits: divisor]/[120 bits: total divider, 8 bits: divisor]
+     *
+     *     EXISTENCE
+     *     layout: [1 bit: exists]
+     */
     function name() public pure override returns (string memory) {
         return "Stat Boost";
     }
@@ -52,13 +51,19 @@ contract StatBoosts is BasicEffect {
         return keccak256(abi.encode(targetIndex, monIndex, statIndex, name(), uint256(boostFlag)));
     }
 
-    function calculateExistingBoost(uint256 targetIndex, uint256 monIndex, uint256 statIndex, bool tempOnly) public view returns (int32) {
+    function calculateExistingBoost(uint256 targetIndex, uint256 monIndex, uint256 statIndex, bool tempOnly)
+        public
+        view
+        returns (int32)
+    {
         // First get the temporary boost
         bytes32 tempBoostKey = getKeyForMonIndexStat(targetIndex, monIndex, statIndex, StatBoostFlag.Temp);
         uint256 packedTempBoostValue = uint256(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), tempBoostKey));
 
         // Get the base stat we are modifying
-        uint256 baseStat = ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName(statIndex));
+        uint256 baseStat = ENGINE.getMonValueForBattle(
+            ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName(statIndex)
+        );
         uint256 originalBaseStat = baseStat;
 
         // Extract multiply and divide factors from the packed temporary boost value
@@ -118,8 +123,14 @@ contract StatBoosts is BasicEffect {
         return int32(int256(baseStat)) - int32(int256(originalBaseStat));
     }
 
-    function _updateStatBoost(uint256 targetIndex, uint256 monIndex, uint256 statIndex, int32 boostAmount, StatBoostType boostType, StatBoostFlag boostFlag) internal {
-
+    function _updateStatBoost(
+        uint256 targetIndex,
+        uint256 monIndex,
+        uint256 statIndex,
+        int32 boostAmount,
+        StatBoostType boostType,
+        StatBoostFlag boostFlag
+    ) internal {
         // Get the existing boost amount
         int32 existingBoostAmount = calculateExistingBoost(targetIndex, monIndex, statIndex, false);
 
@@ -142,12 +153,10 @@ contract StatBoosts is BasicEffect {
         if (numBoosts == 0) {
             totalBoost = uint256(uint32(boostAmount));
             numBoosts = 1;
-        }
-        else if (boostAmount > 0) {
+        } else if (boostAmount > 0) {
             totalBoost = totalBoost * uint32(boostAmount);
             numBoosts = numBoosts + 1;
-        }
-        else {
+        } else {
             totalBoost = totalBoost / uint32(boostAmount * -1);
             numBoosts = numBoosts - 1;
         }
@@ -160,8 +169,7 @@ contract StatBoosts is BasicEffect {
             uint256 bottomBits = multiplyAndDivideTotal & uint256(type(uint128).max);
             // Combine with the new packed value in the top 128 bits
             multiplyAndDivideTotal = (newPackedBoostValue << 128) | bottomBits;
-        }
-        else {
+        } else {
             // Clear the bottom 128 bits by masking with the top 128 bits
             uint256 topBits = (multiplyAndDivideTotal & (uint256(type(uint128).max) << 128));
             // Combine with the new packed value in the bottom 128 bits
@@ -177,7 +185,14 @@ contract StatBoosts is BasicEffect {
     }
 
     // boostAmount is in percent, specify if it should scale up or down by that % amount
-    function addStatBoost(uint256 targetIndex, uint256 monIndex, uint256 statIndex, int32 boostAmount, StatBoostType boostType, StatBoostFlag boostFlag) public {
+    function addStatBoost(
+        uint256 targetIndex,
+        uint256 monIndex,
+        uint256 statIndex,
+        int32 boostAmount,
+        StatBoostType boostType,
+        StatBoostFlag boostFlag
+    ) public {
         if (boostType == StatBoostType.Divide) {
             boostAmount = -1 * boostAmount;
         }
@@ -188,7 +203,14 @@ contract StatBoosts is BasicEffect {
         ENGINE.setUpstreamCaller(address(0));
     }
 
-    function removeStatBoost(uint256 targetIndex, uint256 monIndex, uint256 statIndex, int32 boostAmount, StatBoostType boostType, StatBoostFlag boostFlag) public {
+    function removeStatBoost(
+        uint256 targetIndex,
+        uint256 monIndex,
+        uint256 statIndex,
+        int32 boostAmount,
+        StatBoostType boostType,
+        StatBoostFlag boostFlag
+    ) public {
         _updateStatBoost(targetIndex, monIndex, statIndex, (-1 * boostAmount), boostType, boostFlag);
     }
 
@@ -198,20 +220,22 @@ contract StatBoosts is BasicEffect {
         returns (bytes memory, bool)
     {
         // Check if an existing stat boost for the mon / stat index already exists
-        (uint256 statIndex, int32 boostAmount, uint256 boostType, uint256 boostFlag) = abi.decode(extraData, (uint256, int32, uint256, uint256));
+        (uint256 statIndex, int32 boostAmount, uint256 boostType, uint256 boostFlag) =
+            abi.decode(extraData, (uint256, int32, uint256, uint256));
         bool removeAfterRun = false;
 
         // Check if we've already applied a stat boost for the mon
         bytes32 existenceKey = getKeyForMonIndexBoostExistence(targetIndex, monIndex, statIndex);
         if (ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), existenceKey) == bytes32(0)) {
             ENGINE.setGlobalKV(existenceKey, bytes32("1"));
-        }
-        else {
+        } else {
             removeAfterRun = true;
         }
 
         // Set the new boost amount
-        _updateStatBoost(targetIndex, monIndex, statIndex, boostAmount, StatBoostType(boostType), StatBoostFlag(boostFlag));
+        _updateStatBoost(
+            targetIndex, monIndex, statIndex, boostAmount, StatBoostType(boostType), StatBoostFlag(boostFlag)
+        );
 
         return (extraData, removeAfterRun);
     }
@@ -225,7 +249,8 @@ contract StatBoosts is BasicEffect {
                 // Set upstream caller
                 ENGINE.setUpstreamCaller(msg.sender);
                 // Clear the temporary boost in both directions
-                bytes32 tempBoostKey = getKeyForMonIndexStat(targetIndex, monIndex, uint256(statIndex), StatBoostFlag.Temp);
+                bytes32 tempBoostKey =
+                    getKeyForMonIndexStat(targetIndex, monIndex, uint256(statIndex), StatBoostFlag.Temp);
                 ENGINE.setGlobalKV(tempBoostKey, bytes32(0));
                 // Reset the temporary boost
                 ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName(statIndex), existingBoostAmount * -1);

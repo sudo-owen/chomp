@@ -74,7 +74,7 @@ enum StatBoostFlag {
 }
 
 enum EngineEventType {
-    MoveMiss, 
+    MoveMiss,
     MoveCrit,
     None
 }
