@@ -8,7 +8,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
@@ -34,7 +34,7 @@ import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract IblivionTest is Test, BattleHelper {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -55,7 +55,7 @@ contract IblivionTest is Test, BattleHelper {
         validator = new FastValidator(
             IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         baselight = new Baselight(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));

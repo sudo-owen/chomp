@@ -8,7 +8,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
@@ -33,7 +33,7 @@ import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract MalalienTest is Test, BattleHelper {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -47,7 +47,7 @@ contract MalalienTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         actusReus = new ActusReus(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));

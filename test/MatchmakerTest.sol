@@ -8,7 +8,7 @@ import "../src/Enums.sol";
 import "../src/Structs.sol";
 
 import {Engine} from "../src/Engine.sol";
-import {FastCommitManager} from "../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
@@ -24,7 +24,7 @@ contract MatchmakerTest is Test {
     address constant BOB = address(2);
     uint256 constant TIMEOUT = 10;
 
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     Engine engine;
     FastValidator validator;
     ITypeCalculator typeCalc;
@@ -35,7 +35,7 @@ contract MatchmakerTest is Test {
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         validator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT})

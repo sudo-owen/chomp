@@ -6,7 +6,7 @@ import "forge-std/Script.sol";
 // Fundamental entities
 import {IEffect} from "../src/effects/IEffect.sol";
 import {Engine} from "../src/Engine.sol";
-import {FastCommitManager} from "../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 import {TypeCalculator} from "../src/types/TypeCalculator.sol";
@@ -53,7 +53,7 @@ contract EngineAndPeriphery is Script {
             contractAddress: address(engine)
         }));
 
-        FastCommitManager commitManager = new FastCommitManager(engine);
+        DefaultCommitManager commitManager = new DefaultCommitManager(engine);
         deployedContracts.push(DeployData({
             name: "COMMIT MANAGER",
             contractAddress: address(commitManager)

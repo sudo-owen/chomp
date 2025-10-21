@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import "../../src/Structs.sol";
 
 import {Engine} from "../../src/Engine.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {IValidator} from "../../src/IValidator.sol";
 import {IRandomnessOracle} from "../../src/rng/IRandomnessOracle.sol";
 import {ITeamRegistry} from "../../src/teams/ITeamRegistry.sol";
@@ -22,7 +22,7 @@ abstract contract BattleHelper is Test {
     // Helper function to commit, reveal, and execute moves for both players
     function _commitRevealExecuteForAliceAndBob(
         Engine engine,
-        FastCommitManager commitManager,
+        DefaultCommitManager commitManager,
         bytes32 battleKey,
         uint256 aliceMoveIndex,
         uint256 bobMoveIndex,

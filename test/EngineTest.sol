@@ -11,7 +11,7 @@ import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 
 import {Engine} from "../src/Engine.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
-import {FastCommitManager} from "../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 
 import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
@@ -45,7 +45,7 @@ import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EngineTest is Test, BattleHelper {
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     Engine engine;
     FastValidator validator;
     ITypeCalculator typeCalc;
@@ -61,7 +61,7 @@ contract EngineTest is Test, BattleHelper {
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         validator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
@@ -362,7 +362,7 @@ contract EngineTest is Test, BattleHelper {
         // Assert that Bob cannot commit anything because of the turn flag
         // (we just reuse Alice's move hash bc it doesn't matter)
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.PlayerNotAllowed.selector);
+        vm.expectRevert(DefaultCommitManager.PlayerNotAllowed.selector);
         commitManager.commitMove(battleKey, bytes32(0));
 
         // Reveal Alice's move, and advance game state
@@ -2545,7 +2545,7 @@ contract EngineTest is Test, BattleHelper {
         commitManager.commitMove(battleKey, aliceMoveHash);
 
         // Alice cannot commit again
-        vm.expectRevert(FastCommitManager.AlreadyCommited.selector);
+        vm.expectRevert(DefaultCommitManager.AlreadyCommited.selector);
         commitManager.commitMove(battleKey, aliceMoveHash);
 
         // Bob reveals
@@ -2553,7 +2553,7 @@ contract EngineTest is Test, BattleHelper {
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
         // Bob cannot reveal twice
-        vm.expectRevert(FastCommitManager.AlreadyRevealed.selector);
+        vm.expectRevert(DefaultCommitManager.AlreadyRevealed.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
         // Alice reveals but does not execute
@@ -2561,7 +2561,7 @@ contract EngineTest is Test, BattleHelper {
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
         // Second reveal should also fail
-        vm.expectRevert(FastCommitManager.AlreadyRevealed.selector);
+        vm.expectRevert(DefaultCommitManager.AlreadyRevealed.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
     }
 
@@ -2657,7 +2657,7 @@ contract EngineTest is Test, BattleHelper {
 
         // // Bob should not be able to commit to the ended battle
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.BattleAlreadyComplete.selector);
+        vm.expectRevert(DefaultCommitManager.BattleAlreadyComplete.selector);
         commitManager.commitMove(battleKey, bytes32(0));
     }
 }

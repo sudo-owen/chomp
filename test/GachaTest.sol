@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "../lib/forge-std/src/Test.sol";
 import "../src/Engine.sol";
 
-import {FastCommitManager} from "../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 
 import {FastValidator} from "../src/FastValidator.sol";
 import {GachaRegistry} from "../src/gacha/GachaRegistry.sol";
@@ -22,7 +22,7 @@ import "./mocks/TestTeamRegistry.sol";
 contract GachaTest is Test, BattleHelper {
     DefaultRandomnessOracle defaultOracle;
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTeamRegistry defaultRegistry;
     DefaultMonRegistry monRegistry;
     MockGachaRNG mockRNG;
@@ -31,7 +31,7 @@ contract GachaTest is Test, BattleHelper {
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         defaultRegistry = new TestTeamRegistry();
         monRegistry = new DefaultMonRegistry();

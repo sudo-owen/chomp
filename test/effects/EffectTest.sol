@@ -9,7 +9,7 @@ import "../../src/Structs.sol";
 
 import {Engine} from "../../src/Engine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 
@@ -38,7 +38,7 @@ import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EffectTest is Test, BattleHelper {
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     Engine engine;
     FastValidator oneMonOneMoveValidator;
     ITypeCalculator typeCalc;
@@ -73,7 +73,7 @@ contract EffectTest is Test, BattleHelper {
     function setUp() public {
         mockOracle = new MockRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         oneMonOneMoveValidator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})

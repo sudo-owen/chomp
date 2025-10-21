@@ -7,7 +7,7 @@ import "../../src/Structs.sol";
 import "../../src/Constants.sol";
 
 import {IAbility} from "../../src/abilities/IAbility.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {AttackCalculator} from "../../src/moves/AttackCalculator.sol";
 
@@ -25,7 +25,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
     MockRandomnessOracle defaultOracle;
     TestTeamRegistry defaultRegistry;
     MockRandomnessOracle mockOracle;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     FastValidator validator;
     DefaultMatchmaker matchmaker;
 
@@ -36,7 +36,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         engine = new Engine();
         typeCalc = new TypeCalculator();
         mockOracle = new MockRandomnessOracle();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         validator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})

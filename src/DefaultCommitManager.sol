@@ -9,7 +9,7 @@ import {IEngine} from "./IEngine.sol";
 import {ICommitManager} from "./ICommitManager.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 
-contract FastCommitManager is ICommitManager, IMoveManager {
+contract DefaultCommitManager is ICommitManager, IMoveManager {
 
     IEngine private immutable ENGINE;
 

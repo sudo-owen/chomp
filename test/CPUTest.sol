@@ -9,7 +9,7 @@ import "../src/Constants.sol";
 
 import {Engine} from "../src/Engine.sol";
 
-import {FastCommitManager} from "../src/FastCommitManager.sol";
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
@@ -33,7 +33,7 @@ import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract CPUTest is Test {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     RandomCPU cpu;
     PlayerCPU playerCPU;
     CPUMoveManager cpuMoveManager;
@@ -51,7 +51,7 @@ contract CPUTest is Test {
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         mockCPURNG = new MockCPURNG();
         cpu = new RandomCPU(2, engine, mockCPURNG);
