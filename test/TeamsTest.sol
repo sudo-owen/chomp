@@ -334,7 +334,8 @@ contract TeamsTest is Test {
         IAbility[] memory abilities = new IAbility[](1);
         abilities[0] = ability;
 
-        StandardAttackFactory attackFactory = new StandardAttackFactory(IEngine(address(0)), ITypeCalculator(address(0)));
+        StandardAttackFactory attackFactory =
+            new StandardAttackFactory(IEngine(address(0)), ITypeCalculator(address(0)));
 
         IMoveSet[] memory moves0 = new IMoveSet[](4);
 

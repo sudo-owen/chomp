@@ -53,9 +53,10 @@ contract Angery is IAbility, BasicEffect {
         uint256 numCharges = abi.decode(extraData, (uint256));
         if (numCharges == CHARGE_COUNT) {
             // Heal
-            int32 healAmount = int32(
-                ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp)
-            ) / MAX_HP_DENOM;
+            int32 healAmount =
+                int32(
+                    ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp)
+                ) / MAX_HP_DENOM;
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.Hp, healAmount);
             // Reset the charges
             return (abi.encode(numCharges - CHARGE_COUNT), false);

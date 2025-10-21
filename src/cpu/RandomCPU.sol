@@ -6,11 +6,9 @@ import {IEngine} from "../IEngine.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
 import {CPU} from "./CPU.sol";
 
-
 import {RevealedMove} from "../Structs.sol";
 
 contract RandomCPU is CPU {
-
     constructor(uint256 numMoves, IEngine engine, ICPURNG rng) CPU(numMoves, engine, rng) {}
 
     /**

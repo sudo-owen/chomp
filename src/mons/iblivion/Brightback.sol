@@ -14,7 +14,6 @@ import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 import {Baselight} from "./Baselight.sol";
 
 contract Brightback is IMoveSet {
-
     uint32 public constant BASE_POWER = 70;
     uint256 public constant BASELIGHT_THRESHOLD = 2;
 
@@ -33,7 +32,7 @@ contract Brightback is IMoveSet {
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) external {
-        (int32 damageDealt, ) = AttackCalculator._calculateDamage(
+        (int32 damageDealt,) = AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,

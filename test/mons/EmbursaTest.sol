@@ -6,9 +6,9 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
@@ -27,18 +27,18 @@ import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
-import {SplitThePot} from "../../src/mons/embursa/SplitThePot.sol";
-import {Q5} from "../../src/mons/embursa/Q5.sol";
-import {HeatBeacon} from "../../src/mons/embursa/HeatBeacon.sol";
-import {SetAblaze} from "../../src/mons/embursa/SetAblaze.sol";
-import {DummyStatus} from "../mocks/DummyStatus.sol";
-import {HoneyBribe} from "../../src/mons/embursa/HoneyBribe.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {HeatBeacon} from "../../src/mons/embursa/HeatBeacon.sol";
+import {HoneyBribe} from "../../src/mons/embursa/HoneyBribe.sol";
+import {Q5} from "../../src/mons/embursa/Q5.sol";
+import {SetAblaze} from "../../src/mons/embursa/SetAblaze.sol";
+import {SplitThePot} from "../../src/mons/embursa/SplitThePot.sol";
+import {DummyStatus} from "../mocks/DummyStatus.sol";
 
 contract EmbursaTest is Test, BattleHelper {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -55,7 +55,7 @@ contract EmbursaTest is Test, BattleHelper {
         validator = new FastValidator(
             IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         splitThePot = new SplitThePot(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
@@ -184,13 +184,23 @@ contract EmbursaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // Verify no healing occurred
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Hp), -2 * hpScale, "Mon 1 should not be healed");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Hp),
+            -2 * hpScale,
+            "Mon 1 should not be healed"
+        );
 
         // Next, Alice switches back to mon index 0, and Bob chooses to No-Op
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(0), "");
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(0), ""
+        );
 
         // Verify no healing occurred
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -1 * hpScale, "Mon 0 should not be healed");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp),
+            -1 * hpScale,
+            "Mon 0 should not be healed"
+        );
 
         // Next, both players do a No-Op, which should trigger healing for p0 (both mons)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
@@ -252,7 +262,9 @@ contract EmbursaTest is Test, BattleHelper {
         );
 
         // Verify no damage occurred
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), 0, "No damage should have occurred");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), 0, "No damage should have occurred"
+        );
 
         // Wait 4 turns
         for (uint256 i = 0; i < 4; i++) {
@@ -261,7 +273,9 @@ contract EmbursaTest is Test, BattleHelper {
             );
         }
         // Verify no damage occurred
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), 0, "No damage should have occurred");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), 0, "No damage should have occurred"
+        );
 
         // Set rng to be 2 (magic number that cancels out the damage calc volatility stuff)
         mockOracle.setRNG(2);
@@ -272,7 +286,9 @@ contract EmbursaTest is Test, BattleHelper {
         );
 
         // Verify damage occurred
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -150, "Damage should have occurred");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -150, "Damage should have occurred"
+        );
     }
 
     function test_heatBeacon() public {
@@ -352,8 +368,7 @@ contract EmbursaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
         IValidator validatorToUse = new FastValidator(
-            IEngine(address(engine)),
-            FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 5, TIMEOUT_DURATION: 10})
+            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 5, TIMEOUT_DURATION: 10})
         );
 
         // Set Ablaze test
@@ -368,20 +383,24 @@ contract EmbursaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
-        (IEffect[] memory effects, ) = engine.getEffects(battleKey, 1, 0);
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+        (IEffect[] memory effects,) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Bob's mon should have 1 effect (Dummy status)");
         assertEq(address(effects[0]), address(dummyStatus), "Bob's mon should have Dummy status");
         assertEq(heatBeacon.priority(battleKey, 0), DEFAULT_PRIORITY + 1, "Alice should have priority boost");
         mockOracle.setRNG(2); // Magic number to cancel out volatility
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 2, 4, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 2, 4, "", "");
         assertEq(heatBeacon.priority(battleKey, 0), DEFAULT_PRIORITY, "Alice's priority boost should be cleared");
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice's mon should be KOed");
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -1 * int32(setAblaze.basePower(battleKey)), "Bob's mon should take damage");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut),
+            1,
+            "Alice's mon should be KOed"
+        );
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp),
+            -1 * int32(setAblaze.basePower(battleKey)),
+            "Bob's mon should take damage"
+        );
 
         // Heat Beacon test
         // Start a new battle
@@ -392,12 +411,8 @@ contract EmbursaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, 4, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 4, "", "");
         (effects,) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 2, "Bob's mon should have 2x Dummy status");
 
@@ -410,15 +425,15 @@ contract EmbursaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 1, 4, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 4, "", "");
         (effects,) = engine.getEffects(battleKey, 2, 0);
         assertEq(address(effects[0]), address(q5), "Q5 should be applied to global effects");
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice's mon should be KOed");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut),
+            1,
+            "Alice's mon should be KOed"
+        );
 
         // Honey Bribe test
         // Start a new battle
@@ -429,15 +444,14 @@ contract EmbursaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 3, 4, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 3, 4, "", "");
         (effects,) = engine.getEffects(battleKey, 1, 0);
         assertEq(address(effects[1]), address(statBoosts), "StatBoosts should be applied to Bob's mon");
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice's mon should be KOed");
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut),
+            1,
+            "Alice's mon should be KOed"
+        );
     }
-
 }

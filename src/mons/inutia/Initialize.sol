@@ -6,12 +6,11 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
+import {BasicEffect} from "../../effects/BasicEffect.sol";
 import {StatBoosts} from "../../effects/StatBoosts.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
-import {BasicEffect} from "../../effects/BasicEffect.sol";
 
 contract Initialize is IMoveSet, BasicEffect {
-
     int32 public constant ATTACK_BUFF_PERCENT = 50;
     int32 public constant SP_ATTACK_BUFF_PERCENT = 50;
 
@@ -38,7 +37,7 @@ contract Initialize is IMoveSet, BasicEffect {
         if (flag == bytes32(0)) {
             // Apply the buffs
             _applyBuff(attackerPlayerIndex, activeMonIndex);
-            
+
             // Apply effect globally
             ENGINE.addEffect(2, 2, this, _encodeState(attackerPlayerIndex, activeMonIndex));
             // Set global KV to prevent this move doing anything until Inutia swaps out
@@ -88,7 +87,7 @@ contract Initialize is IMoveSet, BasicEffect {
     }
 
     /**
-     Effect implementation
+     *  Effect implementation
      */
     function _encodeState(uint256 playerIndex, uint256 monIndex) internal pure returns (bytes memory) {
         return abi.encode(playerIndex, monIndex);
@@ -105,7 +104,8 @@ contract Initialize is IMoveSet, BasicEffect {
     function onMonSwitchOut(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun) {
+        returns (bytes memory updatedExtraData, bool removeAfterRun)
+    {
         // Clear the initialize lock, but do not remove effect
         (uint256 attackerPlayerIndex, uint256 attackingMonIndex) = _decodeState(extraData);
         if ((attackerPlayerIndex == targetIndex) && (attackingMonIndex == monIndex)) {
@@ -113,11 +113,12 @@ contract Initialize is IMoveSet, BasicEffect {
         }
         return (extraData, false);
     }
-    
+
     function onMonSwitchIn(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun) {
+        returns (bytes memory updatedExtraData, bool removeAfterRun)
+    {
         (uint256 attackerPlayerIndex,) = _decodeState(extraData);
         if (attackerPlayerIndex == targetIndex) {
             // Give the buff to the next mon

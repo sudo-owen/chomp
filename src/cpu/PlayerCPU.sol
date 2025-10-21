@@ -6,11 +6,9 @@ import {IEngine} from "../IEngine.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
 import {CPU} from "./CPU.sol";
 
-
 import {RevealedMove} from "../Structs.sol";
 
 contract PlayerCPU is CPU {
-
     mapping(bytes32 battleKey => RevealedMove) private declaredMoveForBattle;
 
     error NotP0();
@@ -21,11 +19,7 @@ contract PlayerCPU is CPU {
         if (msg.sender != ENGINE.getPlayersForBattle(battleKey)[0]) {
             revert NotP0();
         }
-        declaredMoveForBattle[battleKey] = RevealedMove({
-            moveIndex: moveIndex,
-            salt: "",
-            extraData: extraData
-        });
+        declaredMoveForBattle[battleKey] = RevealedMove({moveIndex: moveIndex, salt: "", extraData: extraData});
     }
 
     /**

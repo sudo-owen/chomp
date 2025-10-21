@@ -7,11 +7,11 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
-import {FastCommitManager} from "../src/FastCommitManager.sol";
+import {FastValidator} from "../src/FastValidator.sol";
 import {FastValidator} from "../src/FastValidator.sol";
 import {IValidator} from "../src/IValidator.sol";
-import {FastValidator} from "../src/FastValidator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 
 import {IEngineHook} from "../src/IEngineHook.sol";
@@ -23,11 +23,11 @@ import {BattleHelper} from "./abstract/BattleHelper.sol";
 import {CustomAttack} from "./mocks/CustomAttack.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 
-import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
+import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 
 contract FastEngineTest is Test, BattleHelper {
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     Engine engine;
     ITypeCalculator typeCalc;
     DefaultRandomnessOracle defaultOracle;
@@ -40,7 +40,7 @@ contract FastEngineTest is Test, BattleHelper {
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         typeCalc = new TestTypeCalculator();
         defaultRegistry = new TestTeamRegistry();
@@ -189,7 +189,7 @@ contract FastEngineTest is Test, BattleHelper {
     - revealing an invalid move reverts
     - after revealing a valid move, auto-execute advances game state
     */
-    function test_turn0FastCommitManagerValidPreimage() public {
+    function test_turn0DefaultCommitManagerValidPreimage() public {
         bytes32 battleKey = _startDummyBattle();
         bytes32 salt = "";
         bytes memory extraData = abi.encode(0);
@@ -199,25 +199,25 @@ contract FastEngineTest is Test, BattleHelper {
         // It is turn 0, so Alice must first commit then reveal
         // We will attempt to calculate the preimage, which will fail
         vm.startPrank(ALICE);
-        vm.expectRevert(FastCommitManager.WrongPreimage.selector);
+        vm.expectRevert(DefaultCommitManager.WrongPreimage.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, extraData, true);
 
         // Ensure Bob cannot commit as they only need to reveal
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.PlayerNotAllowed.selector);
+        vm.expectRevert(DefaultCommitManager.PlayerNotAllowed.selector);
         commitManager.commitMove(battleKey, moveHash);
 
         // Bob cannot reveal yet as Alice has not committed
-        vm.expectRevert(FastCommitManager.RevealBeforeOtherCommit.selector);
+        vm.expectRevert(DefaultCommitManager.RevealBeforeOtherCommit.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, extraData, true);
 
         // Ensure Carl cannot commit as they are not in the battle
         vm.startPrank(CARL);
-        vm.expectRevert(FastCommitManager.NotP0OrP1.selector);
+        vm.expectRevert(DefaultCommitManager.NotP0OrP1.selector);
         commitManager.commitMove(battleKey, moveHash);
 
         // Carl should also be unable to reveal
-        vm.expectRevert(FastCommitManager.NotP0OrP1.selector);
+        vm.expectRevert(DefaultCommitManager.NotP0OrP1.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, extraData, true);
 
         // Let Alice commit the first move (switching in mon index 0)
@@ -246,7 +246,7 @@ contract FastEngineTest is Test, BattleHelper {
     - committing an invalid state prevents reveal
     - advancing state has the same reverts as expected, but now for the other player index
     */
-    function test_turn0FastCommitManagerInvalidPreimage() public {
+    function test_turn0DefaultCommitManagerInvalidPreimage() public {
         bytes32 battleKey = _startDummyBattle();
 
         // Let Alice commit to choosing switch
@@ -264,7 +264,7 @@ contract FastEngineTest is Test, BattleHelper {
 
         // Alice reveals her move incorrectly, leading to an error
         vm.startPrank(ALICE);
-        vm.expectRevert(FastCommitManager.WrongPreimage.selector);
+        vm.expectRevert(DefaultCommitManager.WrongPreimage.selector);
         commitManager.revealMove(battleKey, 0, salt, extraData, true);
 
         // Alice correctly reveals her move, advancing the game state
@@ -278,16 +278,16 @@ contract FastEngineTest is Test, BattleHelper {
         // It is turn 1, so Bob must first commit then reveal
         // We will attempt to calculate the preimage, which will fail
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.WrongPreimage.selector);
+        vm.expectRevert(DefaultCommitManager.WrongPreimage.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, extraData, true);
 
         // Ensure Alice cannot commit as they only need to reveal
         vm.startPrank(ALICE);
-        vm.expectRevert(FastCommitManager.PlayerNotAllowed.selector);
+        vm.expectRevert(DefaultCommitManager.PlayerNotAllowed.selector);
         commitManager.commitMove(battleKey, moveHash);
 
         // Alice cannot reveal yet as Bob has not committed
-        vm.expectRevert(FastCommitManager.RevealBeforeOtherCommit.selector);
+        vm.expectRevert(DefaultCommitManager.RevealBeforeOtherCommit.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, extraData, true);
 
         // Let Bob commit the first move (switching in mon index 0)

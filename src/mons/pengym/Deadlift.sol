@@ -10,7 +10,6 @@ import {StatBoosts} from "../../effects/StatBoosts.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract Deadlift is IMoveSet {
-
     int32 public constant ATTACK_BUFF_PERCENT = 50;
     int32 public constant DEF_BUFF_PERCENT = 50;
 

@@ -24,7 +24,6 @@ contract HeatBeacon is IMoveSet {
     }
 
     function move(bytes32, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
-
         // Apply burn to opposing mon
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
         uint256 defenderMonIndex =

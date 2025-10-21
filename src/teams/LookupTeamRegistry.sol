@@ -7,7 +7,6 @@ import "./IMonRegistry.sol";
 import "./ITeamRegistry.sol";
 
 contract LookupTeamRegistry is ITeamRegistry {
-
     uint32 constant BITS_PER_MON_INDEX = 32;
     uint256 constant ONES_MASK = (2 ** BITS_PER_MON_INDEX) - 1;
 
@@ -34,17 +33,11 @@ contract LookupTeamRegistry is ITeamRegistry {
         MOVES_PER_MON = args.MOVES_PER_MON;
     }
 
-    function createTeam(uint256[] memory monIndices)
-        public
-        virtual
-    {
+    function createTeam(uint256[] memory monIndices) public virtual {
         _createTeamForUser(msg.sender, monIndices);
     }
 
-    function _createTeamForUser(
-        address user,
-        uint256[] memory monIndices
-    ) internal {
+    function _createTeamForUser(address user, uint256[] memory monIndices) internal {
         if (monIndices.length != MONS_PER_TEAM) {
             revert InvalidTeamSize();
         }
@@ -62,11 +55,10 @@ contract LookupTeamRegistry is ITeamRegistry {
         numTeams[user] += 1;
     }
 
-    function updateTeam(
-        uint256 teamIndex,
-        uint256[] memory teamMonIndicesToOverride,
-        uint256[] memory newMonIndices
-    ) public virtual {
+    function updateTeam(uint256 teamIndex, uint256[] memory teamMonIndicesToOverride, uint256[] memory newMonIndices)
+        public
+        virtual
+    {
         uint256 numMonsToOverride = teamMonIndicesToOverride.length;
 
         // Check for duplicate mon indices
@@ -107,11 +99,7 @@ contract LookupTeamRegistry is ITeamRegistry {
         monRegistryIndicesForTeamPacked[caller][teamIndex] = clearedValue | valueBitmask;
     }
 
-    function _getMonRegistryIndex(address player, uint256 teamIndex, uint256 position)
-        internal
-        view
-        returns (uint256)
-    {
+    function _getMonRegistryIndex(address player, uint256 teamIndex, uint256 position) internal view returns (uint256) {
         return uint32(monRegistryIndicesForTeamPacked[player][teamIndex] >> (position * BITS_PER_MON_INDEX));
     }
 
@@ -133,14 +121,10 @@ contract LookupTeamRegistry is ITeamRegistry {
             uint256 monId = _getMonRegistryIndex(player, teamIndex, i);
             (MonStats memory monStats, address[] memory moves, address[] memory abilities) = REGISTRY.getMonData(monId);
             IMoveSet[] memory movesToUse = new IMoveSet[](MOVES_PER_MON);
-            for (uint j; j < MOVES_PER_MON; ++j) {
+            for (uint256 j; j < MOVES_PER_MON; ++j) {
                 movesToUse[j] = IMoveSet(moves[j]);
             }
-            team[i] = Mon({
-                stats: monStats,
-                ability: IAbility(abilities[0]),
-                moves: movesToUse
-            });
+            team[i] = Mon({stats: monStats, ability: IAbility(abilities[0]), moves: movesToUse});
         }
         return team;
     }

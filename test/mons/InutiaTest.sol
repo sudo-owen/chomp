@@ -5,35 +5,35 @@ pragma solidity ^0.8.0;
 import "../../lib/forge-std/src/Test.sol";
 
 import "../../src/Constants.sol";
-import "../../src/Structs.sol";
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
+import "../../src/Structs.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
+import {StandardAttack} from "../../src/moves/StandardAttack.sol";
+import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
+import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {TypeCalculator} from "../../src/types/TypeCalculator.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
-import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
-import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {ChainExpansion} from "../../src/mons/inutia/ChainExpansion.sol";
+import {Initialize} from "../../src/mons/inutia/Initialize.sol";
 import {Interweaving} from "../../src/mons/inutia/Interweaving.sol";
 import {ShrineStrike} from "../../src/mons/inutia/ShrineStrike.sol";
-import {Initialize} from "../../src/mons/inutia/Initialize.sol";
-import {ChainExpansion} from "../../src/mons/inutia/ChainExpansion.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract InutiaTest is Test, BattleHelper {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -47,7 +47,7 @@ contract InutiaTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         interweaving = new Interweaving(IEngine(address(engine)), statBoost);
@@ -231,17 +231,13 @@ contract InutiaTest is Test, BattleHelper {
         );
 
         // Second move: Bob attacks Alice, Alice does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
 
         // Record Alice's HP after taking damage
         int32 aliceHpAfterDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
 
         // Third move: Alice uses ShrineStrike, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Check that Alice's mon was healed by the correct amount (1/HEAL_DENOM of max HP)
         int32 aliceHpAfterHealing = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
@@ -262,7 +258,7 @@ contract InutiaTest is Test, BattleHelper {
         IMoveSet[] memory moves = new IMoveSet[](1);
         moves[0] = initialize;
 
-         // Create mon with initialize
+        // Create mon with initialize
         Mon memory initializeMon = Mon({
             stats: MonStats({
                 hp: 1,
@@ -359,19 +355,21 @@ contract InutiaTest is Test, BattleHelper {
 
         IMoveSet[] memory moves = new IMoveSet[](2);
         moves[0] = ce;
-        moves[1] = attackFactory.createAttack(ATTACK_PARAMS({
-            BASE_POWER: 64,
-            STAMINA_COST: 0,
-            ACCURACY: 100,
-            PRIORITY: 1,
-            MOVE_TYPE: Type.Fire,
-            EFFECT_ACCURACY: 0,
-            MOVE_CLASS: MoveClass.Physical,
-            CRIT_RATE: 0,
-            VOLATILITY: 0,
-            NAME: "Damage Attack",
-            EFFECT: IEffect(address(0))
-        }));
+        moves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 64,
+                STAMINA_COST: 0,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Damage Attack",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
         // 1/8 damage
         Mon memory m1 = Mon({
@@ -439,14 +437,10 @@ contract InutiaTest is Test, BattleHelper {
         );
 
         // Alice uses CE, Bob does nothing (turn 1)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Using Chain Expansion twice will not lead to two global effects (turn 2)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
         (IEffect[] memory effects,) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 1, "Chain Expansion should only be applied once");
 
@@ -483,9 +477,7 @@ contract InutiaTest is Test, BattleHelper {
 
         // Test the heal
         // Alice uses CE, Bob deals damage
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, 1, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 1, "", "");
 
         // Verify that CE is back in global effects
         (effects,) = engine.getEffects(battleKey, 2, 0);

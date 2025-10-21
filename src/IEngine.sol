@@ -11,7 +11,7 @@ import "./moves/IMoveSet.sol";
 interface IEngine {
     // Global battle key to determine which battle to apply state mutations
     function battleKeyForWrite() external view returns (bytes32);
-    
+
     // State mutating effects
     function startBattle(Battle memory battle) external;
     function updateMonState(uint256 playerIndex, uint256 monIndex, MonStateIndexName stateVarIndex, int32 valueToAdd)

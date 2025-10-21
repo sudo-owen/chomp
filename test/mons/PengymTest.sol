@@ -6,18 +6,18 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 
-import {PostWorkout} from "../../src/mons/pengym/PostWorkout.sol";
-import {PanicStatus} from "../../src/effects/status/PanicStatus.sol";
 import {FrostbiteStatus} from "../../src/effects/status/FrostbiteStatus.sol";
+import {PanicStatus} from "../../src/effects/status/PanicStatus.sol";
+import {PostWorkout} from "../../src/mons/pengym/PostWorkout.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 
@@ -27,20 +27,19 @@ import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 
+import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
-import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {ChillOut} from "../../src/mons/pengym/ChillOut.sol";
 import {DeepFreeze} from "../../src/mons/pengym/DeepFreeze.sol";
 import {PistolSquat} from "../../src/mons/pengym/PistolSquat.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract PengymTest is Test, BattleHelper {
-
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -60,7 +59,7 @@ contract PengymTest is Test, BattleHelper {
         validator = new FastValidator(
             IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         postWorkout = new PostWorkout(IEngine(address(engine)));
@@ -190,7 +189,7 @@ contract PengymTest is Test, BattleHelper {
         // Check that Alice's mon has the PostWorkout effect
         (IEffect[] memory aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         bool hasPostWorkoutEffect = false;
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(postWorkout))) {
                 hasPostWorkoutEffect = true;
                 break;
@@ -199,9 +198,7 @@ contract PengymTest is Test, BattleHelper {
         assertTrue(hasPostWorkoutEffect, "Alice's mon should have PostWorkout effect");
 
         // Bob uses PanicStatus attack on Alice's mon
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
 
         // Set the rng to be 1 (so no early panic exit)
         mockOracle.setRNG(1);
@@ -209,7 +206,7 @@ contract PengymTest is Test, BattleHelper {
         // Check that Alice's mon has the PanicStatus effect
         (aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         bool hasPanicEffect = false;
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(panicStatus))) {
                 hasPanicEffect = true;
                 break;
@@ -234,7 +231,7 @@ contract PengymTest is Test, BattleHelper {
         (aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         hasPanicEffect = false;
 
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(panicStatus))) {
                 hasPanicEffect = true;
                 break;
@@ -367,7 +364,7 @@ contract PengymTest is Test, BattleHelper {
         // Check that Alice's mon has the PostWorkout effect
         (IEffect[] memory aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         bool hasPostWorkoutEffect = false;
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(postWorkout))) {
                 hasPostWorkoutEffect = true;
                 break;
@@ -379,14 +376,12 @@ contract PengymTest is Test, BattleHelper {
         int32 specialAttackBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
 
         // Bob uses FrostbiteStatus attack on Alice's mon
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
 
         // Check that Alice's mon has the FrostbiteStatus effect
         (aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         bool hasFrostbiteEffect = false;
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(frostbiteStatus))) {
                 hasFrostbiteEffect = true;
                 break;
@@ -395,7 +390,8 @@ contract PengymTest is Test, BattleHelper {
         assertTrue(hasFrostbiteEffect, "Alice's mon should have FrostbiteStatus effect");
 
         // Check that special attack was reduced
-        int32 specialAttackAfterFrostbite = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
+        int32 specialAttackAfterFrostbite =
+            engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
         assertTrue(specialAttackAfterFrostbite < specialAttackBefore, "Special attack should be reduced by Frostbite");
 
         // Get current stamina before switching
@@ -414,7 +410,7 @@ contract PengymTest is Test, BattleHelper {
         // Check that Alice's mon no longer has the FrostbiteStatus effect
         (aliceEffects,) = engine.getEffects(battleKey, 0, 0);
         hasFrostbiteEffect = false;
-        for (uint i = 0; i < aliceEffects.length; i++) {
+        for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i] == IEffect(address(frostbiteStatus))) {
                 hasFrostbiteEffect = true;
                 break;
@@ -428,7 +424,10 @@ contract PengymTest is Test, BattleHelper {
 
         // Check that special attack was restored
         int32 specialAttackAfterCure = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
-        assertTrue(specialAttackAfterCure > specialAttackAfterFrostbite, "Special attack should be restored after Frostbite is cured");
+        assertTrue(
+            specialAttackAfterCure > specialAttackAfterFrostbite,
+            "Special attack should be restored after Frostbite is cured"
+        );
     }
 
     function test_chillOutAndDeepFreeze() public {
@@ -497,9 +496,9 @@ contract PengymTest is Test, BattleHelper {
 
         // Damage dealt should be greater
         assertGt(deepFreezeDoubleDamage, deepFreezeDamage, "Should have dealt more");
-        
+
         // Frostbite should be cleared
-        (IEffect[] memory effects, ) = engine.getEffects(battleKey, 1, 0);
+        (IEffect[] memory effects,) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Frostbite should be cleared, so only StatBoosts left");
     }
 
@@ -579,9 +578,7 @@ contract PengymTest is Test, BattleHelper {
         );
 
         // Alice selects pistol squat, Bob selects move index 1 and outspeeds
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, 1, abi.encode(0), abi.encode(0)
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 1, abi.encode(0), abi.encode(0));
 
         // Alice should be KO'ed
         int32 koFlag = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut);
@@ -653,7 +650,7 @@ contract PengymTest is Test, BattleHelper {
         // Bob sends in mon index 3
         vm.startPrank(BOB);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(3), true);
-        
+
         // Alice tries to force a switch, but active mon should not change
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), abi.encode(0)

@@ -15,7 +15,6 @@ import {IMoveSet} from "./IMoveSet.sol";
 import {ATTACK_PARAMS} from "./StandardAttackStructs.sol";
 
 contract StandardAttack is IMoveSet, Ownable {
-
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
 
@@ -52,7 +51,11 @@ contract StandardAttack is IMoveSet, Ownable {
         _move(battleKey, attackerPlayerIndex, rng);
     }
 
-    function _move(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 rng) internal virtual returns (int32, EngineEventType) {
+    function _move(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 rng)
+        internal
+        virtual
+        returns (int32, EngineEventType)
+    {
         int32 damage = 0;
         EngineEventType eventType = EngineEventType.None;
         if (basePower(battleKey) > 0) {
@@ -151,11 +154,11 @@ contract StandardAttack is IMoveSet, Ownable {
         }
     }
 
-    function extraDataType() external virtual pure returns (ExtraDataType) {
+    function extraDataType() external pure virtual returns (ExtraDataType) {
         return ExtraDataType.None;
     }
 
-    function name() external virtual view returns (string memory) {
+    function name() external view virtual returns (string memory) {
         return _name;
     }
 }

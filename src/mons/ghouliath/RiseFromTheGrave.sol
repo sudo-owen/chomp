@@ -60,8 +60,8 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
         // If the mon is KO'd, add this effect to the global effects list and remove the mon effect
         if (
             ENGINE.getMonStateForBattle(
-                ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.IsKnockedOut
-            ) == 1
+                    ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.IsKnockedOut
+                ) == 1
         ) {
             uint64 v1 = REVIVAL_DELAY;
             uint64 v2 = uint64(targetIndex) & 0x3F; // player index (masked to 6 bits)

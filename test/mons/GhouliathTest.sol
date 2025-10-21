@@ -6,9 +6,9 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
@@ -16,26 +16,26 @@ import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 
+import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
-import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 
-import {RiseFromTheGrave} from "../../src/mons/ghouliath/RiseFromTheGrave.sol";
-import {Osteoporosis} from "../../src/mons/ghouliath/Osteoporosis.sol";
-import {WitherAway} from "../../src/mons/ghouliath/WitherAway.sol";
 import {PanicStatus} from "../../src/effects/status/PanicStatus.sol";
-import {EternalGrudge} from "../../src/mons/ghouliath/EternalGrudge.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
+import {EternalGrudge} from "../../src/mons/ghouliath/EternalGrudge.sol";
+import {Osteoporosis} from "../../src/mons/ghouliath/Osteoporosis.sol";
+import {RiseFromTheGrave} from "../../src/mons/ghouliath/RiseFromTheGrave.sol";
+import {WitherAway} from "../../src/mons/ghouliath/WitherAway.sol";
 
 contract GhouliathTest is Test, BattleHelper {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -57,12 +57,13 @@ contract GhouliathTest is Test, BattleHelper {
         validator = new FastValidator(
             IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         riseFromTheGrave = new RiseFromTheGrave(IEngine(address(engine)));
         osteoporosis = new Osteoporosis(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         panicStatus = new PanicStatus(IEngine(address(engine)));
-        witherAway = new WitherAway(IEngine(address(engine)), ITypeCalculator(address(typeCalc)), IEffect(address(panicStatus)));
+        witherAway =
+            new WitherAway(IEngine(address(engine)), ITypeCalculator(address(typeCalc)), IEffect(address(panicStatus)));
         standardAttackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         statBoosts = new StatBoosts(IEngine(address(engine)));
         eternalGrudge = new EternalGrudge(IEngine(address(engine)), statBoosts);
@@ -205,7 +206,6 @@ contract GhouliathTest is Test, BattleHelper {
     }
 
     function testDoubleRiseFromTheGrave() public {
-
         // Create a team with a mon that has RiseFromTheGrave ability
         IMoveSet[] memory moves = new IMoveSet[](1);
         moves[0] = standardAttackFactory.createAttack(
@@ -503,7 +503,9 @@ contract GhouliathTest is Test, BattleHelper {
         );
 
         // Alice does nothing, Bob switches to mon index 1
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1));
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1)
+        );
 
         // Alice uses Eternal Grudge on Bob's mon
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");

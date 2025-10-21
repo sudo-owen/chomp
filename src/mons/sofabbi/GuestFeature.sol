@@ -6,13 +6,12 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
+import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract GuestFeature is IMoveSet {
-
-    uint32 constant public BASE_POWER = 75;
+    uint32 public constant BASE_POWER = 75;
 
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
@@ -28,7 +27,8 @@ contract GuestFeature is IMoveSet {
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng) external {
         uint256 monIndex = abi.decode(extraData, (uint256));
-        Type guestType = Type(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, monIndex, MonStateIndexName.Type1));
+        Type guestType =
+            Type(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, monIndex, MonStateIndexName.Type1));
         AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,

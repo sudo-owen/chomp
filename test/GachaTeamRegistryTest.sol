@@ -7,11 +7,11 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
+import {Engine} from "../src/Engine.sol";
+import {GachaRegistry} from "../src/gacha/GachaRegistry.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
-import {GachaRegistry} from "../src/gacha/GachaRegistry.sol";
-import {Engine} from "../src/Engine.sol";
 
 import {MockGachaRNG} from "./mocks/MockGachaRNG.sol";
 
@@ -45,9 +45,7 @@ contract GachaTeamRegistryTest is Test {
 
         gachaTeamRegistry = new GachaTeamRegistry(
             LookupTeamRegistry.Args({
-                REGISTRY: gachaRegistry,
-                MONS_PER_TEAM: MONS_PER_TEAM,
-                MOVES_PER_MON: MOVES_PER_MON
+                REGISTRY: gachaRegistry, MONS_PER_TEAM: MONS_PER_TEAM, MOVES_PER_MON: MOVES_PER_MON
             }),
             gachaRegistry
         );

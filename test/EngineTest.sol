@@ -9,13 +9,13 @@ import "../src/Structs.sol";
 
 import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
-import {IAbility} from "../src/abilities/IAbility.sol";
-import {FastCommitManager} from "../src/FastCommitManager.sol";
 import {FastValidator} from "../src/FastValidator.sol";
+import {IAbility} from "../src/abilities/IAbility.sol";
 
-import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
+import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
@@ -40,12 +40,12 @@ import {SkipTurnMove} from "./mocks/SkipTurnMove.sol";
 import {TempStatBoostEffect} from "./mocks/TempStatBoostEffect.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {BattleHelper} from "./abstract/BattleHelper.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EngineTest is Test, BattleHelper {
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     Engine engine;
     FastValidator validator;
     ITypeCalculator typeCalc;
@@ -61,7 +61,7 @@ contract EngineTest is Test, BattleHelper {
     function setUp() public {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         validator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
@@ -120,9 +120,7 @@ contract EngineTest is Test, BattleHelper {
         );
 
         // Let Alice and Bob do a no-op
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", ""
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // Turn ID should now be 2
         BattleState memory state = engine.getBattleState(battleKey);
@@ -362,7 +360,7 @@ contract EngineTest is Test, BattleHelper {
         // Assert that Bob cannot commit anything because of the turn flag
         // (we just reuse Alice's move hash bc it doesn't matter)
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.PlayerNotAllowed.selector);
+        vm.expectRevert(DefaultCommitManager.PlayerNotAllowed.selector);
         commitManager.commitMove(battleKey, bytes32(0));
 
         // Reveal Alice's move, and advance game state
@@ -696,7 +694,9 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, teams[0]);
         defaultRegistry.setTeam(BOB, teams[1]);
 
-        bytes32 battleKey = _startBattle(twoMonValidator, engine, defaultOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules);
+        bytes32 battleKey = _startBattle(
+            twoMonValidator, engine, defaultOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules
+        );
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -2545,7 +2545,7 @@ contract EngineTest is Test, BattleHelper {
         commitManager.commitMove(battleKey, aliceMoveHash);
 
         // Alice cannot commit again
-        vm.expectRevert(FastCommitManager.AlreadyCommited.selector);
+        vm.expectRevert(DefaultCommitManager.AlreadyCommited.selector);
         commitManager.commitMove(battleKey, aliceMoveHash);
 
         // Bob reveals
@@ -2553,7 +2553,7 @@ contract EngineTest is Test, BattleHelper {
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
         // Bob cannot reveal twice
-        vm.expectRevert(FastCommitManager.AlreadyRevealed.selector);
+        vm.expectRevert(DefaultCommitManager.AlreadyRevealed.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
         // Alice reveals but does not execute
@@ -2561,7 +2561,7 @@ contract EngineTest is Test, BattleHelper {
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
         // Second reveal should also fail
-        vm.expectRevert(FastCommitManager.AlreadyRevealed.selector);
+        vm.expectRevert(DefaultCommitManager.AlreadyRevealed.selector);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
     }
 
@@ -2633,9 +2633,8 @@ contract EngineTest is Test, BattleHelper {
         // Register teams
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
-        FastValidator noMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
-        );
+        FastValidator noMoveValidator =
+            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         bytes32 battleKey = _startBattle(noMoveValidator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         // Both players send in mon index 0
@@ -2657,7 +2656,7 @@ contract EngineTest is Test, BattleHelper {
 
         // // Bob should not be able to commit to the ended battle
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.BattleAlreadyComplete.selector);
+        vm.expectRevert(DefaultCommitManager.BattleAlreadyComplete.selector);
         commitManager.commitMove(battleKey, bytes32(0));
     }
 }

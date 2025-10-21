@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {Battle, ProposedBattle, Mon} from "../Structs.sol";
 import {Engine} from "../Engine.sol";
+import {Battle, Mon, ProposedBattle} from "../Structs.sol";
 import {IMatchmaker} from "./IMatchmaker.sol";
 
 contract DefaultMatchmaker is IMatchmaker {
-
     uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 1;
 
     Engine public immutable ENGINE;
@@ -51,23 +50,25 @@ contract DefaultMatchmaker is IMatchmaker {
         if (proposal.p0 == proposal.p1) {
             revert P0P1Same();
         }
-        (battleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
+        (battleKey,) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
         proposals[battleKey] = proposal;
         proposals[battleKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
         emit BattleProposal(battleKey, proposal.p0, proposal.p1);
         return battleKey;
     }
 
-    function acceptBattle(bytes32 battleKey, uint96 p1TeamIndex, bytes32 battleIntegrityHash) external returns (bytes32 updatedBattleKey) {
+    function acceptBattle(bytes32 battleKey, uint96 p1TeamIndex, bytes32 battleIntegrityHash)
+        external
+        returns (bytes32 updatedBattleKey)
+    {
         ProposedBattle storage proposal = proposals[battleKey];
         // Override battle key if p1 is accepting an open battle proposal
         if (proposal.p1 == address(0)) {
             proposal.p1 = msg.sender;
-            (bytes32 newBattleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
+            (bytes32 newBattleKey,) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
             preP1FillBattleKey[newBattleKey] = battleKey;
             updatedBattleKey = newBattleKey;
-        }
-        else if (proposal.p1 != msg.sender) {
+        } else if (proposal.p1 != msg.sender) {
             revert AcceptorNotP1();
         }
         if (getBattleProposalIntegrityHash(proposal) != battleIntegrityHash) {
@@ -96,21 +97,23 @@ contract DefaultMatchmaker is IMatchmaker {
             revert InvalidP0TeamHash();
         }
         Mon[][] memory emptyTeams = new Mon[][](2);
-        ENGINE.startBattle(Battle({
-            p0: proposal.p0,
-            p0TeamIndex: p0TeamIndex,
-            p1: proposal.p1,
-            p1TeamIndex: proposal.p1TeamIndex,
-            teamRegistry: proposal.teamRegistry,
-            validator: proposal.validator,
-            rngOracle: proposal.rngOracle,
-            ruleset: proposal.ruleset,
-            engineHook: proposal.engineHook,
-            moveManager: proposal.moveManager,
-            matchmaker: proposal.matchmaker,
-            startTimestamp: 0, // This gets filled in by the Engine
-            teams: emptyTeams
-        }));
+        ENGINE.startBattle(
+            Battle({
+                p0: proposal.p0,
+                p0TeamIndex: p0TeamIndex,
+                p1: proposal.p1,
+                p1TeamIndex: proposal.p1TeamIndex,
+                teamRegistry: proposal.teamRegistry,
+                validator: proposal.validator,
+                rngOracle: proposal.rngOracle,
+                ruleset: proposal.ruleset,
+                engineHook: proposal.engineHook,
+                moveManager: proposal.moveManager,
+                matchmaker: proposal.matchmaker,
+                startTimestamp: 0, // This gets filled in by the Engine
+                teams: emptyTeams
+            })
+        );
     }
 
     function validateMatch(bytes32 battleKey, address player) external view returns (bool) {

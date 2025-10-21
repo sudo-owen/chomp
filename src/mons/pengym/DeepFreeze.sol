@@ -6,14 +6,13 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {IEffect} from "../../effects/IEffect.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
+import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract DeepFreeze is IMoveSet {
-
-    uint32 constant public BASE_POWER = 90;
+    uint32 public constant BASE_POWER = 90;
 
     IEngine immutable ENGINE;
     IEffect immutable FROSTBITE;
@@ -30,14 +29,14 @@ contract DeepFreeze is IMoveSet {
     }
 
     function _frostbiteExists(bytes32 battleKey, uint256 targetIndex, uint256 monIndex) internal view returns (int32) {
-        (IEffect[] memory effects, ) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        (IEffect[] memory effects,) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
         uint256 numEffects = effects.length;
-        for (uint i; i < numEffects;) {
+        for (uint256 i; i < numEffects;) {
             if (address(effects[i]) == address(FROSTBITE)) {
                 return int32(int256(i));
             }
             unchecked {
-                 ++i;
+                ++i;
             }
         }
         return -1;

@@ -84,9 +84,9 @@ library AttackCalculator {
                             battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.Attack
                         )
                     )
-                        + ENGINE.getMonStateForBattle(
-                            battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.Attack
-                        )
+                    + ENGINE.getMonStateForBattle(
+                        battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.Attack
+                    )
                 );
                 defenceStat = uint32(
                     int32(
@@ -94,9 +94,9 @@ library AttackCalculator {
                             battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Defense
                         )
                     )
-                        + ENGINE.getMonStateForBattle(
-                            battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Defense
-                        )
+                    + ENGINE.getMonStateForBattle(
+                        battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Defense
+                    )
                 );
             } else {
                 attackStat = uint32(
@@ -108,9 +108,9 @@ library AttackCalculator {
                             MonStateIndexName.SpecialAttack
                         )
                     )
-                        + ENGINE.getMonStateForBattle(
-                            battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.SpecialAttack
-                        )
+                    + ENGINE.getMonStateForBattle(
+                        battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.SpecialAttack
+                    )
                 );
                 defenceStat = uint32(
                     int32(
@@ -121,9 +121,9 @@ library AttackCalculator {
                             MonStateIndexName.SpecialDefense
                         )
                     )
-                        + ENGINE.getMonStateForBattle(
-                            battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.SpecialDefense
-                        )
+                    + ENGINE.getMonStateForBattle(
+                        battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.SpecialDefense
+                    )
                 );
             }
 

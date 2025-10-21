@@ -10,7 +10,6 @@ import {IEffect} from "../IEffect.sol";
 import {StatBoosts} from "../StatBoosts.sol";
 
 contract Storm is BasicEffect {
-
     uint256 public constant DEFAULT_DURATION = 3;
 
     int32 public constant SPEED_PERCENT = 25;
@@ -23,18 +22,15 @@ contract Storm is BasicEffect {
         ENGINE = _ENGINE;
         STAT_BOOST = _STAT_BOOSTS;
     }
-    
+
     function name() public pure override returns (string memory) {
         return "Stormy Weather";
     }
 
     function shouldRunAtStep(EffectStep r) external pure override returns (bool) {
-        return (
-            r == EffectStep.OnApply || 
-            r == EffectStep.RoundEnd ||
-            r == EffectStep.OnMonSwitchIn ||
-            r == EffectStep.OnRemove
-        );
+        return
+            (r == EffectStep.OnApply || r == EffectStep.RoundEnd || r == EffectStep.OnMonSwitchIn
+                    || r == EffectStep.OnRemove);
     }
 
     function _effectKey(uint256 playerIndex) internal pure returns (bytes32) {
@@ -64,14 +60,42 @@ contract Storm is BasicEffect {
 
     function _applyStatChange(uint256 playerIndex, uint256 monIndex) internal {
         // Apply stat boosts (speed buff / sp def debuff)
-        STAT_BOOST.addStatBoost(playerIndex, monIndex, uint256(MonStateIndexName.Speed), SPEED_PERCENT, StatBoostType.Multiply, StatBoostFlag.Temp);
-        STAT_BOOST.addStatBoost(playerIndex, monIndex, uint256(MonStateIndexName.SpecialDefense), SP_DEF_PERCENT, StatBoostType.Divide, StatBoostFlag.Temp);
+        STAT_BOOST.addStatBoost(
+            playerIndex,
+            monIndex,
+            uint256(MonStateIndexName.Speed),
+            SPEED_PERCENT,
+            StatBoostType.Multiply,
+            StatBoostFlag.Temp
+        );
+        STAT_BOOST.addStatBoost(
+            playerIndex,
+            monIndex,
+            uint256(MonStateIndexName.SpecialDefense),
+            SP_DEF_PERCENT,
+            StatBoostType.Divide,
+            StatBoostFlag.Temp
+        );
     }
 
     function _removeStatChange(uint256 playerIndex, uint256 monIndex) internal {
         // Reset stat boosts (speed buff / sp def debuff)
-        STAT_BOOST.removeStatBoost(playerIndex, monIndex, uint256(MonStateIndexName.Speed), SPEED_PERCENT, StatBoostType.Multiply, StatBoostFlag.Temp);
-        STAT_BOOST.removeStatBoost(playerIndex, monIndex, uint256(MonStateIndexName.SpecialDefense), SP_DEF_PERCENT, StatBoostType.Divide, StatBoostFlag.Temp);
+        STAT_BOOST.removeStatBoost(
+            playerIndex,
+            monIndex,
+            uint256(MonStateIndexName.Speed),
+            SPEED_PERCENT,
+            StatBoostType.Multiply,
+            StatBoostFlag.Temp
+        );
+        STAT_BOOST.removeStatBoost(
+            playerIndex,
+            monIndex,
+            uint256(MonStateIndexName.SpecialDefense),
+            SP_DEF_PERCENT,
+            StatBoostType.Divide,
+            StatBoostFlag.Temp
+        );
     }
 
     function onApply(uint256, bytes memory extraData, uint256, uint256)
@@ -106,7 +130,11 @@ contract Storm is BasicEffect {
         }
     }
 
-    function onMonSwitchIn(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex) external override returns (bytes memory updatedExtraData, bool removeAfterRun) {
+    function onMonSwitchIn(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+        external
+        override
+        returns (bytes memory updatedExtraData, bool removeAfterRun)
+    {
         uint256 playerIndex = abi.decode(extraData, (uint256));
         // Apply stat change to the mon on the team of the player who summoned Storm
         if (targetIndex == playerIndex) {

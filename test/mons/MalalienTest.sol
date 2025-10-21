@@ -6,9 +6,9 @@ import "../../src/Constants.sol";
 import "../../src/Structs.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
 
 import {FastValidator} from "../../src/FastValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
@@ -27,13 +27,13 @@ import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {ActusReus} from "../../src/mons/malalien/ActusReus.sol";
 import {TripleThink} from "../../src/mons/malalien/TripleThink.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract MalalienTest is Test, BattleHelper {
     Engine engine;
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -47,7 +47,7 @@ contract MalalienTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        commitManager = new FastCommitManager(IEngine(address(engine)));
+        commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
         actusReus = new ActusReus(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
@@ -59,7 +59,7 @@ contract MalalienTest is Test, BattleHelper {
         // Create a StandardAttack that can KO a mon in one hit
         IMoveSet[] memory moves = new IMoveSet[](1);
         uint256 hpScale = 100;
-        
+
         moves[0] = attackFactory.createAttack(
             ATTACK_PARAMS({
                 BASE_POWER: uint32(hpScale),
@@ -144,7 +144,9 @@ contract MalalienTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1, "Bob's mon should be KO'd");
 
         // Verify that Alice's mon has an indictment charge
-        assertEq(actusReus.getIndictmentFlag(battleKey, 0, 0), bytes32("1"), "Alice's mon should have an indictment charge");
+        assertEq(
+            actusReus.getIndictmentFlag(battleKey, 0, 0), bytes32("1"), "Alice's mon should have an indictment charge"
+        );
 
         // Bob switches to mon index 1
         vm.startPrank(BOB);
@@ -159,13 +161,13 @@ contract MalalienTest is Test, BattleHelper {
 
         // Get Bob's mon index 1's original speed
         int32 originalSpeed = int32(engine.getMonValueForBattle(battleKey, 1, 1, MonStateIndexName.Speed));
-        
+
         // Get Bob's mon's speed after the debuff
         int32 speedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
-        
+
         // Calculate expected speed debuff
         int32 expectedSpeedDebuff = -1 * originalSpeed / actusReus.SPEED_DEBUFF_DENOM();
-        
+
         // Verify the speed debuff was applied correctly
         assertEq(speedDelta, expectedSpeedDebuff, "Bob's mon should have a speed debuff");
     }
@@ -207,9 +209,7 @@ contract MalalienTest is Test, BattleHelper {
         );
 
         // Both players use triple think
-         _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 0, 0, abi.encode(0), abi.encode(0)
-        );
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, abi.encode(0), abi.encode(0));
 
         // SpecialAttack delta for both is 100
         int32 aliceSpAtk = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
@@ -219,7 +219,7 @@ contract MalalienTest is Test, BattleHelper {
         assertEq(bobSpAtk, tripleThink.SP_ATTACK_BUFF_PERCENT(), "Buff applied for Bob");
 
         // Alice uses it again, Bob swaps out
-         _commitRevealExecuteForAliceAndBob(
+        _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, 0, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(1)
         );
 
@@ -227,9 +227,9 @@ contract MalalienTest is Test, BattleHelper {
         aliceSpAtk = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
         bobSpAtk = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
 
-        // The boost is the amount we need to get the total amount to the right multiplier 
+        // The boost is the amount we need to get the total amount to the right multiplier
         // (so we subtract 100 because that's the base stat)
-        int32 newAmount = (((100 + tripleThink.SP_ATTACK_BUFF_PERCENT())**2) / 100) - 100;
+        int32 newAmount = (((100 + tripleThink.SP_ATTACK_BUFF_PERCENT()) ** 2) / 100) - 100;
 
         assertEq(aliceSpAtk, newAmount, "Buff applied again for Alice");
         assertEq(bobSpAtk, 0, "Bob buff wore off");

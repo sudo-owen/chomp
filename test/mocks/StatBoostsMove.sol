@@ -27,24 +27,17 @@ contract StatBoostsMove is IMoveSet {
     function move(bytes32, uint256, bytes memory extraData, uint256) external {
         (uint256 playerIndex, uint256 monIndex, uint256 statIndex, int32 boostAmount) =
             abi.decode(extraData, (uint256, uint256, uint256, int32));
-        
+
         // For all tests, we'll use Temp stat boosts with Multiply type for positive boosts
         // and Divide type for negative boosts
         StatBoostType boostType = boostAmount > 0 ? StatBoostType.Multiply : StatBoostType.Divide;
-        
+
         // Convert negative boosts to positive for the divide operation
         if (boostAmount < 0) {
             boostAmount = -boostAmount;
         }
-        
-        STAT_BOOSTS.addStatBoost(
-            playerIndex, 
-            monIndex, 
-            statIndex, 
-            boostAmount, 
-            boostType, 
-            StatBoostFlag.Temp
-        );
+
+        STAT_BOOSTS.addStatBoost(playerIndex, monIndex, statIndex, boostAmount, boostType, StatBoostFlag.Temp);
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {

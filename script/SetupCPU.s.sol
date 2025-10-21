@@ -12,11 +12,9 @@ struct DeployData {
 }
 
 contract SetupCPU is Script {
-
     DeployData[] deployedContracts;
 
     function run() external returns (DeployData[] memory) {
-
         vm.startBroadcast();
 
         // Create team of Ghouliath, Malalien, Pengym, and Volthare for RandomCPU player

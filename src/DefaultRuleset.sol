@@ -11,14 +11,13 @@ import {IRuleset} from "./IRuleset.sol";
 import {IEffect} from "./effects/IEffect.sol";
 
 contract DefaultRuleset is IRuleset {
-
     IEngine immutable ENGINE;
 
     IEffect[] public effects;
 
     constructor(IEngine _ENGINE, IEffect[] memory _effects) {
         ENGINE = _ENGINE;
-        for (uint i; i < _effects.length; i++) {
+        for (uint256 i; i < _effects.length; i++) {
             effects.push(_effects[i]);
         }
     }

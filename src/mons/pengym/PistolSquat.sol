@@ -13,7 +13,6 @@ import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract PistolSquat is StandardAttack {
-    
     constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR)
         StandardAttack(
             address(msg.sender),
@@ -35,15 +34,20 @@ contract PistolSquat is StandardAttack {
         )
     {}
 
-    function _findRandomNonKOedMon(uint256 playerIndex, uint256 currentMonIndex, uint256 rng) internal view returns (int32) {
+    function _findRandomNonKOedMon(uint256 playerIndex, uint256 currentMonIndex, uint256 rng)
+        internal
+        view
+        returns (int32)
+    {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         uint256 teamSize = ENGINE.getTeamSize(battleKey, playerIndex);
-        for (uint i; i < teamSize; ++i) {
-            uint monIndex = (i + rng) % teamSize;
+        for (uint256 i; i < teamSize; ++i) {
+            uint256 monIndex = (i + rng) % teamSize;
             // Only look at other mons
             if (monIndex != currentMonIndex) {
-                bool isKOed = ENGINE.getMonStateForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.IsKnockedOut) == 1;
-                if (! isKOed) {
+                bool isKOed =
+                    ENGINE.getMonStateForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.IsKnockedOut) == 1;
+                if (!isKOed) {
                     return int32(int256(monIndex));
                 }
             }
@@ -62,7 +66,10 @@ contract PistolSquat is StandardAttack {
         uint256 otherPlayerIndex = (attackerPlayerIndex + 1) % 2;
         uint256 otherPlayerActiveMonIndex =
             ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[otherPlayerIndex];
-        bool isKOed = ENGINE.getMonStateForBattle(battleKey, otherPlayerIndex, otherPlayerActiveMonIndex, MonStateIndexName.IsKnockedOut) == 1;
+        bool isKOed =
+            ENGINE.getMonStateForBattle(
+                battleKey, otherPlayerIndex, otherPlayerActiveMonIndex, MonStateIndexName.IsKnockedOut
+            ) == 1;
         if (!isKOed) {
             int32 possibleSwitchTarget = _findRandomNonKOedMon(otherPlayerIndex, otherPlayerActiveMonIndex, rng);
             if (possibleSwitchTarget != -1) {

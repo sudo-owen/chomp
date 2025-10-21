@@ -7,7 +7,6 @@ import {IEngine} from "../../IEngine.sol";
 import {StatusEffect} from "./StatusEffect.sol";
 
 contract ZapStatus is StatusEffect {
-
     constructor(IEngine engine) StatusEffect(engine) {}
 
     function name() public pure override returns (string memory) {
@@ -15,7 +14,8 @@ contract ZapStatus is StatusEffect {
     }
 
     function shouldRunAtStep(EffectStep r) external pure override returns (bool) {
-        return (r == EffectStep.OnApply || r == EffectStep.RoundEnd || r == EffectStep.OnRemove || r == EffectStep.OnMonSwitchIn);
+        return (r == EffectStep.OnApply || r == EffectStep.RoundEnd || r == EffectStep.OnRemove
+                || r == EffectStep.OnMonSwitchIn);
     }
 
     function onApply(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
@@ -34,7 +34,7 @@ contract ZapStatus is StatusEffect {
         external
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
-    {   
+    {
         // Set skip turn flag
         ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
 

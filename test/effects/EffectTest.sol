@@ -7,38 +7,38 @@ import "../../src/Constants.sol";
 import "../../src/Enums.sol";
 import "../../src/Structs.sol";
 
+import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
-import {IAbility} from "../../src/abilities/IAbility.sol";
-import {FastCommitManager} from "../../src/FastCommitManager.sol";
 import {FastValidator} from "../../src/FastValidator.sol";
+import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 
+import {IEngineHook} from "../../src/IEngineHook.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
-import {IEngineHook} from "../../src/IEngineHook.sol";
 
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 
 // Import effects
-import {PanicStatus} from "../../src/effects/status/PanicStatus.sol";
-import {FrostbiteStatus} from "../../src/effects/status/FrostbiteStatus.sol";
-import {SleepStatus} from "../../src/effects/status/SleepStatus.sol";
-import {BurnStatus} from "../../src/effects/status/BurnStatus.sol";
-import {StatBoosts} from "../../src/effects/StatBoosts.sol";
-import {ZapStatus} from "../../src/effects/status/ZapStatus.sol";
-import {StaminaRegen} from "../../src/effects/StaminaRegen.sol";
 import {DefaultRuleset} from "../../src/DefaultRuleset.sol";
+import {StaminaRegen} from "../../src/effects/StaminaRegen.sol";
+import {StatBoosts} from "../../src/effects/StatBoosts.sol";
+import {BurnStatus} from "../../src/effects/status/BurnStatus.sol";
+import {FrostbiteStatus} from "../../src/effects/status/FrostbiteStatus.sol";
+import {PanicStatus} from "../../src/effects/status/PanicStatus.sol";
+import {SleepStatus} from "../../src/effects/status/SleepStatus.sol";
+import {ZapStatus} from "../../src/effects/status/ZapStatus.sol";
 
 // Import standard attack factory and template
+import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
-import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 
 contract EffectTest is Test, BattleHelper {
-    FastCommitManager commitManager;
+    DefaultCommitManager commitManager;
     Engine engine;
     FastValidator oneMonOneMoveValidator;
     ITypeCalculator typeCalc;
@@ -73,7 +73,7 @@ contract EffectTest is Test, BattleHelper {
     function setUp() public {
         mockOracle = new MockRandomnessOracle();
         engine = new Engine();
-        commitManager = new FastCommitManager(engine);
+        commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         oneMonOneMoveValidator = new FastValidator(
             engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
@@ -376,7 +376,9 @@ contract EffectTest is Test, BattleHelper {
         mockOracle.setRNG(1);
 
         // Alice is asleep but tries to swap, swap should succeed, and the flag should be cleared
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(1), "");
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(1), ""
+        );
         state = engine.getBattleState(battleKey);
         assertEq(state.monStates[0][1].shouldSkipTurn, false);
 
@@ -697,7 +699,9 @@ contract EffectTest is Test, BattleHelper {
         assertEq(extraData.length, 1);
 
         // Bob switches back to mon index 0, Alice does nothing
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0));
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0)
+        );
 
         // Bob's mon index 0 should have the skip turn flag set (the effect triggers on on switch in)
         assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.ShouldSkipTurn), 1);
@@ -752,8 +756,10 @@ contract EffectTest is Test, BattleHelper {
 
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
-        
-        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules);
+
+        bytes32 battleKey = _startBattle(
+            oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules
+        );
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(

@@ -6,14 +6,13 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
+import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 import {HeatBeaconLib} from "./HeatBeaconLib.sol";
 
 contract Q5 is IMoveSet, BasicEffect {
-
     uint256 public constant DELAY = 5;
     uint32 public constant BASE_POWER = 150;
 
@@ -64,7 +63,7 @@ contract Q5 is IMoveSet, BasicEffect {
     }
 
     /**
-     Effect implementation
+     *  Effect implementation
      */
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.RoundStart);
