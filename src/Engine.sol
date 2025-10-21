@@ -153,9 +153,7 @@ contract Engine is IEngine {
         battleStates[battleKey].playerSwitchForTurnFlag = 2;
 
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            if (address(battle.engineHooks[i]) != address(0)) {
-                battle.engineHooks[i].onBattleStart(battleKey);
-            }
+            battle.engineHooks[i].onBattleStart(battleKey);
         }
 
         emit BattleStart(battleKey, battle.p0, battle.p1);
@@ -185,9 +183,7 @@ contract Engine is IEngine {
         battleKeyForWrite = battleKey;
 
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            if (address(battle.engineHooks[i]) != address(0)) {
-                battle.engineHooks[i].onRoundStart(battleKey);
-            }
+            battle.engineHooks[i].onRoundStart(battleKey);
         }
 
         // If only a single player has a move to submit, then we don't trigger any effects
@@ -370,9 +366,7 @@ contract Engine is IEngine {
         // Progress turn index and finally set the player switch for turn flag on the state
         if (state.winner != address(0)) {
             for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-                if (address(battle.engineHooks[i]) != address(0)) {
-                    battle.engineHooks[i].onBattleEnd(battleKey);
-                }
+                battle.engineHooks[i].onBattleEnd(battleKey);
             }
             return;
         }
@@ -380,9 +374,7 @@ contract Engine is IEngine {
         state.playerSwitchForTurnFlag = playerSwitchForTurnFlag;
 
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            if (address(battle.engineHooks[i]) != address(0)) {
-                battle.engineHooks[i].onRoundEnd(battleKey);
-            }
+            battle.engineHooks[i].onRoundEnd(battleKey);
         }
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
@@ -401,9 +393,7 @@ contract Engine is IEngine {
                 address winner = potentialLoser == battle.p0 ? battle.p1 : battle.p0;
                 state.winner = winner;
                 for (uint256 j = 0; j < battle.engineHooks.length; j++) {
-                    if (address(battle.engineHooks[j]) != address(0)) {
-                        battle.engineHooks[j].onBattleEnd(battleKey);
-                    }
+                    battle.engineHooks[j].onBattleEnd(battleKey);
                 }
                 emit BattleComplete(battleKey, winner);
                 return;
