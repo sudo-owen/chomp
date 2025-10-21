@@ -110,94 +110,6 @@ contract EngineTest is Test, BattleHelper {
 
         return battleKey;
     }
-    
-    // function test_commitBattleWithoutAcceptReverts() public {
-
-    //     // - both players can propose (without accepting) and nonce will not increase (i.e. battle key does not change)
-    //     // - accepting a battle increments the nonce for the next propose (i.e. battle key changes)
-    //     // - committing should fail if the battle is not accepted
-        
-
-    //     Mon[] memory dummyTeam = new Mon[](1);
-    //     dummyTeam[0] = dummyMon;
-
-    //     // Register teams
-    //     defaultRegistry.setTeam(ALICE, dummyTeam);
-    //     defaultRegistry.setTeam(BOB, dummyTeam);
-
-    //     Battle memory args = Battle({
-    //         p0: ALICE,
-    //         p1: BOB,
-    //         validator: validator,
-    //         rngOracle: defaultOracle,
-    //         ruleset: IRuleset(address(0)),
-    //         teamRegistry: defaultRegistry,
-    //         p0TeamHash: keccak256(
-    //             abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-    //         ),
-    //         engineHook: IEngineHook(address(0)),
-    //         moveManager: IMoveManager(address(0)),
-    //         teams: new Mon[][](0),
-    //         p1TeamIndex: 0
-    //     });
-    //     vm.startPrank(ALICE);
-    //     bytes32 battleKey = engine.proposeBattle(args);
-
-    //     // Have Bob propose a battle
-    //     vm.startPrank(BOB);
-    //     Battle memory bobArgs = Battle({
-    //         p0: BOB,
-    //         p1: ALICE,
-    //         validator: validator,
-    //         rngOracle: defaultOracle,
-    //         ruleset: IRuleset(address(0)),
-    //         teamRegistry: defaultRegistry,
-    //         p0TeamHash: keccak256(
-    //             abi.encodePacked(bytes32(""), uint256(0), defaultRegistry.getMonRegistryIndicesForTeam(BOB, 0))
-    //         ),
-    //         engineHook: IEngineHook(address(0)),
-    //         moveManager: IMoveManager(address(0)),
-    //         teams: new Mon[][](0),
-    //         p1TeamIndex: 0
-    //     });
-    //     bytes32 updatedBattleKey = engine.proposeBattle(bobArgs);
-
-    //     // Battle key should be the same when no one accepts
-    //     assertEq(battleKey, updatedBattleKey);
-
-    //     // Assert it reverts for Alice upon commit
-    //     vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
-    //     vm.startPrank(ALICE);
-    //     commitManager.commitMove(battleKey, "");
-
-    //     // Assert it reverts for Bob upon commit
-    //     vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
-    //     vm.startPrank(BOB);
-    //     commitManager.commitMove(battleKey, "");
-
-    //     // Have Alice accept the battle Bob proposed
-    //     vm.startPrank(ALICE);
-    //     bytes32 battleIntegrityHash = keccak256(
-    //         abi.encodePacked(args.validator, args.rngOracle, args.ruleset, args.teamRegistry, bobArgs.p0TeamHash, args.engineHook, args.moveManager)
-    //     );
-    //     engine.acceptBattle(battleKey, 0, battleIntegrityHash);
-
-    //     // Have Bob start the Battle (given that Alice accepted)
-    //     vm.startPrank(BOB);
-    //     engine.startBattle(battleKey, "", 0);
-
-    //     // Have Bob propose a new battle
-    //     vm.warp(validator.TIMEOUT_DURATION() + 1);
-    //     vm.startPrank(BOB);
-    //     bytes32 newBattleKey = engine.proposeBattle(bobArgs);
-
-    //     // Battle key should be different when one accepts
-    //     assertNotEq(battleKey, newBattleKey);
-    // }
-
-    // function test_canStartBattle() public {
-    //     _startDummyBattle();
-    // }
 
     /*
         Tests the following behaviors:
@@ -2874,7 +2786,7 @@ contract EngineTest is Test, BattleHelper {
 
         // // Bob should not be able to commit to the ended battle
         vm.startPrank(BOB);
-        vm.expectRevert(FastCommitManager.BattleNotStarted.selector);
+        vm.expectRevert(FastCommitManager.BattleAlreadyComplete.selector);
         commitManager.commitMove(battleKey, bytes32(0));
     }
 }

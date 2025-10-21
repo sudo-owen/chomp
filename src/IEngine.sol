@@ -52,7 +52,6 @@ interface IEngine {
     function getActiveMonIndexForBattleState(bytes32 battleKey) external view returns (uint256[] memory);
     function getPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256);
     function getGlobalKV(bytes32 battleKey, bytes32 key) external view returns (bytes32);
-    function getBattleStatus(bytes32 battleKey) external view returns (GameStatus);
     function getBattleValidator(bytes32 battleKey) external view returns (IValidator);
     function getEffects(bytes32 battleKey, uint256 targetIndex, uint256 monIndex)
         external
@@ -60,6 +59,7 @@ interface IEngine {
         returns (IEffect[] memory, bytes[] memory);
     function getMonKOCount(bytes32 battleKey, uint256 playerIndex) external view returns (uint256);
     function getWinner(bytes32 battleKey) external view returns (address);
+    function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
     function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256);
     function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {GameStatus, Type} from "./Enums.sol";
+import {Type} from "./Enums.sol";
 import {IRuleset} from "./IRuleset.sol";
 import {IValidator} from "./IValidator.sol";
 import {IEngineHook} from "./IEngineHook.sol";
@@ -54,7 +54,6 @@ struct BattleState {
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
-    GameStatus status;
 }
 
 struct MonStats {

@@ -14,6 +14,7 @@ contract DefaultMatchmaker is IMatchmaker {
     event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1);
     event BattleAcceptance(bytes32 indexed battleKey, address indexed p1, bytes32 indexed updatedBattleKey);
 
+    error P0P1Same();
     error ProposerNotP0();
     error AcceptorNotP1();
     error ConfirmerNotP0();
@@ -46,6 +47,9 @@ contract DefaultMatchmaker is IMatchmaker {
     function proposeBattle(ProposedBattle memory proposal) external returns (bytes32 battleKey) {
         if (proposal.p0 != msg.sender) {
             revert ProposerNotP0();
+        }
+        if (proposal.p0 == proposal.p1) {
+            revert P0P1Same();
         }
         (battleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
         proposals[battleKey] = proposal;

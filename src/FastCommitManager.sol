@@ -10,26 +10,25 @@ import {ICommitManager} from "./ICommitManager.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 
 contract FastCommitManager is ICommitManager, IMoveManager {
-    // State variables
+
     IEngine private immutable ENGINE;
+
     mapping(bytes32 battleKey => mapping(address player => MoveCommitment)) private commitments;
     mapping(bytes32 battleKey => RevealedMove[][]) private moveHistory;
     mapping(bytes32 battleKey => mapping(address player => uint256)) private lastMoveTimestamp;
 
-    // Errors
-    error NotEngine();
     error NotP0OrP1();
     error AlreadyCommited();
     error AlreadyRevealed();
     error NotYetRevealed();
-    error BattleNotStarted();
     error RevealBeforeOtherCommit();
-    error WrongTurnId();
+    error RevealBeforeSelfCommit();
     error WrongPreimage();
     error PlayerNotAllowed();
     error InvalidMove(address player);
+    error BattleNotYetStarted();
+    error BattleAlreadyComplete();
 
-    // Events
     event MoveCommit(bytes32 indexed battleKey, address player);
     event MoveReveal(bytes32 indexed battleKey, address player, uint256 moveIndex);
 
@@ -44,25 +43,30 @@ contract FastCommitManager is ICommitManager, IMoveManager {
      *     - UNLESS there is a player switch for turn flag, in which case, no commits at all
      */
     function commitMove(bytes32 battleKey, bytes32 moveHash) external {
+
+        // Can only commit moves to battles with nonzero timestamp and address(0) winner
+        uint256 startTimestamp = ENGINE.getStartTimestamp(battleKey);
+        if (startTimestamp == 0) {
+            revert BattleNotYetStarted();
+        }
+
         address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
         address caller = msg.sender;
 
-        // 1) Only battle participants can commit
+        // Only battle participants can commit
         if (caller != p0AndP1[0] && caller != p0AndP1[1]) {
             revert NotP0OrP1();
         }
 
-        // 2) Can only commit moves to battles with a Started status
-        // (reveal relies on commit, and execute relies on both of those)
-        // (so transitively, it's safe to just check battle proposal status on commit)
-        if (ENGINE.getBattleStatus(battleKey) != GameStatus.Started) {
-            revert BattleNotStarted();
+        address winner = ENGINE.getWinner(battleKey);
+        if (winner != address(0)) {
+            revert BattleAlreadyComplete();
         }
-
+        
         // 3) Validate no commitment already exists for this turn:
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
 
-        // 4) If it's the zeroth turn, require that no hash is set for the player
+        // If it's the zeroth turn, require that no hash is set for the player
         // otherwise, just check if the turn id (which we overwrite each turn) is in sync
         // (if we already committed this turn, then the turn id should match)
         if (turnId == 0) {
@@ -103,7 +107,14 @@ contract FastCommitManager is ICommitManager, IMoveManager {
     function revealMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes calldata extraData, bool autoExecute)
         external
     {
-        // 1) Only battle participants can reveal
+
+        // Can only commit moves to battles with nonzero timestamp and address(0) winner
+        uint256 startTimestamp = ENGINE.getStartTimestamp(battleKey);
+        if (startTimestamp == 0) {
+            revert BattleNotYetStarted();
+        }
+        
+        // Only battle participants can reveal
         address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
         if (msg.sender != p0AndP1[0] && msg.sender != p0AndP1[1]) {
             revert NotP0OrP1();
@@ -118,6 +129,11 @@ contract FastCommitManager is ICommitManager, IMoveManager {
             currentPlayerIndex = 1;
         }
         address otherPlayer = p0AndP1[otherPlayerIndex];
+
+        address winner = ENGINE.getWinner(battleKey);
+        if (winner != address(0)) {
+            revert BattleAlreadyComplete();
+        }
 
         // Get turn id and switch for turn flag
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
@@ -172,12 +188,12 @@ contract FastCommitManager is ICommitManager, IMoveManager {
 
             // - ensure reveal happens after caller commits
             if (commitment.turnId != turnId) {
-                revert WrongTurnId();
+                revert RevealBeforeSelfCommit();
             }
 
-            // - check that other player has already revealed
+            // - check that other player has already revealed (on turn zero, we just check for move history length)
             RevealedMove[] storage otherPlayerMoveHistory = moveHistory[battleKey][otherPlayerIndex];
-            if (otherPlayerMoveHistory.length < turnId) {
+            if (otherPlayerMoveHistory.length < turnId || otherPlayerMoveHistory.length == 0) {
                 revert NotYetRevealed();
             }
         }

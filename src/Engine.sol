@@ -318,7 +318,6 @@ contract Engine is IEngine {
             if (potentialLoser != address(0)) {
                 address winner = potentialLoser == battle.p0 ? battle.p1 : battle.p0;
                 state.winner = winner;
-                state.status = GameStatus.Ended;
                 if (address(battle.engineHook) != address(0)) {
                     battle.engineHook.onBattleEnd(battleKey);
                 }
@@ -534,7 +533,6 @@ contract Engine is IEngine {
             // Ensure we only emit the event / update the state once (we may call this multiple times during one stack frame)
             if (state.winner == address(0)) {
                 state.winner = gameResult;
-                state.status = GameStatus.Ended;
                 emit BattleComplete(battleKey, gameResult);   
             }
             isGameOver = true;
@@ -858,10 +856,6 @@ contract Engine is IEngine {
         return battleStates[battleKey];
     }
 
-    function getBattleStatus(bytes32 battleKey) external view returns (GameStatus) {
-        return battleStates[battleKey].status;
-    }
-
     function getBattleValidator(bytes32 battleKey) external view returns (IValidator) {
         return battles[battleKey].validator;
     }
@@ -985,6 +979,10 @@ contract Engine is IEngine {
 
     function getWinner(bytes32 battleKey) external view returns (address) {
         return battleStates[battleKey].winner;
+    }
+
+    function getStartTimestamp(bytes32 battleKey) external view returns (uint256) {
+        return battles[battleKey].startTimestamp;
     }
 
     function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256) {
