@@ -2734,7 +2734,7 @@ contract EngineTest is Test, BattleHelper {
             validator: validatorToUse,
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
-            engineHook: IEngineHook(address(0)),
+            engineHooks: new IEngineHook[](0),
             moveManager: IMoveManager(address(0)),
             matchmaker: matchmaker
         });

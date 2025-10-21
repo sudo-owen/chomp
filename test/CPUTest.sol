@@ -195,7 +195,7 @@ contract CPUTest is Test {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
-            engineHook: IEngineHook(address(0)),
+            engineHooks: new IEngineHook[](0),
             moveManager: cpuMoveManager,
             matchmaker: cpu
         });
@@ -310,7 +310,7 @@ contract CPUTest is Test {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
-            engineHook: IEngineHook(address(0)),
+            engineHooks: new IEngineHook[](0),
             moveManager: playerCPUMoveManager,
             matchmaker: playerCPU
         });
@@ -352,7 +352,7 @@ contract CPUTest is Test {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
-            engineHook: IEngineHook(address(0)),
+            engineHooks: new IEngineHook[](0),
             moveManager: playerCPUMoveManager,
             matchmaker: playerCPU
         });

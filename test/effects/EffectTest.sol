@@ -758,7 +758,7 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         bytes32 battleKey = _startBattle(
-            oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, IEngineHook(address(0)), rules
+            oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, new IEngineHook[](0), rules
         );
 
         // First move of the game has to be selecting their mons (both index 0)

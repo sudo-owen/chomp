@@ -152,8 +152,10 @@ contract Engine is IEngine {
         // Set flag to be 2 which means both players act
         battleStates[battleKey].playerSwitchForTurnFlag = 2;
 
-        if (address(battle.engineHook) != address(0)) {
-            battle.engineHook.onBattleStart(battleKey);
+        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
+            if (address(battle.engineHooks[i]) != address(0)) {
+                battle.engineHooks[i].onBattleStart(battleKey);
+            }
         }
 
         emit BattleStart(battleKey, battle.p0, battle.p1);
@@ -182,8 +184,10 @@ contract Engine is IEngine {
         // (gets cleared at the end of the transaction)
         battleKeyForWrite = battleKey;
 
-        if (address(battle.engineHook) != address(0)) {
-            battle.engineHook.onRoundStart(battleKey);
+        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
+            if (address(battle.engineHooks[i]) != address(0)) {
+                battle.engineHooks[i].onRoundStart(battleKey);
+            }
         }
 
         // If only a single player has a move to submit, then we don't trigger any effects
@@ -365,16 +369,20 @@ contract Engine is IEngine {
 
         // Progress turn index and finally set the player switch for turn flag on the state
         if (state.winner != address(0)) {
-            if (address(battle.engineHook) != address(0)) {
-                battle.engineHook.onBattleEnd(battleKey);
+            for (uint256 i = 0; i < battle.engineHooks.length; i++) {
+                if (address(battle.engineHooks[i]) != address(0)) {
+                    battle.engineHooks[i].onBattleEnd(battleKey);
+                }
             }
             return;
         }
         state.turnId += 1;
         state.playerSwitchForTurnFlag = playerSwitchForTurnFlag;
 
-        if (address(battle.engineHook) != address(0)) {
-            battle.engineHook.onRoundEnd(battleKey);
+        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
+            if (address(battle.engineHooks[i]) != address(0)) {
+                battle.engineHooks[i].onRoundEnd(battleKey);
+            }
         }
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
@@ -392,8 +400,10 @@ contract Engine is IEngine {
             if (potentialLoser != address(0)) {
                 address winner = potentialLoser == battle.p0 ? battle.p1 : battle.p0;
                 state.winner = winner;
-                if (address(battle.engineHook) != address(0)) {
-                    battle.engineHook.onBattleEnd(battleKey);
+                for (uint256 j = 0; j < battle.engineHooks.length; j++) {
+                    if (address(battle.engineHooks[j]) != address(0)) {
+                        battle.engineHooks[j].onBattleEnd(battleKey);
+                    }
                 }
                 emit BattleComplete(battleKey, winner);
                 return;
