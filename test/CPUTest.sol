@@ -212,8 +212,7 @@ contract CPUTest is Test {
 
         vm.startPrank(ALICE);
         // Start the battle directly via CPU
-        cpu.startBattle(proposal);
-        (bytes32 battleKey, ) = engine.computeBattleKey(proposal.p0, proposal.p1);
+        bytes32 battleKey = cpu.startBattle(proposal);
 
         // Check that the CPU enumerates mon indices 0 to 4
         {
@@ -294,44 +293,6 @@ contract CPUTest is Test {
         }
     }
 
-    // function test_onlyP0CanAdvanceCPUMoveManager() public {
-    //     ProposedBattle memory proposal = ProposedBattle({
-    //         p0: ALICE,
-    //         p0TeamIndex: 0,
-    //         p0TeamHash: keccak256(
-    //             abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
-    //         ),
-    //         p1: address(cpu),
-    //         p1TeamIndex: 0,
-    //         validator: validator,
-    //         rngOracle: defaultOracle,
-    //         ruleset: IRuleset(address(0)),
-    //         teamRegistry: teamRegistry,
-    //         engineHook: IEngineHook(address(0)),
-    //         moveManager: cpuMoveManager,
-    //         matchmaker: cpu
-    //     });
-
-    //     vm.startPrank(ALICE);
-    //     // Authorize the CPU as a matchmaker
-    //     address[] memory makersToAdd = new address[](1);
-    //     makersToAdd[0] = address(cpu);
-    //     address[] memory makersToRemove = new address[](0);
-    //     engine.updateMatchmakers(makersToAdd, makersToRemove);
-
-    //     vm.startPrank(address(cpu));
-    //     engine.updateMatchmakers(makersToAdd, makersToRemove);
-
-    //     vm.startPrank(ALICE);
-    //     // Start the battle directly via CPU
-    //     cpu.startBattle(proposal);
-    //     (bytes32 battleKey, ) = engine.computeBattleKey(proposal.p0, proposal.p1);
-
-    //     vm.startPrank(BOB);
-    //     vm.expectRevert(CPUMoveManager.NotP0.selector);
-    //     cpuMoveManager.selectMove(battleKey, 0, "", "");
-    // }
-
     /**
      * Test that only p0 can call setMove on PlayerCPU
      * Should revert if someone other than p0 attempts to call setMove
@@ -366,8 +327,7 @@ contract CPUTest is Test {
 
         vm.startPrank(ALICE);
         // Start the battle directly via PlayerCPU
-        playerCPU.startBattle(proposal);
-        (bytes32 battleKey, ) = engine.computeBattleKey(proposal.p0, proposal.p1);
+        bytes32 battleKey = playerCPU.startBattle(proposal);
 
         // Test that BOB (not p0) cannot call setMove
         vm.startPrank(BOB);
@@ -409,8 +369,7 @@ contract CPUTest is Test {
 
         vm.startPrank(ALICE);
         // Start the battle directly via PlayerCPU
-        playerCPU.startBattle(proposal);
-        (bytes32 battleKey, ) = engine.computeBattleKey(proposal.p0, proposal.p1);
+        bytes32 battleKey = playerCPU.startBattle(proposal);
 
         // First turn: p0 sets move 0 for PlayerCPU
         playerCPU.setMove(battleKey, 0, "");

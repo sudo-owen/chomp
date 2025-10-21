@@ -33,6 +33,12 @@ contract CPUMoveManager is IMoveManager {
             return;
         }
 
+        // Init moveHistory for the battle if it's the first turn
+        if (battleState.turnId == 0) {
+            moveHistory[battleKey].push();
+            moveHistory[battleKey].push();
+        }
+
         // Determine move configuration based on turn flag
         if (battleState.playerSwitchForTurnFlag == 0) {
             // P0's turn: player moves, CPU no-ops
@@ -73,16 +79,6 @@ contract CPUMoveManager is IMoveManager {
 
     function setCPUForPlayer(address player, ICPU cpu) external {
         cpuForPlayer[player] = cpu;
-    }
-
-    // Move manager functions
-    function initMoveHistory(bytes32 battleKey) external returns (bool) {
-        if (msg.sender != address(ENGINE)) {
-            revert NotEngine();
-        }
-        moveHistory[battleKey].push();
-        moveHistory[battleKey].push();
-        return true;
     }
 
     function getMoveForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)

@@ -140,7 +140,8 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
         return uint256(seed);
     }
 
-    function startBattle(ProposedBattle memory proposal) external {
+    function startBattle(ProposedBattle memory proposal) external returns (bytes32 battleKey) {
+        (battleKey, ) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
         ENGINE.startBattle(Battle({
             p0: proposal.p0,
             p0TeamIndex: proposal.p0TeamIndex,
@@ -154,7 +155,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
             moveManager: proposal.moveManager,
             matchmaker: proposal.matchmaker,
             startTimestamp: 0,
-            teams: new Mon[][](0)
+            teams: new Mon[][](2)
         }));
     }
 

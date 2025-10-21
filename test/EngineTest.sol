@@ -1429,13 +1429,7 @@ contract EngineTest is Test, BattleHelper {
         bytes32 aliceMoveHash = keccak256(abi.encodePacked(aliceMoveIndex, salt, extraData));
         commitManager.commitMove(battleKey, aliceMoveHash);
 
-        // (Assume Bob correctly commits to swapping his mon)
-        vm.startPrank(BOB);
-        salt = "";
-        bytes32 bobMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(1)));
-        commitManager.commitMove(battleKey, bobMoveHash);
-
-        // Bob's reveal should succeed
+        // Bob reveals a swap
         vm.startPrank(BOB);
         commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, abi.encode(1), false);
 
@@ -2537,15 +2531,11 @@ contract EngineTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Assert that Alice committing and trying to reveal move index 0 will fail
-        vm.startPrank(ALICE);
-        uint256 moveIndex = 0;
-        bytes32 aliceMoveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), ""));
-        commitManager.commitMove(battleKey, aliceMoveHash);
-
-        // Have Bob commit to do the same (it's fine bc we test Alice revert)
+        // Bob commits to NO_OP
         vm.startPrank(BOB);
-        commitManager.commitMove(battleKey, aliceMoveHash);
+        uint256 moveIndex = NO_OP_MOVE_INDEX;
+        bytes32 bobMoveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), ""));
+        commitManager.commitMove(battleKey, bobMoveHash);
 
         // Alice should revert when revealing
         vm.startPrank(ALICE);
