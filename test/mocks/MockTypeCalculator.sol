@@ -5,28 +5,38 @@ import "../../src/Enums.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 
 /**
- * Mock TypeCalculator that provides predictable type advantages for testing:
- * - Fire is super effective (2x) against Nature
- * - Nature is not very effective (0.5x) against Fire
- * - All other combinations return base power (1x)
+ * Mock TypeCalculator with mutable type effectiveness mapping for testing.
+ * Allows tests to set custom type matchups as needed.
+ * Default effectiveness is 1x (neutral) for all matchups.
  */
 contract MockTypeCalculator is ITypeCalculator {
+    // Maps (attackerType, defenderType) -> effectiveness multiplier
+    // 0 = immune (0x), 1 = not very effective (0.5x), 2 = neutral (1x), 3 = super effective (2x)
+    mapping(Type => mapping(Type => uint8)) public effectiveness;
+
+    constructor() {
+        // All matchups default to neutral (2 = 1x)
+    }
+
+    function setEffectiveness(Type attackerType, Type defenderType, uint8 multiplier) external {
+        effectiveness[attackerType][defenderType] = multiplier;
+    }
+
     function getTypeEffectiveness(Type attackerType, Type defenderType, uint32 basePower)
         external
-        pure
+        view
         returns (uint32)
     {
-        // Fire attacking Nature = 2x effectiveness (super effective)
-        if (attackerType == Type.Fire && defenderType == Type.Nature) {
-            return basePower * 2;
-        }
+        uint8 multiplier = effectiveness[attackerType][defenderType];
 
-        // Nature attacking Fire = 0.5x effectiveness (not very effective)
-        if (attackerType == Type.Nature && defenderType == Type.Fire) {
-            return basePower / 2;
+        if (multiplier == 0) {
+            return 0; // Immune
+        } else if (multiplier == 1) {
+            return basePower / 2; // Not very effective
+        } else if (multiplier == 3) {
+            return basePower * 2; // Super effective
+        } else {
+            return basePower; // Neutral (default)
         }
-
-        // All other combinations are neutral (1x)
-        return basePower;
     }
 }

@@ -39,6 +39,7 @@ contract OkayCPUTest is Test {
     TestTeamRegistry teamRegistry;
     MockCPURNG mockCPURNG;
     DefaultMatchmaker matchmaker;
+    StandardAttackFactory attackFactory;
 
     address constant ALICE = address(1);
     address constant BOB = address(2);
@@ -56,31 +57,7 @@ contract OkayCPUTest is Test {
             new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10}));
         teamRegistry = new TestTeamRegistry();
         matchmaker = new DefaultMatchmaker(engine);
-    }
-
-    /**
-     * Helper function to create a basic attack move
-     */
-    function createBasicAttack(Type moveType, uint32 basePower, uint32 staminaCost, string memory name)
-        internal
-        returns (IMoveSet)
-    {
-        StandardAttackFactory attackFactory = new StandardAttackFactory(engine, typeCalc);
-        return attackFactory.createAttack(
-            ATTACK_PARAMS({
-                BASE_POWER: basePower,
-                STAMINA_COST: staminaCost,
-                ACCURACY: 100,
-                PRIORITY: 1,
-                MOVE_TYPE: moveType,
-                EFFECT_ACCURACY: 0,
-                MOVE_CLASS: MoveClass.Physical,
-                CRIT_RATE: 0,
-                VOLATILITY: 0,
-                NAME: name,
-                EFFECT: IEffect(address(0))
-            })
-        );
+        attackFactory = new StandardAttackFactory(engine, typeCalc);
     }
 
     /**
@@ -110,22 +87,139 @@ contract OkayCPUTest is Test {
      * to switch in the Nature type mon, then the CPU will opt to switch in the Fire type mon.
      */
     function test_okayCPUSwitchesInFireAgainstNature() public {
+        // Set up type effectiveness: Fire is super effective (3 = 2x) against Nature
+        typeCalc.setEffectiveness(Type.Fire, Type.Nature, 3);
+        // Nature is not very effective (1 = 0.5x) against Fire
+        typeCalc.setEffectiveness(Type.Nature, Type.Fire, 1);
+
         // Create moves for each mon type
         IMoveSet[] memory natureMoves = new IMoveSet[](2);
-        natureMoves[0] = createBasicAttack(Type.Nature, 1, 1, "Nature Attack 1");
-        natureMoves[1] = createBasicAttack(Type.Nature, 1, 1, "Nature Attack 2");
+        natureMoves[0] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Nature,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Nature Attack 1",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        natureMoves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Nature,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Nature Attack 2",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
         IMoveSet[] memory fireMoves = new IMoveSet[](2);
-        fireMoves[0] = createBasicAttack(Type.Fire, 1, 1, "Fire Attack 1");
-        fireMoves[1] = createBasicAttack(Type.Fire, 1, 1, "Fire Attack 2");
+        fireMoves[0] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Fire Attack 1",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        fireMoves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Fire Attack 2",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
         IMoveSet[] memory yinMoves = new IMoveSet[](2);
-        yinMoves[0] = createBasicAttack(Type.Yin, 1, 1, "Yin Attack 1");
-        yinMoves[1] = createBasicAttack(Type.Yin, 1, 1, "Yin Attack 2");
+        yinMoves[0] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Yin,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Yin Attack 1",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        yinMoves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Yin,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Yin Attack 2",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
         IMoveSet[] memory yangMoves = new IMoveSet[](2);
-        yangMoves[0] = createBasicAttack(Type.Yang, 1, 1, "Yang Attack 1");
-        yangMoves[1] = createBasicAttack(Type.Yang, 1, 1, "Yang Attack 2");
+        yangMoves[0] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Yang,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Yang Attack 1",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        yangMoves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Yang,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Yang Attack 2",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
         // Create team: [Nature, Fire, Yin, Yang] for both players
         Mon[] memory team = new Mon[](4);
@@ -185,15 +279,43 @@ contract OkayCPUTest is Test {
      * no-op (75% chance) or swap (25% chance), depending on the RNG.
      */
     function test_okayCPULowStaminaBehavior() public {
-        // Create moves
+        // Create moves with stamina cost of 2 each
         IMoveSet[] memory moves = new IMoveSet[](2);
-        moves[0] = createBasicAttack(Type.Fire, 1, 1, "Attack 1");
-        moves[1] = createBasicAttack(Type.Fire, 1, 2, "Attack 2");
+        moves[0] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 2,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack 1",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        moves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 2,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack 2",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
-        // Create team with mons that have high initial stamina
+        // Create team with mons that have 5 stamina (so after 2 uses of 2-cost moves, staminaDelta = -4)
         Mon[] memory team = new Mon[](4);
         for (uint256 i = 0; i < 4; i++) {
-            team[i] = createMon(Type.Fire, moves, 10);
+            team[i] = createMon(Type.Fire, moves, 5);
         }
 
         teamRegistry.setTeam(ALICE, team);
@@ -232,18 +354,18 @@ contract OkayCPUTest is Test {
         // Initial switch - both select mon 0
         cpuMoveManager.selectMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(0));
 
-        // Manually reduce stamina to -3 for the CPU's active mon
-        engine.updateMonState(1, 0, MonStateIndexName.Stamina, -3);
+        // Execute turn 1 - CPU uses move 0 (costs 2 stamina, staminaDelta = -2)
+        cpuMoveManager.selectMove(battleKey, 0, "", "");
+
+        // Execute turn 2 - CPU uses move 1 (costs 2 stamina, staminaDelta = -4)
+        cpuMoveManager.selectMove(battleKey, 1, "", "");
+
+        // Verify stamina is now -4
+        int32 staminaDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina);
+        assertEq(staminaDelta, -4, "CPU mon should have staminaDelta of -4");
 
         // Test case 1: RNG % 4 != 0, should return no-op (75% chance)
         mockCPURNG.setRNG(1); // 1 % 4 = 1, not equal to 0
-        cpuMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
-
-        // Get the CPU's move for this turn
-        (RevealedMove[] memory noOp, RevealedMove[] memory cpuMoves, RevealedMove[] memory switches) =
-            okayCPU.calculateValidMoves(battleKey, 1);
-
-        // The CPU should choose no-op since RNG % 4 != 0
         (uint256 moveIndex, bytes memory extraData) = okayCPU.selectMove(battleKey, 1);
         assertEq(moveIndex, NO_OP_MOVE_INDEX, "CPU should select no-op when RNG % 4 != 0 and stamina is low");
 
@@ -261,8 +383,36 @@ contract OkayCPUTest is Test {
     function test_okayCPUSmartSelectWeighting() public {
         // Create moves
         IMoveSet[] memory moves = new IMoveSet[](2);
-        moves[0] = createBasicAttack(Type.Fire, 1, 1, "Attack 1");
-        moves[1] = createBasicAttack(Type.Fire, 1, 1, "Attack 2");
+        moves[0] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack 1",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        moves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 1,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack 2",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
         // Create team
         Mon[] memory team = new Mon[](4);
