@@ -67,19 +67,6 @@ abstract contract BattleHelper is Test {
         IRandomnessOracle rngOracle,
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker,
-        IEngineHook engineHook
-    ) internal returns (bytes32) {
-        IEngineHook[] memory hooks = new IEngineHook[](1);
-        hooks[0] = engineHook;
-        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, hooks);
-    }
-
-    function _startBattle(
-        IValidator validator,
-        Engine engine,
-        IRandomnessOracle rngOracle,
-        ITeamRegistry defaultRegistry,
-        DefaultMatchmaker matchmaker,
         IEngineHook[] memory engineHooks
     ) internal returns (bytes32) {
         return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHooks, IRuleset(address(0)));
