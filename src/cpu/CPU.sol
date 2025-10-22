@@ -40,12 +40,12 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
         returns (uint256 moveIndex, bytes memory extraData);
 
     /**
-     *  - If it's a switch needed turn, returns [VALID SWITCHES]
-     *  - If it's a non-switch turn, returns [NO_OP | VALID MOVES | VALID SWITCHES]
+     *  - If it's a switch needed turn, returns only valid switches
+     *  - If it's a non-switch turn, returns valid moves, valid switches, and no-op separately
      */
     function calculateValidMoves(bytes32 battleKey, uint256 playerIndex)
         public
-        returns (RevealedMove[] memory, uint256 updatedNonce)
+        returns (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches)
     {
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
         uint256 nonce = nonceToUse;
@@ -55,12 +55,12 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
             for (uint256 i = 0; i < teamSize; i++) {
                 switchChoices[i] = RevealedMove({moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(i)});
             }
-            return (switchChoices, nonce);
+            nonceToUse = nonce;
+            return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
         } else {
             Battle memory battle = ENGINE.getBattle(battleKey);
             uint256[] memory validSwitchIndices;
             uint256 validSwitchCount;
-            uint256 validMoves = 1; // (We can always do a no op)
             // Check for valid switches
             {
                 uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
@@ -74,9 +74,8 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                         }
                     }
                 }
-                validMoves += validSwitchCount;
             }
-            // If it's a turn where we need to make a switch, then we should just return a valid switch immediately
+            // If it's a turn where we need to make a switch, then we should just return valid switches
             {
                 BattleState memory battleState = ENGINE.getBattleState(battleKey);
                 if (battleState.playerSwitchForTurnFlag == 1) {
@@ -86,7 +85,8 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                             moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])
                         });
                     }
-                    return (switchChoices, nonce);
+                    nonceToUse = nonce;
+                    return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
                 }
             }
             uint256[] memory validMoveIndices;
@@ -115,20 +115,24 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                         validMoveIndices[validMoveCount++] = i;
                     }
                 }
-                validMoves += validMoveCount;
             }
-            RevealedMove[] memory moveChoices = new RevealedMove[](validMoves);
-            moveChoices[0] = RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""});
+            // Build separate arrays for moves, switches, and noOp
+            RevealedMove[] memory validMovesArray = new RevealedMove[](validMoveCount);
+            for (uint256 i = 0; i < validMoveCount; i++) {
+                validMovesArray[i] =
+                    RevealedMove({moveIndex: validMoveIndices[i], salt: "", extraData: validMoveExtraData[i]});
+            }
+            RevealedMove[] memory validSwitchesArray = new RevealedMove[](validSwitchCount);
             for (uint256 i = 0; i < validSwitchCount; i++) {
-                moveChoices[i + 1] = RevealedMove({
+                validSwitchesArray[i] = RevealedMove({
                     moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(validSwitchIndices[i])
                 });
             }
-            for (uint256 i = 0; i < validMoveCount; i++) {
-                moveChoices[i + validSwitchCount + 1] =
-                    RevealedMove({moveIndex: validMoveIndices[i], salt: "", extraData: validMoveExtraData[i]});
-            }
-            return (moveChoices, nonce);
+            RevealedMove[] memory noOpArray = new RevealedMove[](1);
+            noOpArray[0] = RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""});
+
+            nonceToUse = nonce;
+            return (noOpArray, validMovesArray, validSwitchesArray);
         }
     }
 

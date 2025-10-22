@@ -20,11 +20,26 @@ contract OkayCPU is CPU {
         override
         returns (uint256 moveIndex, bytes memory extraData)
     {
-        (RevealedMove[] memory moveChoices, uint256 updatedNonce) = calculateValidMoves(battleKey, playerIndex);
+        (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = calculateValidMoves(battleKey, playerIndex);
 
-        nonceToUse = updatedNonce;
+        // Merge all three arrays into one
+        uint256 totalChoices = noOp.length + moves.length + switches.length;
+        RevealedMove[] memory allChoices = new RevealedMove[](totalChoices);
+
+        uint256 index = 0;
+        for (uint256 i = 0; i < noOp.length; i++) {
+            allChoices[index++] = noOp[i];
+        }
+        for (uint256 i = 0; i < moves.length; i++) {
+            allChoices[index++] = moves[i];
+        }
+        for (uint256 i = 0; i < switches.length; i++) {
+            allChoices[index++] = switches[i];
+        }
+
+        // Select a random move from all choices
         uint256 randomIndex =
-            RNG.getRNG(keccak256(abi.encode(nonceToUse++, battleKey, block.timestamp))) % moveChoices.length;
-        return (moveChoices[randomIndex].moveIndex, moveChoices[randomIndex].extraData);
+            RNG.getRNG(keccak256(abi.encode(nonceToUse++, battleKey, block.timestamp))) % allChoices.length;
+        return (allChoices[randomIndex].moveIndex, allChoices[randomIndex].extraData);
     }
 }
