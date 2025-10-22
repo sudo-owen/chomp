@@ -13,6 +13,7 @@ interface IEngine {
     function battleKeyForWrite() external view returns (bytes32);
 
     // State mutating effects
+    function updateMatchmakers(address[] memory makersToAdd, address[] memory makersToRemove) external;
     function startBattle(Battle memory battle) external;
     function updateMonState(uint256 playerIndex, uint256 monIndex, MonStateIndexName stateVarIndex, int32 valueToAdd)
         external;

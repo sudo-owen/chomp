@@ -28,6 +28,10 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
         } else {
             RNG = rng;
         }
+        address[] memory self = new address[](1);
+        self[0] = address(this);
+        address[] memory empty = new address[](0);
+        engine.updateMatchmakers(self, empty);
     }
 
     /**

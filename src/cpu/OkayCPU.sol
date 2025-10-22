@@ -5,15 +5,15 @@ import {IEngine} from "../IEngine.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
 import {CPU} from "./CPU.sol";
 import {RevealedMove} from "../Structs.sol";
-import {TypeCalculator} from "../types/TypeCalculator.sol";
+import {ITypeCalculator} from "../types/ITypeCalculator.sol";
 import {MonStateIndexName, Type, MoveClass} from "../Enums.sol";
 import {IMoveSet} from "../moves/IMoveSet.sol";
 
 contract OkayCPU is CPU {
 
-    TypeCalculator public immutable TYPE_CALC;
+    ITypeCalculator public immutable TYPE_CALC;
 
-    constructor(uint256 numMoves, IEngine engine, ICPURNG rng, TypeCalculator typeCalc) CPU(numMoves, engine, rng) {
+    constructor(uint256 numMoves, IEngine engine, ICPURNG rng, ITypeCalculator typeCalc) CPU(numMoves, engine, rng) {
         TYPE_CALC = typeCalc;
     }
 

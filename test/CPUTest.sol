@@ -12,6 +12,7 @@ import {Engine} from "../src/Engine.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
+import {OkayCPU} from "../src/cpu/OkayCPU.sol";
 import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
 
@@ -58,8 +59,9 @@ contract CPUTest is Test {
         cpuMoveManager = new CPUMoveManager(engine, cpu);
         playerCPU = new PlayerCPU(2, engine, mockCPURNG);
         playerCPUMoveManager = new CPUMoveManager(engine, playerCPU);
-        validator =
-            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10}));
+        validator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
+        );
         typeCalc = new TestTypeCalculator();
         teamRegistry = new TestTeamRegistry();
         matchmaker = new DefaultMatchmaker(engine);
@@ -216,7 +218,8 @@ contract CPUTest is Test {
 
         // Check that the CPU enumerates mon indices 0 to 4
         {
-            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) =
+                cpu.calculateValidMoves(battleKey, 1);
             assertEq(noOp.length + moves.length + switches.length, 4);
         }
 
@@ -230,7 +233,8 @@ contract CPUTest is Test {
 
         // Check that the CPU now has 6 moves (can swap to any one of the other 3 mons, 2 valid moves, and a no op)
         {
-            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) =
+                cpu.calculateValidMoves(battleKey, 1);
             assertEq(noOp.length + moves.length + switches.length, 6);
         }
 
@@ -240,7 +244,8 @@ contract CPUTest is Test {
 
         // Check that the CPU now has 3 moves, all of which are switching to mon index 0, 2, or 3
         {
-            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) =
+                cpu.calculateValidMoves(battleKey, 1);
             assertEq(noOp.length + moves.length + switches.length, 3);
             uint256[] memory swapIds = new uint256[](3);
             swapIds[0] = 0;
@@ -260,7 +265,8 @@ contract CPUTest is Test {
 
         // Assert that there are now 5 moves, switching to mon index 2, 3, the two moves, and no op
         {
-            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) =
+                cpu.calculateValidMoves(battleKey, 1);
             assertEq(noOp.length + moves.length + switches.length, 5);
         }
 
@@ -272,7 +278,8 @@ contract CPUTest is Test {
 
         // Assert that there are now 3 moves, switching to mon index 2, 3, and no op (all stamina has been consumed)
         {
-            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) =
+                cpu.calculateValidMoves(battleKey, 1);
             assertEq(noOp.length + moves.length + switches.length, 3);
         }
 
@@ -286,7 +293,8 @@ contract CPUTest is Test {
         // Assert that there are now 4 moves, switching to mon index 0, 2, the two moves, and no op
         // Assert that both moves generate a valid self team index (either mon 0 or mon 2)
         {
-            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = cpu.calculateValidMoves(battleKey, 1);
+            (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) =
+                cpu.calculateValidMoves(battleKey, 1);
             assertEq(noOp.length + moves.length + switches.length, 5);
             assertEq(abi.decode(moves[0].extraData, (uint256)), 0); // rng is set to 2, which % 2 is 0
             assertEq(abi.decode(moves[1].extraData, (uint256)), 0);
@@ -392,5 +400,77 @@ contract CPUTest is Test {
 
         // Execute another turn to verify the flow continues to work
         playerCPUMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
+    }
+
+    function _createMon(Type t) internal pure returns (Mon memory) {
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1,
+                stamina: 1,
+                speed: 1,
+                attack: 1,
+                defense: 1,
+                specialAttack: 1,
+                specialDefense: 1,
+                type1: t,
+                type2: Type.None
+            }),
+            moves: new IMoveSet[](0),
+            ability: IAbility(address(0))
+        });
+        return mon;
+    }
+
+    function test_okayCPUSelectsTypeResist() public {
+        OkayCPU okayCPU = new OkayCPU(4, engine, mockCPURNG, typeCalc);
+        CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
+
+        // Both teams have Water, Nature, Fire, Air
+        Mon[] memory team = new Mon[](4);
+        team[0] = _createMon(Type.Fire);
+        team[1] = _createMon(Type.Water);
+        team[2] = _createMon(Type.Nature);
+        team[3] = _createMon(Type.Air);
+
+        // Set 0.5 effectiveness if Fire hits Air
+        typeCalc.setTypeEffectiveness(Type.Fire, Type.Air, 5);
+
+        teamRegistry.setTeam(address(okayCPU), team);
+        teamRegistry.setTeam(ALICE, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
+        );
+
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            p1: address(okayCPU),
+            p1TeamIndex: 0,
+            validator: validatorToUse,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: teamRegistry,
+            engineHooks: new IEngineHook[](0),
+            moveManager: okayMoveManager,
+            matchmaker: okayCPU
+        });
+
+        vm.startPrank(ALICE);
+        address[] memory makersToAdd = new address[](1);
+        makersToAdd[0] = address(okayCPU);
+        address[] memory makersToRemove = new address[](0);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
+        bytes32 battleKey = okayCPU.startBattle(proposal);
+
+        // Player switches in mon index 0 (Fire type)
+        okayMoveManager.selectMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(0));
+
+        // Get active index for battle, it should be the resisted mon
+        uint256[] memory activeIndex = engine.getActiveMonIndexForBattleState(battleKey);
+        assertEq(activeIndex[1], 3);
     }
 }

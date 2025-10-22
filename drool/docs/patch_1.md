@@ -43,16 +43,17 @@ Not enough moves to take advantage of Carrot Harvest, increasing both power and 
 - Unexpected Carrot power 80 -> 120, stamina 2 -> 5
 
 Pengym
-Deep Freeze and Frosbite tradeoff is again not a fun one, so changing that to make frostbite trigger more incidentally
-TBD
+- NEW Ability: At end of round, if opponent has Frostbite, gain 10% speed and attack.
+- NEW Move: 
 
 Embursa
-Not enough gameplay data, no changes for now, but changes might be made in a later patch
+- reduce Q5 stamina cost to be 2, encourage using it more often
 
 Volthare:
 Storm on switch in is a little too strong given the lack of other speed tiers / priority moves.
 - Fix dual shock to correctly inflict Zap on self at end of turn
 - NEW Ability: Preemptive Shock: On switch in (after the first one), deals a small amount of damage to the opposing mon.
+CONSIDER: renaming Storm to be something that implies it isn't global (both teams can have an instance active)
 - NEW Move: Synthesize Storm, sets Storm on the battlefield. Storm lasts 5 turns, boosts Speed and decreases Def and ZDef.
 - NEW Move: Aftershock: deals damage for 3 turns, 2 stamina. Power is boosted by Storm. Subsequent moves only refresh the duration and do not stack.
 - Rename Move: Megavoltage: Clears Storm and deals massive damage, otherwise accuracy is 50%
@@ -60,9 +61,10 @@ Storm on switch in is a little too strong given the lack of other speed tiers / 
 Aurox: NEW MON
 Type: Metal
 Aurox is designed to be a tanky. Limited offensive options, but a strong defensive option, hard countering most status effects.
-- Ability: tbd
+- Ability: Long and Strong
+After taking damage, depending on amount of damage taken, Aurox gains % Attack boost. (0.25% attack boost for each % in health lost)
 - Moves:
-- Volatile Punch: 60 power, 3 stamina, 15% chance of Burn, 15% chance of Frostbite
+- Volatile Punch: 3 stamina, 50 power, 15% chance of Burn, 15% chance of Frostbite for self and opponent
 - Gilded Recovery: 2 stamina. Select a mon and heal it of any status conditions. If successful, Aurox also heals 50% of max HP and the healed mon gets +1 stamina.
-- TBD
-- TBD
+- Iron Wall: 2 stamina, Until the end of next turn, when Aurox takes damage, heal 50% of it.
+- Bull Rush: 3 stamina, 80 power, deals damage
