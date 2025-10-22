@@ -17,10 +17,10 @@ import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
+import {BattleHelper} from "./abstract/BattleHelper.sol";
 
-contract MatchmakerTest is Test {
-    address constant ALICE = address(1);
-    address constant BOB = address(2);
+contract MatchmakerTest is Test, BattleHelper {
+
     uint256 constant TIMEOUT = 10;
 
     DefaultCommitManager commitManager;
@@ -331,5 +331,70 @@ contract MatchmakerTest is Test {
 
         // Ensure both keys are the same
         assertEq(battleKey, battleKey2);
+    }
+
+    function test_confirmStillFailsIfNoAcceptOnFastBattle() public {
+        uint96 p0TeamIndex = 0;
+
+        // Create proposal
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: p0TeamIndex,
+            p0TeamHash: matchmaker.FAST_BATTLE_SENTINAL_HASH(),
+            p1: BOB,
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            engineHooks: new IEngineHook[](0),
+            moveManager: IMoveManager(address(0)),
+            matchmaker: matchmaker
+        });
+
+        // Propose battle as Alice
+        vm.startPrank(ALICE);
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
+
+        // Attempt to confirm battle as Alice
+        vm.expectRevert(DefaultMatchmaker.BattleNotAccepted.selector);
+        matchmaker.confirmBattle(battleKey, "", p0TeamIndex);
+    }
+
+    function test_fastBattleSucceeds() public {
+        uint96 p0TeamIndex = 0;
+
+        // Create proposal
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: p0TeamIndex,
+            p0TeamHash: matchmaker.FAST_BATTLE_SENTINAL_HASH(),
+            p1: BOB,
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            engineHooks: new IEngineHook[](0),
+            moveManager: IMoveManager(address(0)),
+            matchmaker: matchmaker
+        });
+
+        // Propose battle as Alice
+        vm.startPrank(ALICE);
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
+
+        // Accept battle as Bob
+        vm.startPrank(BOB);
+        bytes32 battleIntegrityHash = matchmaker.getBattleProposalIntegrityHash(proposal);
+        matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
+
+        // Check that the battle has started on the Engine
+        Battle memory battle = engine.getBattle(battleKey);
+        assertEq(battle.p0, ALICE);
+        assertEq(battle.p1, BOB);
+
+        // Check that Alice and Bob can commit/reveal/reveal to switch to mon index 0
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
     }
 }

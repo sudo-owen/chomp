@@ -6,11 +6,13 @@ import {Battle, Mon, ProposedBattle} from "../Structs.sol";
 import {IMatchmaker} from "./IMatchmaker.sol";
 
 contract DefaultMatchmaker is IMatchmaker {
-    uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 1;
+
+    bytes32 constant public FAST_BATTLE_SENTINAL_HASH = bytes32("FAST_BATTLE_SENTINAL_HASH"); // Used to skip the confirmBattle step
+    uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 1; // Used to tell if a battle has been accepted by p1 or not
 
     Engine public immutable ENGINE;
 
-    event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1);
+    event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1, bool isFastBattle);
     event BattleAcceptance(bytes32 indexed battleKey, address indexed p1, bytes32 indexed updatedBattleKey);
 
     error P0P1Same();
@@ -43,6 +45,10 @@ contract DefaultMatchmaker is IMatchmaker {
         );
     }
 
+    /*
+     P0 can bypass the final acceptBattle call by setting p0TeamIndex in the initial call and bytes32(0) for the p0TeamHash
+     In this case, a different event is emitted, and calling acceptBattle will immediately start the battle
+    */
     function proposeBattle(ProposedBattle memory proposal) external returns (bytes32 battleKey) {
         if (proposal.p0 != msg.sender) {
             revert ProposerNotP0();
@@ -53,7 +59,7 @@ contract DefaultMatchmaker is IMatchmaker {
         (battleKey,) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
         proposals[battleKey] = proposal;
         proposals[battleKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
-        emit BattleProposal(battleKey, proposal.p0, proposal.p1);
+        emit BattleProposal(battleKey, proposal.p0, proposal.p1, proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH);
         return battleKey;
     }
 
@@ -75,7 +81,29 @@ contract DefaultMatchmaker is IMatchmaker {
             revert BattleChangedBeforeAcceptance();
         }
         proposal.p1TeamIndex = p1TeamIndex;
-        emit BattleAcceptance(battleKey, msg.sender, updatedBattleKey);
+        if (proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH) {
+            Mon[][] memory emptyTeams = new Mon[][](2);
+            ENGINE.startBattle(
+                Battle({
+                    p0: proposal.p0,
+                    p0TeamIndex: proposal.p0TeamIndex,
+                    p1: proposal.p1,
+                    p1TeamIndex: proposal.p1TeamIndex,
+                    teamRegistry: proposal.teamRegistry,
+                    validator: proposal.validator,
+                    rngOracle: proposal.rngOracle,
+                    ruleset: proposal.ruleset,
+                    engineHooks: proposal.engineHooks,
+                    moveManager: proposal.moveManager,
+                    matchmaker: proposal.matchmaker,
+                    startTimestamp: 0, // This gets filled in by the Engine
+                    teams: emptyTeams
+                })
+            );
+        }
+        else {
+            emit BattleAcceptance(battleKey, msg.sender, updatedBattleKey);
+        }
     }
 
     function confirmBattle(bytes32 battleKey, bytes32 salt, uint96 p0TeamIndex) external {
