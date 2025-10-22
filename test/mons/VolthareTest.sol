@@ -10,7 +10,7 @@ import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, Type} from "../../src/Enums.sol";
 
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IValidator} from "../../src/IValidator.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
@@ -44,7 +44,7 @@ contract VolthareTest is Test, BattleHelper {
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
-    FastValidator validator;
+    DefaultValidator validator;
     Overclock overclock;
     Storm storm;
     StatBoosts statBoost;
@@ -56,8 +56,8 @@ contract VolthareTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
+        validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
@@ -321,8 +321,8 @@ contract VolthareTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
 
-        IValidator validatorToUse = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        IValidator validatorToUse = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
 
         // Start a battle
@@ -419,8 +419,8 @@ contract VolthareTest is Test, BattleHelper {
 
         // Start a battle
         bytes32 battleKey = _startBattle(
-            new FastValidator(
-                IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+            new DefaultValidator(
+                IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
             ),
             engine,
             mockOracle,

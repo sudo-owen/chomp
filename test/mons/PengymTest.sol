@@ -10,7 +10,7 @@ import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
 
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
@@ -43,7 +43,7 @@ contract PengymTest is Test, BattleHelper {
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
-    FastValidator validator;
+    DefaultValidator validator;
     StandardAttackFactory attackFactory;
     PostWorkout postWorkout;
     PanicStatus panicStatus;
@@ -56,8 +56,8 @@ contract PengymTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
@@ -432,8 +432,8 @@ contract PengymTest is Test, BattleHelper {
 
     function test_chillOutAndDeepFreeze() public {
         // Create a new validator with 2 moves per mon
-        FastValidator validatorToUse = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
         );
 
         ChillOut chillOut = new ChillOut(engine, typeCalc, frostbiteStatus);
@@ -503,8 +503,8 @@ contract PengymTest is Test, BattleHelper {
     }
 
     function test_pistolSquat() public {
-        FastValidator validatorToUse = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
         );
         PistolSquat ps = new PistolSquat(engine, typeCalc);
         IMoveSet[] memory moves = new IMoveSet[](2);

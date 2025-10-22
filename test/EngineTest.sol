@@ -11,7 +11,7 @@ import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
-import {FastValidator} from "../src/FastValidator.sol";
+import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 
 import {IEffect} from "../src/effects/IEffect.sol";
@@ -47,7 +47,7 @@ import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 contract EngineTest is Test, BattleHelper {
     DefaultCommitManager commitManager;
     Engine engine;
-    FastValidator validator;
+    DefaultValidator validator;
     ITypeCalculator typeCalc;
     DefaultRandomnessOracle defaultOracle;
     TestTeamRegistry defaultRegistry;
@@ -64,8 +64,8 @@ contract EngineTest is Test, BattleHelper {
         engine = new Engine();
         commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
-        validator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        validator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         typeCalc = new TestTypeCalculator();
         dummyAttack = new CustomAttack(
@@ -328,8 +328,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = fastTeam;
         teams[1] = slowTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -520,8 +520,8 @@ contract EngineTest is Test, BattleHelper {
         team[1] = normalMon;
         teams[0] = team;
         teams[1] = team;
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -575,8 +575,8 @@ contract EngineTest is Test, BattleHelper {
         team[1] = normalMon;
         teams[0] = team;
         teams[1] = team;
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -630,8 +630,8 @@ contract EngineTest is Test, BattleHelper {
         team[1] = normalMon;
         teams[0] = team;
         teams[1] = team;
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -684,8 +684,8 @@ contract EngineTest is Test, BattleHelper {
         team[1] = normalMon;
         teams[0] = team;
         teams[1] = team;
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         StaminaRegen regen = new StaminaRegen(engine);
         IEffect[] memory effects = new IEffect[](1);
@@ -1021,8 +1021,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = deathTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -1080,8 +1080,8 @@ contract EngineTest is Test, BattleHelper {
         team[0] = mon;
         team[1] = mon;
 
-        FastValidator oneMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator oneMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -1235,8 +1235,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = deathTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -1329,8 +1329,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = deathTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -1489,8 +1489,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -1570,8 +1570,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -1651,8 +1651,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -1745,8 +1745,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         // Register teams
         defaultRegistry.setTeam(ALICE, teams[0]);
@@ -1842,8 +1842,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -1912,8 +1912,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -1981,8 +1981,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = otherTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -2053,8 +2053,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = suicideTeam;
         teams[1] = normalTeam;
 
-        FastValidator oneMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator oneMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -2149,8 +2149,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = suicideTeam;
         teams[1] = normalTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -2250,8 +2250,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = suicideTeam;
         teams[1] = normalTeam;
 
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -2306,8 +2306,8 @@ contract EngineTest is Test, BattleHelper {
         teams[0] = team;
         teams[1] = team;
 
-        FastValidator oneMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator oneMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -2407,8 +2407,8 @@ contract EngineTest is Test, BattleHelper {
         team[0] = mon;
         team[1] = mon;
 
-        FastValidator oneMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator oneMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register teams
@@ -2480,8 +2480,8 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Create 2 move, 1 mon validator
-        FastValidator twoMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         bytes32 battleKey = _startBattle(twoMoveValidator, engine, defaultOracle, defaultRegistry, matchmaker);
@@ -2532,8 +2532,8 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Create 0 move, 2 mon validator
-        FastValidator twoMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Start battle
@@ -2588,8 +2588,8 @@ contract EngineTest is Test, BattleHelper {
         // Register teams
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
-        FastValidator noMoveValidator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
+        DefaultValidator noMoveValidator =
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         bytes32 battleKey = _startBattle(noMoveValidator, engine, defaultOracle, defaultRegistry, matchmaker);
 
         // Both players send in mon index 0
@@ -2643,8 +2643,8 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, dummyTeam);
 
         // Set up validatorToUse
-        FastValidator validatorToUse = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Setup battle
@@ -2684,8 +2684,8 @@ contract EngineTest is Test, BattleHelper {
 
     function test_anyoneCanFillP1() public {
         // Create validatorToUse with zero mons and zero moves needed
-        FastValidator validatorToUse = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         Mon[] memory dummyTeam = new Mon[](1);
         IMoveSet[] memory moves = new IMoveSet[](0);
@@ -2884,8 +2884,8 @@ contract EngineTest is Test, BattleHelper {
         bytes32 battleKey = _startDummyBattleWithTwoMons();
 
         // Wait for TIMEOUT_DURATION * PREV_TURN_MULTIPLIER + 1
-        FastValidator validatorToUse = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         vm.warp(TIMEOUT_DURATION * validatorToUse.PREV_TURN_MULTIPLIER() + 1);
 
@@ -2992,8 +2992,8 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        FastValidator validatorToUse = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         bytes32 battleKey = _startBattle(validatorToUse, engine, defaultOracle, defaultRegistry, matchmaker);

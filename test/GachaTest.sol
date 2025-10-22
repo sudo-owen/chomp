@@ -6,7 +6,7 @@ import "../src/Engine.sol";
 
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 
-import {FastValidator} from "../src/FastValidator.sol";
+import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {GachaRegistry} from "../src/gacha/GachaRegistry.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 
@@ -119,8 +119,8 @@ contract GachaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
         vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
-        FastValidator validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
+        DefaultValidator validator =
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         IEngineHook[] memory hooks = new IEngineHook[](1);
         hooks[0] = gachaRegistry;
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks);
@@ -189,8 +189,8 @@ contract GachaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
         for (uint256 i = 0; i < 6; i++) {
             vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + (i + 1));
-            FastValidator validator = new FastValidator(
-                engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
+            DefaultValidator validator = new DefaultValidator(
+                engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
             );
             IEngineHook[] memory hooks = new IEngineHook[](1);
             hooks[0] = gachaRegistry;
@@ -252,8 +252,8 @@ contract GachaTest is Test, BattleHelper {
 
     function test_bonusPoints() public {
         GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, IGachaRNG(address(0)));
-        FastValidator validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
+        DefaultValidator validator =
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         Mon[] memory team = new Mon[](1);
         team[0] = Mon({
             stats: MonStats({
@@ -301,8 +301,8 @@ contract GachaTest is Test, BattleHelper {
 
     function test_cooldown() public {
         GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, IGachaRNG(address(0)));
-        FastValidator validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
+        DefaultValidator validator =
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         Mon[] memory team = new Mon[](1);
         team[0] = Mon({
             stats: MonStats({

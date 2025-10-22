@@ -9,7 +9,7 @@ import {Test} from "forge-std/Test.sol";
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
@@ -53,8 +53,8 @@ contract SofabbiTest is Test, BattleHelper {
     }
 
     function test_carrotHarvestAppliesOnSwitchIn() public {
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
         );
         // Create move arrays
         IMoveSet[] memory moves = new IMoveSet[](0);
@@ -139,8 +139,8 @@ contract SofabbiTest is Test, BattleHelper {
     }
 
     function test_carrotHarvestTriggersAtEndOfRoundWhenRNGReturnsTrue() public {
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
         );
 
         // Create move arrays
@@ -216,8 +216,8 @@ contract SofabbiTest is Test, BattleHelper {
 
     function test_guestFeature() public {
         TypeCalculator calc = new TypeCalculator();
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
 
         GuestFeature gf = new GuestFeature(engine, calc);
@@ -334,8 +334,8 @@ contract SofabbiTest is Test, BattleHelper {
     }
 
     function test_snackBreak() public {
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
         );
         StandardAttackFactory attackFactory = new StandardAttackFactory(IEngine(address(engine)), typeCalc);
         SnackBreak sb = new SnackBreak(engine);
@@ -446,8 +446,8 @@ contract SofabbiTest is Test, BattleHelper {
             moves: moves,
             ability: IAbility(address(0))
         });
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         Mon[] memory team = new Mon[](2);
         team[0] = mon;

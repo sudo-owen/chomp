@@ -11,7 +11,7 @@ import {IValidator} from "./IValidator.sol";
 import {ICommitManager} from "./ICommitManager.sol";
 import {IMonRegistry} from "./teams/IMonRegistry.sol";
 
-contract FastValidator is IValidator {
+contract DefaultValidator is IValidator {
     struct Args {
         uint256 MONS_PER_TEAM;
         uint256 MOVES_PER_MON;

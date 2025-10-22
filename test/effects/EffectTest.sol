@@ -9,7 +9,7 @@ import "../../src/Structs.sol";
 
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 
@@ -40,7 +40,7 @@ import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 contract EffectTest is Test, BattleHelper {
     DefaultCommitManager commitManager;
     Engine engine;
-    FastValidator oneMonOneMoveValidator;
+    DefaultValidator oneMonOneMoveValidator;
     ITypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
@@ -75,8 +75,8 @@ contract EffectTest is Test, BattleHelper {
         engine = new Engine();
         commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
-        oneMonOneMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        oneMonOneMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
         typeCalc = new TestTypeCalculator();
         defaultRegistry = new TestTeamRegistry();
@@ -221,8 +221,8 @@ contract EffectTest is Test, BattleHelper {
         team[0] = mon;
         team[1] = mon;
 
-        FastValidator twoMonOneMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonOneMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         // Register both teams
@@ -305,8 +305,8 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, fastTeam);
 
         // Two Mon Validator
-        FastValidator twoMonValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         bytes32 battleKey = _startBattle(twoMonValidator, engine, mockOracle, defaultRegistry, matchmaker);
@@ -668,8 +668,8 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        FastValidator twoMonOneMoveValidator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMonOneMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
         bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker);

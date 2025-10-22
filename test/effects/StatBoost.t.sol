@@ -9,7 +9,7 @@ import "../../src/Structs.sol";
 
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IValidator} from "../../src/IValidator.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
@@ -41,8 +41,8 @@ contract StatBoostTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));

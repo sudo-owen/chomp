@@ -7,7 +7,7 @@ import {EngineEventType, MoveClass, Type} from "../../src/Enums.sol";
 import "../../src/Structs.sol";
 
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {AttackCalculator} from "../../src/moves/AttackCalculator.sol";
 
@@ -26,7 +26,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
     TestTeamRegistry defaultRegistry;
     MockRandomnessOracle mockOracle;
     DefaultCommitManager commitManager;
-    FastValidator validator;
+    DefaultValidator validator;
     DefaultMatchmaker matchmaker;
 
     bytes32 battleKey;
@@ -39,7 +39,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
         validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10}));
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10}));
         defaultRegistry = new TestTeamRegistry();
         matchmaker = new DefaultMatchmaker(engine);
 

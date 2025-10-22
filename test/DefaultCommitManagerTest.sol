@@ -9,7 +9,7 @@ import "../src/Structs.sol";
 
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
-import {FastValidator} from "../src/FastValidator.sol";
+import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
@@ -24,7 +24,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
 
     DefaultCommitManager commitManager;
     Engine engine;
-    FastValidator validator;
+    DefaultValidator validator;
     ITypeCalculator typeCalc;
     DefaultRandomnessOracle defaultOracle;
     TestTeamRegistry defaultRegistry;
@@ -35,8 +35,8 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
         engine = new Engine();
         commitManager = new DefaultCommitManager(engine);
         engine.setMoveManager(address(commitManager));
-        validator = new FastValidator(
-            engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT})
+        validator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT})
         );
         typeCalc = new TestTypeCalculator();
         defaultRegistry = new TestTeamRegistry();

@@ -10,7 +10,7 @@ import "../src/Structs.sol";
 import {Engine} from "../src/Engine.sol";
 
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
-import {FastValidator} from "../src/FastValidator.sol";
+import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
@@ -38,7 +38,7 @@ contract CPUTest is Test {
     PlayerCPU playerCPU;
     CPUMoveManager cpuMoveManager;
     CPUMoveManager playerCPUMoveManager;
-    FastValidator validator;
+    DefaultValidator validator;
     DefaultRandomnessOracle defaultOracle;
     TestTypeCalculator typeCalc;
     TestTeamRegistry teamRegistry;
@@ -59,7 +59,7 @@ contract CPUTest is Test {
         playerCPU = new PlayerCPU(2, engine, mockCPURNG);
         playerCPUMoveManager = new CPUMoveManager(engine, playerCPU);
         validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10}));
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10}));
         typeCalc = new TestTypeCalculator();
         teamRegistry = new TestTeamRegistry();
         matchmaker = new DefaultMatchmaker(engine);

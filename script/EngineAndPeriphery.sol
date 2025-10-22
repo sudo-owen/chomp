@@ -7,7 +7,7 @@ import "forge-std/Script.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 import {Engine} from "../src/Engine.sol";
-import {FastValidator} from "../src/FastValidator.sol";
+import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
@@ -93,13 +93,9 @@ contract EngineAndPeriphery is Script {
         DefaultRuleset ruleset = new DefaultRuleset(engine, effects);
         deployedContracts.push(DeployData({name: "DEFAULT RULESET", contractAddress: address(ruleset)}));
 
-        FastValidator validator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 4, TIMEOUT_DURATION: 30}));
+        DefaultValidator validator =
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 4, TIMEOUT_DURATION: 30}));
         deployedContracts.push(DeployData({name: "FAST VALIDATOR", contractAddress: address(validator)}));
-
-        FastValidator singleValidator =
-            new FastValidator(engine, FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 30}));
-        deployedContracts.push(DeployData({name: "SINGLE VALIDATOR", contractAddress: address(singleValidator)}));
 
         StatBoosts statBoosts = new StatBoosts(engine);
         deployedContracts.push(DeployData({name: "STAT BOOSTS", contractAddress: address(statBoosts)}));

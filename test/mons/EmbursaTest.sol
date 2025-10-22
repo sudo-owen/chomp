@@ -10,7 +10,7 @@ import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
 
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IValidator} from "../../src/IValidator.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
@@ -42,7 +42,7 @@ contract EmbursaTest is Test, BattleHelper {
     TestTypeCalculator typeCalc;
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
-    FastValidator validator;
+    DefaultValidator validator;
     SplitThePot splitThePot;
     StandardAttackFactory attackFactory;
     DefaultMatchmaker matchmaker;
@@ -52,8 +52,8 @@ contract EmbursaTest is Test, BattleHelper {
         mockOracle = new MockRandomnessOracle();
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
-        validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         engine.setMoveManager(address(commitManager));
@@ -244,8 +244,8 @@ contract EmbursaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        IValidator validatorToUse = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        IValidator validatorToUse = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
 
         // Start battle
@@ -367,8 +367,8 @@ contract EmbursaTest is Test, BattleHelper {
         bobTeam[0] = bobMon;
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
-        IValidator validatorToUse = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 5, TIMEOUT_DURATION: 10})
+        IValidator validatorToUse = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 5, TIMEOUT_DURATION: 10})
         );
 
         // Set Ablaze test

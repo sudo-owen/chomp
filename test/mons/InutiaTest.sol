@@ -8,7 +8,7 @@ import "../../src/Constants.sol";
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
-import {FastValidator} from "../../src/FastValidator.sol";
+import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import "../../src/Structs.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
@@ -104,8 +104,8 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
 
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
         );
 
         // Start a battle
@@ -147,8 +147,8 @@ contract InutiaTest is Test, BattleHelper {
         ShrineStrike shrineStrike = new ShrineStrike(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
 
         // Create a validator with 1 mon and 1 move per mon
-        FastValidator oneMonOneMove = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        DefaultValidator oneMonOneMove = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
 
         // Create a StandardAttack that deals significant damage
@@ -251,8 +251,8 @@ contract InutiaTest is Test, BattleHelper {
         Initialize initialize = new Initialize(engine, statBoost);
 
         // Create a validator with 2 mons and 1 move per mon
-        FastValidator validator = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
 
         IMoveSet[] memory moves = new IMoveSet[](1);
@@ -349,8 +349,8 @@ contract InutiaTest is Test, BattleHelper {
     function test_chainExpansion() public {
         TypeCalculator tc = new TypeCalculator();
         ChainExpansion ce = new ChainExpansion(engine, tc);
-        FastValidator v = new FastValidator(
-            IEngine(address(engine)), FastValidator.Args({MONS_PER_TEAM: 3, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
+        DefaultValidator v = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 3, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
         );
 
         IMoveSet[] memory moves = new IMoveSet[](2);
