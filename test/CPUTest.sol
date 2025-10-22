@@ -235,7 +235,7 @@ contract CPUTest is Test {
         }
 
         // Alice KO's the CPU's mon, the CPU chooses no op
-        mockCPURNG.setRNG(0);
+        mockCPURNG.setRNG(5); // [move 1, move 2, swap 0, swap 2, swap 3, no op] and we want no op at index 5
         cpuMoveManager.selectMove(battleKey, 0, "", "");
 
         // Check that the CPU now has 3 moves, all of which are switching to mon index 0, 2, or 3
