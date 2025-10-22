@@ -45,7 +45,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
      */
     function calculateValidMoves(bytes32 battleKey, uint256 playerIndex)
         public
-        returns (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp)
+        returns (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches)
     {
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
         uint256 nonce = nonceToUse;
@@ -56,7 +56,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                 switchChoices[i] = RevealedMove({moveIndex: SWITCH_MOVE_INDEX, salt: "", extraData: abi.encode(i)});
             }
             nonceToUse = nonce;
-            return (new RevealedMove[](0), switchChoices, new RevealedMove[](0));
+            return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
         } else {
             Battle memory battle = ENGINE.getBattle(battleKey);
             uint256[] memory validSwitchIndices;
@@ -86,7 +86,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                         });
                     }
                     nonceToUse = nonce;
-                    return (new RevealedMove[](0), switchChoices, new RevealedMove[](0));
+                    return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
                 }
             }
             uint256[] memory validMoveIndices;
@@ -132,7 +132,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
             noOpArray[0] = RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""});
 
             nonceToUse = nonce;
-            return (validMovesArray, validSwitchesArray, noOpArray);
+            return (noOpArray, validMovesArray, validSwitchesArray);
         }
     }
 
