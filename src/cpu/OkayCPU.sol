@@ -66,7 +66,6 @@ contract OkayCPU is CPU {
         /*
             Otherwise, if:
             - We have 2 or less stamina, we rest (75%) or swap (if possible)
-            - If we are at full health, try and choose a non MoveClass.Physical or MoveClass.Special move if possible
             - If we are not at full health, try and choose a MoveClass.Physical or MoveClass.Special move (with advantage) if possible
             - Otherwise, do a smart random select
         */
@@ -82,25 +81,14 @@ contract OkayCPU is CPU {
             }
             else {
                 int256 hpDelta = ENGINE.getMonStateForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], MonStateIndexName.Hp);
-                if (hpDelta == 0) {
-                    uint256 numAttackMoves = 0;
+                if (hpDelta != 0) {
+                    IMoveSet[] memory moveSetList = new IMoveSet[](moves.length);
                     for (uint256 i = 0; i < moves.length; i++) {
-                        MoveClass currentMoveClass = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], moves[i].moveIndex).moveClass(battleKey);
-                        if (currentMoveClass == MoveClass.Physical || currentMoveClass == MoveClass.Special) {
-                            numAttackMoves++;
-                        }
-                    }
-                    IMoveSet[] memory attackMoves = new IMoveSet[](numAttackMoves);
-                    uint256 attackMovesIndex = 0;
-                    for (uint256 i = 0; i < moves.length; i++) {
-                        MoveClass currentMoveClass = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], moves[i].moveIndex).moveClass(battleKey);
-                        if (currentMoveClass == MoveClass.Physical || currentMoveClass == MoveClass.Special) {
-                            attackMoves[attackMovesIndex++] = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], moves[i].moveIndex);
-                        }
+                        moveSetList[i] = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], moves[i].moveIndex);
                     }
                     Type opponentType1 = Type(ENGINE.getMonValueForBattle(battleKey, opponentIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[opponentIndex], MonStateIndexName.Type1));
                     Type opponentType2 = Type(ENGINE.getMonValueForBattle(battleKey, opponentIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[opponentIndex], MonStateIndexName.Type2));
-                    int256 attackIndex = _getTypeAdvantageOrNullToAttack(battleKey, opponentType1, opponentType2, attackMoves);
+                    int256 attackIndex = _getTypeAdvantageOrNullToAttack(battleKey, opponentType1, opponentType2, moveSetList);
                     if (attackIndex != -1) {
                         return (moves[uint256(attackIndex)].moveIndex, moves[uint256(attackIndex)].extraData);
                     }
@@ -134,13 +122,16 @@ contract OkayCPU is CPU {
 
     function _getTypeAdvantageOrNullToAttack(bytes32 battleKey, Type defenderType1, Type defenderType2, IMoveSet[] memory attacks) internal view returns (int) {
         for (uint256 i = 0; i < attacks.length; i++) {
-            uint256 effectiveness = TYPE_CALC.getTypeEffectiveness(attacks[i].moveType(battleKey), defenderType1, 2);
-            if (defenderType2 != Type.None) {
-                uint256 effectiveness2 = TYPE_CALC.getTypeEffectiveness(attacks[i].moveType(battleKey), defenderType2, 2);
-                effectiveness = (effectiveness * effectiveness2);
-            }
-            if (effectiveness > 2) {
-                return int256(i);
+            MoveClass currentMoveClass = attacks[i].moveClass(battleKey);
+            if (currentMoveClass == MoveClass.Physical || currentMoveClass == MoveClass.Special) {
+                uint256 effectiveness = TYPE_CALC.getTypeEffectiveness(attacks[i].moveType(battleKey), defenderType1, 2);
+                if (defenderType2 != Type.None) {
+                    uint256 effectiveness2 = TYPE_CALC.getTypeEffectiveness(attacks[i].moveType(battleKey), defenderType2, 2);
+                    effectiveness = (effectiveness * effectiveness2);
+                }
+                if (effectiveness > 2) {
+                    return int256(i);
+                }
             }
         }
         return -1;
