@@ -87,8 +87,8 @@ contract OkayCPUTest is Test {
      * to switch in the Nature type mon, then the CPU will opt to switch in the Fire type mon.
      */
     function test_okayCPUSwitchesInFireAgainstNature() public {
-        // Set up type effectiveness: Fire is super effective (3 = 2x) against Nature
-        typeCalc.setEffectiveness(Type.Fire, Type.Nature, 3);
+        // Set up type effectiveness: Fire is super effective (2 = 2x) against Nature
+        typeCalc.setEffectiveness(Type.Fire, Type.Nature, 2);
         // Nature is not very effective (1 = 0.5x) against Fire
         typeCalc.setEffectiveness(Type.Nature, Type.Fire, 1);
 
