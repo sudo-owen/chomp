@@ -216,8 +216,8 @@ contract CPUTest is Test {
 
         // Check that the CPU enumerates mon indices 0 to 4
         {
-            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
-            assertEq(moves.length, 4);
+            (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length + switches.length + noOp.length, 4);
         }
 
         // Alice selects mon 2, CPU selects mon 1
@@ -230,8 +230,8 @@ contract CPUTest is Test {
 
         // Check that the CPU now has 6 moves (can swap to any one of the other 3 mons, 2 valid moves, and a no op)
         {
-            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
-            assertEq(moves.length, 6);
+            (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length + switches.length + noOp.length, 6);
         }
 
         // Alice KO's the CPU's mon, the CPU chooses no op
@@ -240,15 +240,15 @@ contract CPUTest is Test {
 
         // Check that the CPU now has 3 moves, all of which are switching to mon index 0, 2, or 3
         {
-            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
-            assertEq(moves.length, 3);
+            (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length + switches.length + noOp.length, 3);
             uint256[] memory swapIds = new uint256[](3);
             swapIds[0] = 0;
             swapIds[1] = 2;
             swapIds[2] = 3;
             for (uint256 i = 0; i < swapIds.length; i++) {
-                assertEq(moves[i].moveIndex, SWITCH_MOVE_INDEX);
-                assertEq(abi.decode(moves[i].extraData, (uint256)), swapIds[i]);
+                assertEq(switches[i].moveIndex, SWITCH_MOVE_INDEX);
+                assertEq(abi.decode(switches[i].extraData, (uint256)), swapIds[i]);
             }
         }
 
@@ -260,24 +260,24 @@ contract CPUTest is Test {
 
         // Assert that there are now 5 moves, switching to mon index 2, 3, the two moves, and no op
         {
-            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
-            assertEq(moves.length, 5);
+            (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length + switches.length + noOp.length, 5);
         }
 
         // Alice chooses no op, CPU chooses move2 which should consume all stamina
-        mockCPURNG.setRNG(4); // [no op, swap 2, swap 3, move 1, move 2, ...] and we want move 2
+        mockCPURNG.setRNG(1); // [move 1, move 2, swap 2, swap 3, no op] and we want move 2
         // (note that the swaps are 0-indexed, and the moves are 1-indexed to refer to the above variable
         // naming convention, sorry D: )
         cpuMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
 
         // Assert that there are now 3 moves, switching to mon index 2, 3, and no op (all stamina has been consumed)
         {
-            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
-            assertEq(moves.length, 3);
+            (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length + switches.length + noOp.length, 3);
         }
 
         // Alice chooses no op, CPU chooses swapping to mon index 3
-        mockCPURNG.setRNG(2); // [no op, swap 2, swap 3 and we want swap 3
+        mockCPURNG.setRNG(1); // [swap 2, swap 3, no op] and we want swap 3
         cpuMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
 
         // Assert the CPU now has mon index 3 as the active mon
@@ -286,10 +286,10 @@ contract CPUTest is Test {
         // Assert that there are now 4 moves, switching to mon index 0, 2, the two moves, and no op
         // Assert that both moves generate a valid self team index (either mon 0 or mon 2)
         {
-            (RevealedMove[] memory moves,) = cpu.calculateValidMoves(battleKey, 1);
-            assertEq(moves.length, 5);
-            assertEq(abi.decode(moves[3].extraData, (uint256)), 0); // rng is set to 2, which % 2 is 0
-            assertEq(abi.decode(moves[4].extraData, (uint256)), 0);
+            (RevealedMove[] memory moves, RevealedMove[] memory switches, RevealedMove[] memory noOp) = cpu.calculateValidMoves(battleKey, 1);
+            assertEq(moves.length + switches.length + noOp.length, 5);
+            assertEq(abi.decode(moves[0].extraData, (uint256)), 0); // rng is set to 2, which % 2 is 0
+            assertEq(abi.decode(moves[1].extraData, (uint256)), 0);
         }
     }
 
