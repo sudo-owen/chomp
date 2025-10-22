@@ -148,7 +148,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                 validator: proposal.validator,
                 rngOracle: proposal.rngOracle,
                 ruleset: proposal.ruleset,
-                engineHook: proposal.engineHook,
+                engineHooks: proposal.engineHooks,
                 moveManager: proposal.moveManager,
                 matchmaker: proposal.matchmaker,
                 startTimestamp: 0,

@@ -36,7 +36,7 @@ contract DefaultMatchmaker is IMatchmaker {
                 proposal.rngOracle,
                 proposal.ruleset,
                 proposal.teamRegistry,
-                proposal.engineHook,
+                proposal.engineHooks,
                 proposal.moveManager,
                 proposal.matchmaker
             )
@@ -107,7 +107,7 @@ contract DefaultMatchmaker is IMatchmaker {
                 validator: proposal.validator,
                 rngOracle: proposal.rngOracle,
                 ruleset: proposal.ruleset,
-                engineHook: proposal.engineHook,
+                engineHooks: proposal.engineHooks,
                 moveManager: proposal.moveManager,
                 matchmaker: proposal.matchmaker,
                 startTimestamp: 0, // This gets filled in by the Engine

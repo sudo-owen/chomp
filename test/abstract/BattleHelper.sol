@@ -58,7 +58,7 @@ abstract contract BattleHelper is Test {
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker
     ) internal returns (bytes32) {
-        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, IEngineHook(address(0)));
+        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, new IEngineHook[](0));
     }
 
     function _startBattle(
@@ -67,9 +67,9 @@ abstract contract BattleHelper is Test {
         IRandomnessOracle rngOracle,
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker,
-        IEngineHook engineHook
+        IEngineHook[] memory engineHooks
     ) internal returns (bytes32) {
-        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHook, IRuleset(address(0)));
+        return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHooks, IRuleset(address(0)));
     }
 
     function _startBattle(
@@ -78,11 +78,11 @@ abstract contract BattleHelper is Test {
         IRandomnessOracle rngOracle,
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker,
-        IEngineHook engineHook,
+        IEngineHook[] memory engineHooks,
         IRuleset ruleset
     ) internal returns (bytes32) {
         return _startBattle(
-            validator, engine, rngOracle, defaultRegistry, matchmaker, engineHook, ruleset, IMoveManager(address(0))
+            validator, engine, rngOracle, defaultRegistry, matchmaker, engineHooks, ruleset, IMoveManager(address(0))
         );
     }
 
@@ -92,7 +92,7 @@ abstract contract BattleHelper is Test {
         IRandomnessOracle rngOracle,
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker,
-        IEngineHook engineHook,
+        IEngineHook[] memory engineHooks,
         IRuleset ruleset,
         IMoveManager moveManager
     ) internal returns (bytes32) {
@@ -123,7 +123,7 @@ abstract contract BattleHelper is Test {
             validator: validator,
             rngOracle: rngOracle,
             ruleset: ruleset,
-            engineHook: engineHook,
+            engineHooks: engineHooks,
             moveManager: moveManager,
             matchmaker: matchmaker
         });

@@ -23,7 +23,7 @@ struct ProposedBattle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IEngineHook engineHook;
+    IEngineHook[] engineHooks;
     IMoveManager moveManager;
     IMatchmaker matchmaker;
 }
@@ -37,7 +37,7 @@ struct Battle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IEngineHook engineHook;
+    IEngineHook[] engineHooks;
     IMoveManager moveManager;
     IMatchmaker matchmaker;
     uint96 startTimestamp;
