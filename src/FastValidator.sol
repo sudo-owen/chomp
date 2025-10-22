@@ -198,6 +198,31 @@ contract FastValidator is IValidator {
         return address(0);
     }
 
+    /*
+        Check switch for turn flag:
+
+        // 0 or 1:
+        - if it's not us, then we skip
+        - if it is us, then we need to check the timestamp from last turn, and we either timeout or don't [x]
+
+        // 2:
+        - we are committing + revealing:
+            - we have not committed:
+                - check the timestamp from last turn, and we either timeout or don't
+
+            - we have already committed:
+                - other player has revealed
+                    - check the timestamp from their reveal, and we either timeout or don't
+                - other player has not revealed
+                    - we don't timeout
+
+        - we are revealing:
+            - other player has not committed:
+                - we don't timeout
+
+            - other player has committed:
+                - check the timestamp from their commit, and we either timeout or don't
+    */
     function validateTimeout(bytes32 battleKey, uint256 playerIndexToCheck) external view returns (address loser) {
         uint256 otherPlayerIndex = (playerIndexToCheck + 1) % 2;
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
@@ -224,32 +249,6 @@ contract FastValidator is IValidator {
             }
         }
         uint256 currentPlayerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
-
-        /*
-        Switch for turn flag:
-
-        // 0 or 1:
-        - if it's not us, then we skip
-        - if it is us, then we need to check the timestamp from last turn, and we either timeout or don't [x]
-
-        // 2:
-        - we are committing + revealing:
-            - we have not committed:
-                - check the timestamp from last turn, and we either timeout or don't
-
-            - we have already committed:
-                - other player has revealed
-                    - check the timestamp from their reveal, and we either timeout or don't
-                - other player has not revealed
-                    - we don't timeout
-
-        - we are revealing:
-            - other player has not committed:
-                - we don't timeout
-
-            - other player has committed:
-                - check the timestamp from their commit, and we either timeout or don't
-        */
 
         // It's a single player turn, and it's our turn:
         if (currentPlayerSwitchForTurnFlag == playerIndexToCheck) {

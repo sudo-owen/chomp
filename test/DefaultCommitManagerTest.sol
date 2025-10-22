@@ -139,4 +139,34 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
         vm.expectRevert(DefaultCommitManager.BattleAlreadyComplete.selector);
         commitManager.commitMove(battleKey, bytes32(0));
     }
+
+    function test_timeoutIfP0FailsCommit() public {
+        vm.warp(1);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        vm.warp(TIMEOUT * validator.PREV_TURN_MULTIPLIER() + 1);
+        engine.end(battleKey);
+        assertEq(engine.getWinner(battleKey), BOB);
+    }
+
+    function test_timeoutIfP1FailsReveal() public {
+        vm.warp(1);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        vm.startPrank(ALICE);
+        commitManager.commitMove(battleKey, bytes32("1"));
+        vm.warp(TIMEOUT * validator.PREV_TURN_MULTIPLIER() + 1);
+        engine.end(battleKey);
+        assertEq(engine.getWinner(battleKey), ALICE);
+    }
+
+    function test_timeoutIfP0FailsReveal() public {
+        vm.warp(1);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        vm.startPrank(ALICE);
+        commitManager.commitMove(battleKey, bytes32("1"));
+        vm.startPrank(BOB);
+        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, bytes32(""), abi.encode(0), false);
+        vm.warp(TIMEOUT * validator.PREV_TURN_MULTIPLIER() + 1);
+        engine.end(battleKey);
+        assertEq(engine.getWinner(battleKey), BOB);
+    }
 }
