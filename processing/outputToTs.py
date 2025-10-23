@@ -1,5 +1,17 @@
 import re
 
+'''
+- Convert address values to Address data in munch
+- Get ABIs and send to munch/
+    - engine.ts (Engine)
+    - cpu.ts (CPU)
+    - commit.ts (DefaultCommitManager)
+    - matchmaker.ts (DefaultMatchmaker)
+- Get ABIs and send to belch/
+    -
+- Send address to belch/ as well
+'''
+
 def convert_file(input_file, output_file):
     with open(input_file, 'r') as infile, open(output_file, 'w') as outfile:
         for line in infile:

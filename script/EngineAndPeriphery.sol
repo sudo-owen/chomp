@@ -11,6 +11,7 @@ import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
+import {OkayCPU} from "../src/cpu/OkayCPU.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 import {StaminaRegen} from "../src/effects/StaminaRegen.sol";
 import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
@@ -36,6 +37,11 @@ struct DeployData {
 }
 
 contract EngineAndPeriphery is Script {
+
+    uint256 constant NUM_MONS = 4;
+    uint256 constant NUM_MOVES = 4;
+    uint256 constant TIMEOUT_DURATION = 60;
+    
     DeployData[] deployedContracts;
 
     function run() external returns (DeployData[] memory) {
@@ -57,26 +63,32 @@ contract EngineAndPeriphery is Script {
         deployedContracts.push(DeployData({name: "GACHA REGISTRY", contractAddress: address(gachaRegistry)}));
 
         GachaTeamRegistry gachaTeamRegistry = new GachaTeamRegistry(
-            LookupTeamRegistry.Args({REGISTRY: gachaRegistry, MONS_PER_TEAM: 4, MOVES_PER_MON: 4}), gachaRegistry
+            LookupTeamRegistry.Args({REGISTRY: gachaRegistry, MONS_PER_TEAM: NUM_MONS, MOVES_PER_MON: NUM_MOVES}), gachaRegistry
         );
         deployedContracts.push(DeployData({name: "GACHA TEAM REGISTRY", contractAddress: address(gachaTeamRegistry)}));
 
         DefaultRandomnessOracle defaultOracle = new DefaultRandomnessOracle();
         deployedContracts.push(DeployData({name: "DEFAULT RANDOMNESS ORACLE", contractAddress: address(defaultOracle)}));
 
-        RandomCPU cpu = new RandomCPU(4, engine, ICPURNG(address(0)));
+        RandomCPU cpu = new RandomCPU(NUM_MOVES, engine, ICPURNG(address(0)));
         deployedContracts.push(DeployData({name: "RANDOM CPU", contractAddress: address(cpu)}));
 
         CPUMoveManager cpuMoveManager = new CPUMoveManager(engine, cpu);
         deployedContracts.push(DeployData({name: "CPU MOVE MANAGER", contractAddress: address(cpuMoveManager)}));
 
-        PlayerCPU playerCPU = new PlayerCPU(4, engine, ICPURNG(address(0)));
+        PlayerCPU playerCPU = new PlayerCPU(NUM_MOVES, engine, ICPURNG(address(0)));
         deployedContracts.push(DeployData({name: "PLAYER CPU", contractAddress: address(playerCPU)}));
 
         CPUMoveManager playerCPUManager = new CPUMoveManager(engine, playerCPU);
         deployedContracts.push(
             DeployData({name: "PLAYER CPU MOVE MANAGER", contractAddress: address(playerCPUManager)})
         );
+
+        OkayCPU okayCPU = new OkayCPU(NUM_MOVES, engine, ICPURNG(address(0)), typeCalc);
+        deployedContracts.push(DeployData({name: "OKAY CPU", contractAddress: address(okayCPU)}));
+
+        CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
+        deployedContracts.push(DeployData({name: "OKAY CPU MOVE MANAGER", contractAddress: address(okayMoveManager)}));
 
         deployGameFundamentals(engine);
         vm.stopBroadcast();
@@ -93,7 +105,7 @@ contract EngineAndPeriphery is Script {
         deployedContracts.push(DeployData({name: "DEFAULT RULESET", contractAddress: address(ruleset)}));
 
         DefaultValidator validator =
-            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 4, TIMEOUT_DURATION: 30}));
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: NUM_MONS, MOVES_PER_MON: NUM_MOVES, TIMEOUT_DURATION: TIMEOUT_DURATION}));
         deployedContracts.push(DeployData({name: "FAST VALIDATOR", contractAddress: address(validator)}));
 
         StatBoosts statBoosts = new StatBoosts(engine);

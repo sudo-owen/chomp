@@ -27,6 +27,17 @@ contract SetupCPU is Script {
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
         gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices);
         gachaTeamRegistry.createTeamForUser(vm.envAddress("PLAYER_CPU"), monIndices);
+        gachaTeamRegistry.createTeamForUser(vm.envAddress("OKAY_CPU"), monIndices);
+
+        // Create alternative team
+        monIndices[0] = 1; // Inutia
+        monIndices[1] = 3; // Iblivion
+        monIndices[2] = 4; // Gorillax
+        monIndices[3] = 5; // Sofabbi
+
+        gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices);
+        gachaTeamRegistry.createTeamForUser(vm.envAddress("PLAYER_CPU"), monIndices);
+        gachaTeamRegistry.createTeamForUser(vm.envAddress("OKAY_CPU"), monIndices);
 
         vm.stopBroadcast();
 
