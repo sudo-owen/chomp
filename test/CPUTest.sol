@@ -20,9 +20,9 @@ import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 
 import {MockCPURNG} from "./mocks/MockCPURNG.sol";
+import {TestMove, TestMoveFactory} from "./mocks/TestMoveFactory.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
-import {TestMove, TestMoveFactory} from "./mocks/TestMoveFactory.sol";
 
 import {IAbility} from "../src/abilities/IAbility.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
@@ -482,8 +482,8 @@ contract CPUTest is Test {
         // Both teams have just one mon with a TestMove that costs 3 stamina
         Mon[] memory team = new Mon[](1);
         IMoveSet[] memory moves = new IMoveSet[](1);
-        TestMoveFactory moveFactory = new TestMoveFactory();
-        moves[0] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 3);
+        TestMoveFactory moveFactory = new TestMoveFactory(engine);
+        moves[0] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 3, 0);
         Mon memory mon = _createMon(Type.Fire);
         mon.moves = moves;
         team[0] = mon;
@@ -534,8 +534,8 @@ contract CPUTest is Test {
         // Both teams have just one mon with a TestMove that costs 3 stamina
         Mon[] memory team = new Mon[](1);
         IMoveSet[] memory moves = new IMoveSet[](1);
-        TestMoveFactory moveFactory = new TestMoveFactory();
-        moves[0] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 3);
+        TestMoveFactory moveFactory = new TestMoveFactory(engine);
+        moves[0] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 3, 0);
         Mon memory mon = _createMon(Type.Fire);
         mon.stats.stamina = 5;
         mon.moves = moves;
@@ -587,5 +587,202 @@ contract CPUTest is Test {
 
         // Assert the stamina delta for P1's active mon is still -3 (it didn't go down more)
         assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), -3);
+    }
+
+    function test_okayCPUSelectsSelfMoveAtFullHealth() public {
+        // Both teams have 2 moves, one Attack that costs 0 stamina, and one Self that costs 1 stamina
+        Mon[] memory team = new Mon[](1);
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        TestMoveFactory moveFactory = new TestMoveFactory(engine);
+        moves[0] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 0, 0);
+        moves[1] = moveFactory.createMove(MoveClass.Self, Type.Fire, 1, 0);
+        Mon memory mon = _createMon(Type.Fire);
+        mon.moves = moves;
+        team[0] = mon;
+
+        OkayCPU okayCPU = new OkayCPU(moves.length, engine, mockCPURNG, typeCalc);
+        CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
+
+        teamRegistry.setTeam(address(okayCPU), team);
+        teamRegistry.setTeam(ALICE, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine,
+            DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            p1: address(okayCPU),
+            p1TeamIndex: 0,
+            validator: validatorToUse,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: teamRegistry,
+            engineHooks: new IEngineHook[](0),
+            moveManager: okayMoveManager,
+            matchmaker: okayCPU
+        });
+
+        vm.startPrank(ALICE);
+        address[] memory makersToAdd = new address[](1);
+        makersToAdd[0] = address(okayCPU);
+        address[] memory makersToRemove = new address[](0);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
+        bytes32 battleKey = okayCPU.startBattle(proposal);
+
+        // Turn 0, both player send in mon index 0
+        okayMoveManager.selectMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(0));
+
+        // Turn 1, p0 rests, CPU should select move index 1 (self move)
+        okayMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
+
+        // Assert that the stamina delta is -1 for p1's active mon
+        int32 staminaDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina);
+        assertEq(staminaDelta, -1);
+    }
+
+    function test_okayCPUSelectsOtherMoveAtFullHealth() public {
+        // Both teams have 3 moves, one Attack that costs 0 stamina, one Self that costs 1 stamina, and one Other that costs 1 stamina
+        Mon[] memory team = new Mon[](1);
+        IMoveSet[] memory moves = new IMoveSet[](3);
+        TestMoveFactory moveFactory = new TestMoveFactory(engine);
+        moves[0] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 0, 0);
+        moves[1] = moveFactory.createMove(MoveClass.Special, Type.Fire, 0, 0);
+        moves[2] = moveFactory.createMove(MoveClass.Other, Type.Fire, 1, 0);
+        Mon memory mon = _createMon(Type.Fire);
+        mon.moves = moves;
+        team[0] = mon;
+
+        OkayCPU okayCPU = new OkayCPU(moves.length, engine, mockCPURNG, typeCalc);
+        CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
+
+        teamRegistry.setTeam(address(okayCPU), team);
+        teamRegistry.setTeam(ALICE, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine,
+            DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            p1: address(okayCPU),
+            p1TeamIndex: 0,
+            validator: validatorToUse,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: teamRegistry,
+            engineHooks: new IEngineHook[](0),
+            moveManager: okayMoveManager,
+            matchmaker: okayCPU
+        });
+
+        vm.startPrank(ALICE);
+        address[] memory makersToAdd = new address[](1);
+        makersToAdd[0] = address(okayCPU);
+        address[] memory makersToRemove = new address[](0);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
+        bytes32 battleKey = okayCPU.startBattle(proposal);
+
+        // Turn 0, both player send in mon index 0
+        okayMoveManager.selectMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(0));
+
+        // Turn 1, p0 rests, CPU should select move index 1 (self move)
+        okayMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
+
+        // Assert that the stamina delta is -1 for p1's active mon
+        int32 staminaDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina);
+        assertEq(staminaDelta, -1);
+    }
+
+    function test_okayCPUSelectsAttackMoveAtNonFullHealth() public {
+        // Both teams have 2 moves, one Attack that costs 0 stamina, and one Self that costs 1 stamina
+        Mon[] memory team = new Mon[](1);
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        TestMoveFactory moveFactory = new TestMoveFactory(engine);
+        moves[0] = moveFactory.createMove(MoveClass.Self, Type.Fire, 0, 0); 
+        moves[1] = moveFactory.createMove(MoveClass.Physical, Type.Fire, 0, 1);
+        Mon memory mon = _createMon(Type.Fire);
+        mon.stats.hp = 10;
+        mon.moves = moves;
+        team[0] = mon;
+
+        OkayCPU okayCPU = new OkayCPU(moves.length, engine, mockCPURNG, typeCalc);
+        CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
+
+        teamRegistry.setTeam(address(okayCPU), team);
+        teamRegistry.setTeam(ALICE, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine,
+            DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: keccak256(
+                abi.encodePacked(bytes32(""), uint256(0), teamRegistry.getMonRegistryIndicesForTeam(ALICE, 0))
+            ),
+            p1: address(okayCPU),
+            p1TeamIndex: 0,
+            validator: validatorToUse,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            teamRegistry: teamRegistry,
+            engineHooks: new IEngineHook[](0),
+            moveManager: okayMoveManager,
+            matchmaker: okayCPU
+        });
+
+        vm.startPrank(ALICE);
+        address[] memory makersToAdd = new address[](1);
+        makersToAdd[0] = address(okayCPU);
+        address[] memory makersToRemove = new address[](0);
+        engine.updateMatchmakers(makersToAdd, makersToRemove);
+        bytes32 battleKey = okayCPU.startBattle(proposal);
+
+        // Turn 0, both player send in mon index 0
+        okayMoveManager.selectMove(battleKey, SWITCH_MOVE_INDEX, "", abi.encode(0));
+
+        // Turn 1, set RNG to trigger smart random select ([no op, move 0 (self), move 1 (damage)])
+        // and SMART_SELECT_SHORT_CIRCUIT_DENOM is set to 6, so if RNG is 5, we'll end up on move index 1
+        // So both mons should take 1 damage, as p0 also selects the damage move
+        mockCPURNG.setRNG(okayCPU.SMART_SELECT_SHORT_CIRCUIT_DENOM() - 1);
+        okayMoveManager.selectMove(battleKey, 1, "", "");
+
+        // Assert that the hp delta is -1 for p0's active mon and p1's active mon
+        int32 hpDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(hpDelta, -1);
+        hpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        assertEq(hpDelta, -1);
+
+        // Turn 2, set RNG to be 0 (do not trigger short circuit)
+        // CPU should select no-op because no type advantage is currently set
+        mockCPURNG.setRNG(0);
+        okayMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
+
+        // Assert that the hp delta is still -1 for p0's active mon
+        hpDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(hpDelta, -1);
+
+        // Turn 3, set the type advantage to 2 (Fire > Fire)
+        typeCalc.setTypeEffectiveness(Type.Fire, Type.Fire, 2);
+
+        // Now the CPU should select the damage move (move index 1) because it has a type advantage
+        okayMoveManager.selectMove(battleKey, NO_OP_MOVE_INDEX, "", "");
+
+        // Assert that the hp delta is -2 for p0's active mon
+        hpDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(hpDelta, -2);
     }
 }
