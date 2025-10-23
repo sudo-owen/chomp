@@ -239,7 +239,19 @@ def main():
     mons_file = base_path / "mons.csv"
     moves_file = base_path / "moves.csv"
     abilities_file = base_path / "abilities.csv"
-    output_file = base_path / "mon_data.ts"
+
+    # Try to output to munch repo first, fall back to local if it doesn't exist
+    # base_path is /game/chomp/drool, so we need to go up 2 levels to /game
+    game_dir = base_path.parent.parent
+    munch_output_file = game_dir / "munch" / "src" / "app" / "data" / "mon.ts"
+    fallback_output_file = base_path / "mon_data.ts"
+
+    if munch_output_file.parent.exists():
+        output_file = munch_output_file
+        print(f"Output target: {output_file} (munch repository)")
+    else:
+        output_file = fallback_output_file
+        print(f"Output target: {output_file} (fallback - munch repository not found)")
 
     # Check if all files exist
     for file_path in [mons_file, moves_file, abilities_file]:
@@ -264,7 +276,7 @@ def main():
     # Generate TypeScript file
     generate_typescript_const(combined_data, str(output_file))
 
-    print(f"Generated TypeScript const in {output_file}")
+    print(f"✅ Generated TypeScript const in {output_file}")
     print("Done!")
 
 
