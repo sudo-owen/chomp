@@ -20,7 +20,7 @@ import {StandardAttackFactory} from "../src/moves/StandardAttackFactory.sol";
 import {DefaultRandomnessOracle} from "../src/rng/DefaultRandomnessOracle.sol";
 
 import {MockCPURNG} from "./mocks/MockCPURNG.sol";
-import {TestMove, TestMoveFactory} from "./mocks/TestMoveFactory.sol";
+import {TestMoveFactory} from "./mocks/TestMoveFactory.sol";
 import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 
