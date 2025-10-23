@@ -424,7 +424,8 @@ contract VolthareTest is Test, BattleHelper {
             engine,
             mockOracle,
             defaultRegistry,
-            matchmaker
+            matchmaker,
+            commitManager
         );
 
         // First move: Both players select their first mon (index 0)

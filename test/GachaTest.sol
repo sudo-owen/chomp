@@ -122,7 +122,7 @@ contract GachaTest is Test, BattleHelper {
             new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         IEngineHook[] memory hooks = new IEngineHook[](1);
         hooks[0] = gachaRegistry;
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, commitManager);
 
         // Alice commits switching to mon index 0
         vm.startPrank(ALICE);
@@ -194,7 +194,7 @@ contract GachaTest is Test, BattleHelper {
             IEngineHook[] memory hooks = new IEngineHook[](1);
             hooks[0] = gachaRegistry;
             bytes32 battleKey =
-                _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks);
+                _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, commitManager);
 
             // Alice commits switching to mon index 0
             vm.startPrank(ALICE);
@@ -275,7 +275,7 @@ contract GachaTest is Test, BattleHelper {
 
         IEngineHook[] memory hooks = new IEngineHook[](1);
         hooks[0] = gachaRegistry;
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, commitManager);
 
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
@@ -324,7 +324,7 @@ contract GachaTest is Test, BattleHelper {
 
         IEngineHook[] memory hooks = new IEngineHook[](1);
         hooks[0] = gachaRegistry;
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, commitManager);
 
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
@@ -349,7 +349,7 @@ contract GachaTest is Test, BattleHelper {
 
         // Start another battle
         hooks[0] = gachaRegistry;
-        battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks);
+        battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, commitManager);
         aliceMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(0)));
         vm.startPrank(ALICE);
         commitManager.commitMove(battleKey, aliceMoveHash);
