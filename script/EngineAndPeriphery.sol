@@ -47,7 +47,6 @@ contract EngineAndPeriphery is Script {
         DefaultCommitManager commitManager = new DefaultCommitManager(engine);
         deployedContracts.push(DeployData({name: "COMMIT MANAGER", contractAddress: address(commitManager)}));
 
-        engine.setMoveManager(address(commitManager));
         TypeCalculator typeCalc = new TypeCalculator();
         deployedContracts.push(DeployData({name: "TYPE CALCULATOR", contractAddress: address(typeCalc)}));
 

@@ -45,7 +45,6 @@ contract StatBoostTest is Test, BattleHelper {
             IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
 
         // Create the StatBoosts effect and move
         statBoosts = new StatBoosts(IEngine(address(engine)));

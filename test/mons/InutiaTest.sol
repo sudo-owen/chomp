@@ -48,7 +48,6 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         interweaving = new Interweaving(IEngine(address(engine)), statBoost);
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));

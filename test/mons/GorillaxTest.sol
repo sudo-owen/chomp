@@ -42,7 +42,6 @@ contract GorillaxTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
     }

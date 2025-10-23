@@ -48,7 +48,6 @@ contract MalalienTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         actusReus = new ActusReus(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         statBoosts = new StatBoosts(engine);

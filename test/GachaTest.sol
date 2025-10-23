@@ -32,7 +32,6 @@ contract GachaTest is Test, BattleHelper {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
         commitManager = new DefaultCommitManager(engine);
-        engine.setMoveManager(address(commitManager));
         defaultRegistry = new TestTeamRegistry();
         monRegistry = new DefaultMonRegistry();
         mockRNG = new MockGachaRNG();

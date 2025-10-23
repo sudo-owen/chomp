@@ -45,7 +45,6 @@ contract SofabbiTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
 
         // Initialize the CarrotHarvest ability
         carrotHarvest = new CarrotHarvest(IEngine(address(engine)));

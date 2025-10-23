@@ -24,13 +24,11 @@ contract Engine is IEngine {
     mapping(bytes32 battleKeyPlusPlayerOffset => uint256) private monsKOedBitmap;
     uint256 private transient currentStep; // Used to bubble up step data for events
     int32 private transient damageDealt; // Used to provide access to onAfterDamage hook for effects
-    IMoveManager private moveManager; // Default move manager (e.g. for normal commit-reveal PVP)
     address private transient upstreamCaller; // Used to bubble up caller data for events
 
     // Errors
     error NoWriteAllowed();
     error WrongCaller();
-    error MoveManagerAlreadySet();
     error MatchmakerNotAuthorized();
     error MatchmakerError();
     error InvalidBattleConfig();
@@ -228,13 +226,10 @@ contract Engine is IEngine {
             - Set player switch for turn flag
         */
         else {
-            IMoveManager moveManagerToUse =
-                battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
-
             // Validate both moves have been revealed for the current turn
             // (accessing the values will revert if they haven't been set)
-            RevealedMove memory p0Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 0, turnId);
-            RevealedMove memory p1Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 1, turnId);
+            RevealedMove memory p0Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
+            RevealedMove memory p1Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
 
             // Update the PRNG hash to include the newest value
             uint256 rng = battle.rngOracle.getRNG(p0Move.salt, p1Move.salt);
@@ -679,9 +674,7 @@ contract Engine is IEngine {
     {
         Battle storage battle = battles[battleKey];
         BattleState storage state = battleStates[battleKey];
-        IMoveManager moveManagerToUse =
-            battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
-        RevealedMove memory move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
+        RevealedMove memory move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
@@ -860,10 +853,8 @@ contract Engine is IEngine {
     function _computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) internal view returns (uint256) {
         Battle storage battle = battles[battleKey];
         BattleState storage state = battleStates[battleKey];
-        IMoveManager moveManagerToUse =
-            battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
-        RevealedMove memory p0Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
-        RevealedMove memory p1Move = moveManagerToUse.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
+        RevealedMove memory p0Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
+        RevealedMove memory p1Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
         uint256 p0ActiveMonIndex = state.activeMonIndex[0];
         uint256 p1ActiveMonIndex = state.activeMonIndex[1];
         uint256 p0Priority;
@@ -1077,16 +1068,7 @@ contract Engine is IEngine {
         return battleStates[battleKey].playerSwitchForTurnFlagHistory;
     }
 
-    // To be called once (after moveManager is deployed and set to the Engine)
-    function setMoveManager(address a) external {
-        if (address(moveManager) != address(0)) {
-            revert MoveManagerAlreadySet();
-        }
-        moveManager = IMoveManager(a);
-    }
-
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager) {
-        Battle memory battle = battles[battleKey];
-        return battle.moveManager == IMoveManager(address(0)) ? moveManager : battle.moveManager;
+        return battles[battleKey].moveManager;
     }
 }

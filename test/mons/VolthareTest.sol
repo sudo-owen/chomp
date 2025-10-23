@@ -60,7 +60,6 @@ contract VolthareTest is Test, BattleHelper {
             IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         storm = new Storm(IEngine(address(engine)), statBoost);
         overclock = new Overclock(IEngine(address(engine)), storm);
