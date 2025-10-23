@@ -34,7 +34,6 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
         commitManager = new DefaultCommitManager(engine);
-        engine.setMoveManager(address(commitManager));
         validator = new DefaultValidator(
             engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: TIMEOUT})
         );
@@ -74,20 +73,15 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, dummyTeam);
     }
 
-    function test_cannotDoubleSet() public {
-        vm.expectRevert(Engine.MoveManagerAlreadySet.selector);
-        engine.setMoveManager(address(0));
-    }
-
     function test_cannotCommitForArbitraryBattleKey() public {
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
         vm.startPrank(CARL);
         vm.expectRevert(DefaultCommitManager.NotP0OrP1.selector);
         commitManager.commitMove(battleKey, "");
     }
 
     function test_NotYetRevealed() public {
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
 
         // Alice commits
         vm.startPrank(ALICE);
@@ -101,7 +95,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
     }
 
     function test_RevealBeforeSelfCommit() public {
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
         // Alice sets commitment
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
@@ -129,7 +123,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
 
     function test_BattleAlreadyComplete() public {
         vm.warp(1);
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
         vm.warp(TIMEOUT * TIMEOUT);
         engine.end(battleKey);
         vm.startPrank(ALICE);
@@ -142,7 +136,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
 
     function test_timeoutIfP0FailsCommit() public {
         vm.warp(1);
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
         vm.warp(TIMEOUT * validator.PREV_TURN_MULTIPLIER() + 1);
         engine.end(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
@@ -150,7 +144,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
 
     function test_timeoutIfP1FailsReveal() public {
         vm.warp(1);
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
         vm.startPrank(ALICE);
         commitManager.commitMove(battleKey, bytes32("1"));
         vm.warp(TIMEOUT * validator.PREV_TURN_MULTIPLIER() + 1);
@@ -160,7 +154,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
 
     function test_timeoutIfP0FailsReveal() public {
         vm.warp(1);
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
         vm.startPrank(ALICE);
         commitManager.commitMove(battleKey, bytes32("1"));
         vm.startPrank(BOB);

@@ -56,7 +56,6 @@ contract IblivionTest is Test, BattleHelper {
             IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         baselight = new Baselight(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         loop = new Loop(IEngine(address(engine)));
@@ -127,7 +126,7 @@ contract IblivionTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -239,7 +238,7 @@ contract IblivionTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -394,7 +393,7 @@ contract IblivionTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(twoMovesValidator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(twoMovesValidator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -472,7 +471,7 @@ contract IblivionTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, fastTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -540,7 +539,7 @@ contract IblivionTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(

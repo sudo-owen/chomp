@@ -60,7 +60,6 @@ contract VolthareTest is Test, BattleHelper {
             IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 0, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         storm = new Storm(IEngine(address(engine)), statBoost);
         overclock = new Overclock(IEngine(address(engine)), storm);
@@ -119,7 +118,7 @@ contract VolthareTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -225,7 +224,7 @@ contract VolthareTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -326,7 +325,7 @@ contract VolthareTest is Test, BattleHelper {
         );
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -425,7 +424,8 @@ contract VolthareTest is Test, BattleHelper {
             engine,
             mockOracle,
             defaultRegistry,
-            matchmaker
+            matchmaker,
+            commitManager
         );
 
         // First move: Both players select their first mon (index 0)

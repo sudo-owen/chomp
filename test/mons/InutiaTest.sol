@@ -48,7 +48,6 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         statBoost = new StatBoosts(IEngine(address(engine)));
         interweaving = new Interweaving(IEngine(address(engine)), statBoost);
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
@@ -109,7 +108,7 @@ contract InutiaTest is Test, BattleHelper {
         );
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // Store Bob's mon initial Attack stat
         int32 bobInitialAttack = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
@@ -223,7 +222,7 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start a battle
-        bytes32 battleKey = _startBattle(oneMonOneMove, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(oneMonOneMove, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their mons
         _commitRevealExecuteForAliceAndBob(
@@ -282,7 +281,7 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // Send in mons
         _commitRevealExecuteForAliceAndBob(
@@ -430,7 +429,7 @@ contract InutiaTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        bytes32 battleKey = _startBattle(v, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(v, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)

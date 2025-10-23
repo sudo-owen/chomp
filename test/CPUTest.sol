@@ -54,7 +54,6 @@ contract CPUTest is Test {
         defaultOracle = new DefaultRandomnessOracle();
         engine = new Engine();
         commitManager = new DefaultCommitManager(engine);
-        engine.setMoveManager(address(commitManager));
         mockCPURNG = new MockCPURNG();
         cpu = new RandomCPU(2, engine, mockCPURNG);
         cpuMoveManager = new CPUMoveManager(engine, cpu);

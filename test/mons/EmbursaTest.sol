@@ -56,7 +56,6 @@ contract EmbursaTest is Test, BattleHelper {
             IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        engine.setMoveManager(address(commitManager));
         splitThePot = new SplitThePot(IEngine(address(engine)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
@@ -134,7 +133,7 @@ contract EmbursaTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -249,7 +248,7 @@ contract EmbursaTest is Test, BattleHelper {
         );
 
         // Start battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -379,7 +378,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Set Ablaze, Bob uses KO move
         // Verify Alice's priority boost is cleared
         // Verify Alice's mon is KO'ed but Bob has taken damage
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -407,7 +406,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon, Bob does nothing
         // Alice uses Heat Beacon again, Bob uses KO Move
         // Verify Alice's mon is KO'ed but Bob's mon now has 2x Dummy status
-        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -421,7 +420,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon, Bob does nothing
         // Alice uses Q5, Bob uses KO move
         // Verify Q5 was applied to global effects, verify Alice is KOed
-        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -440,7 +439,7 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon, Bob does nothing
         // Alice uses Honey Bribe, Bob uses KO move
         // Verify Honey Bribe applied stat boost to Bob's mon, verify Alice is KOed
-        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker);
+        battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
