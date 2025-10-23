@@ -8,6 +8,7 @@ import {RevealedMove} from "../Structs.sol";
 import {ITypeCalculator} from "../types/ITypeCalculator.sol";
 import {MonStateIndexName, Type, MoveClass} from "../Enums.sol";
 import {IMoveSet} from "../moves/IMoveSet.sol";
+import {SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 contract OkayCPU is CPU {
 
@@ -66,6 +67,7 @@ contract OkayCPU is CPU {
         /*
             Otherwise, if:
             - We have 2 or less stamina, we rest (75%) or swap (if possible)
+            - If we are at full health, try and choose a non-damaging move if possible
             - If we are not at full health, try and choose a MoveClass.Physical or MoveClass.Special move (with advantage) if possible
             - Otherwise, do a smart random select
         */
@@ -86,12 +88,20 @@ contract OkayCPU is CPU {
                     for (uint256 i = 0; i < moves.length; i++) {
                         moveSetList[i] = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], moves[i].moveIndex);
                     }
-                    Type opponentType1 = Type(ENGINE.getMonValueForBattle(battleKey, opponentIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[opponentIndex], MonStateIndexName.Type1));
-                    Type opponentType2 = Type(ENGINE.getMonValueForBattle(battleKey, opponentIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[opponentIndex], MonStateIndexName.Type2));
+                    // Look up move if the opponent is switching
+                    uint256 opponentMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[opponentIndex];
+                    if (opponentMove.moveIndex == SWITCH_MOVE_INDEX) {
+                        opponentMonIndex = abi.decode(opponentMove.extraData, (uint256));
+                    }
+                    Type opponentType1 = Type(ENGINE.getMonValueForBattle(battleKey, opponentIndex, opponentMonIndex, MonStateIndexName.Type1));
+                    Type opponentType2 = Type(ENGINE.getMonValueForBattle(battleKey, opponentIndex, opponentMonIndex, MonStateIndexName.Type2));
                     int256 attackIndex = _getTypeAdvantageOrNullToAttack(battleKey, opponentType1, opponentType2, moveSetList);
                     if (attackIndex != -1) {
                         return (moves[uint256(attackIndex)].moveIndex, moves[uint256(attackIndex)].extraData);
                     }
+                }
+                else {
+
                 }
                 return _smartRandomSelect(battleKey, noOp, moves, switches);
             }
@@ -117,6 +127,13 @@ contract OkayCPU is CPU {
         } else {
             uint256 moveIndex = _getRNG(battleKey) % moves.length;
             return (moves[moveIndex].moveIndex, moves[moveIndex].extraData);
+        }
+    }
+
+    function _getSelfOrOtherMoves(RevealedMove[] memory moves) internal view returns (RevealedMove[] memory) {
+        RevealedMove[] memory selfOrOtherMoves = new RevealedMove[](moves.length);
+        uint256 index = 0;
+        for (uint256 i = 0; i < moves.length; i++) {
         }
     }
 
