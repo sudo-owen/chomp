@@ -92,7 +92,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -120,7 +120,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -148,7 +148,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -179,7 +179,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -214,7 +214,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -247,7 +247,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -283,7 +283,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -313,7 +313,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -347,7 +347,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
@@ -375,7 +375,7 @@ contract MatchmakerTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: new IEngineHook[](0),
-            moveManager: IMoveManager(address(0)),
+            moveManager: commitManager,
             matchmaker: matchmaker
         });
 
