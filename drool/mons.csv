@@ -7,4 +7,4 @@ Id,Name,HP,Attack,Defense,SpecialAttack,SpecialDefense,Speed,Type1,Type2,BST,Fla
 5,Sofabbi,333,180,201,120,269,205,Nature,NA,1308,"Their carrots make for a good stew."
 6,Pengym,371,212,191,233,172,149,Ice,NA,1328,"Even their ice contains a lot of protein."
 7,Embursa,420,141,230,180,161,111,Fire,NA,1243,"It will use even its own fur as fuel for its fire."
-8,Volthare,303,120,184,255,176,311,Lightning,Cyber,1349,"Its mental circuitry is scattered because of its high speed."
+8,Volthare,310,120,184,255,176,311,Lightning,Cyber,1356,"Its mental circuitry is scattered because of its high speed."

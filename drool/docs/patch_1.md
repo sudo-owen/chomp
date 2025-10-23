@@ -10,13 +10,13 @@ Zap:
 Ghouliath:
 Hard to find a current niche, making their gameplay more toxic (e.g. status spam) to see how everything comes together
 - Reduce damage (120 -> 80), up burn chance (30-->50) for infernal flame
-- Add +1 priority to Eternal Grudge (makes it more like a bomb that can go off at any point)
+- Add +1 priority to Eternal Grudge (makes it more like a bomb that can go off at any point) [x]
 
 Inutia:
 Generally strong in terms of passing buffs to sweepers, but other moves aren't getting enough usage. Making Initialize more situational, and buffing Chain Expansion massively.
 - Remove shrine strike
-- Increase stamina cost for Initialize (1 to 3)
-- Reduce cost for Chain Expansion (4 to 1)
+- Increase stamina cost for Initialize (1 to 3) [x]
+- Reduce cost for Chain Expansion (4 to 1) [x]
 - Add in new move to be damage + swap (2 stamina cost)
 
 Malalien:
@@ -40,14 +40,14 @@ Good enough level of power, might be a bit overtuned, but will keep as-is for no
 
 Sofabbi
 Not enough moves to take advantage of Carrot Harvest, increasing both power and stamina of unexpected carrot to counter
-- Unexpected Carrot power 80 -> 120, stamina 2 -> 5
+- Unexpected Carrot power 80 -> 120, stamina 2 -> 5 [x]
 
 Pengym
 - NEW Ability: At end of round, if opponent has Frostbite, gain 10% speed and attack.
 - NEW Move: 
 
 Embursa
-- reduce Q5 stamina cost to be 2, encourage using it more often
+- reduce Q5 stamina cost to be 2, encourage using it more often [x]
 
 Volthare:
 Storm on switch in is a little too strong given the lack of other speed tiers / priority moves.

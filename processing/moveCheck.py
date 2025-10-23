@@ -382,6 +382,16 @@ class MoveValidator:
         if missing_contracts:
             self.print_missing_contracts(missing_contracts)
 
+        # Prompt user to update contracts if there are errors
+        moves_with_errors = sum(1 for result in self.validation_results if result['errors'])
+        if moves_with_errors > 0:
+            print("\n" + "="*80)
+            response = input("Would you like to update the .sol files with values from the CSV? (y/n): ").strip().lower()
+            if response == 'y':
+                self.update_all_contracts()
+            else:
+                print("Skipping contract updates.")
+
     def print_summary(self) -> None:
         """Print a condensed summary of validation results"""
         print("\n" + "="*80)
@@ -432,6 +442,193 @@ class MoveValidator:
 
         for normalized_name, original_name in missing_contracts:
             print(f"❌ {original_name} -> {normalized_name}.sol (not found)")
+
+    def _is_simple_constant_return(self, content: str, function_name: str) -> bool:
+        """Check if a function just returns a simple constant (number, enum, or DEFAULT_PRIORITY expression)"""
+        pattern = rf'function\s+{function_name}\s*\([^)]*\)\s*[^{{]*\{{\s*return\s+([^;]+);'
+        match = re.search(pattern, content, re.DOTALL)
+        if not match:
+            return False
+
+        return_expr = match.group(1).strip()
+
+        # Check if it's a simple number
+        if re.match(r'^\d+$', return_expr):
+            return True
+
+        # Check if it's DEFAULT_PRIORITY or DEFAULT_PRIORITY +/- number
+        if re.match(r'^DEFAULT_PRIORITY(\s*[+\-]\s*\d+)?$', return_expr):
+            return True
+
+        # Check if it's a simple enum (Type.X or MoveClass.X)
+        if re.match(r'^(Type|MoveClass)\.\w+$', return_expr):
+            return True
+
+        return False
+
+    def update_contract_file(self, result: Dict[str, Any]) -> bool:
+        """Update a contract file with CSV values. Returns True if file was modified."""
+        if not result['errors']:
+            return False
+
+        file_path = result['contract_file']
+        move_name = result['normalized_name']
+        move_data = self.moves_data[move_name]
+
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+
+        original_content = content
+        modified = False
+
+        # Handle StandardAttack contracts
+        if result['is_standard_attack']:
+            # Find ATTACK_PARAMS block
+            attack_params_match = re.search(r'(ATTACK_PARAMS\s*\(\s*\{)([^}]+)(\}\s*\))', content, re.DOTALL)
+            if not attack_params_match:
+                print(f"  ⚠️  Could not find ATTACK_PARAMS block in {file_path}")
+                return False
+
+            params_block = attack_params_match.group(2)
+            updated_params = params_block
+
+            # Update power if there's a mismatch and it's not a complex move
+            if move_data.power != '?' and isinstance(move_data.power, int) and move_data.power > 0:
+                power_pattern = r'(BASE_POWER:\s*)(\d+)'
+                if re.search(power_pattern, updated_params):
+                    updated_params = re.sub(power_pattern, rf'\g<1>{move_data.power}', updated_params)
+                    modified = True
+
+            # Update stamina if there's a mismatch and it's not a complex move
+            if move_data.stamina != '?' and isinstance(move_data.stamina, int):
+                stamina_pattern = r'(STAMINA_COST:\s*)(\d+)'
+                if re.search(stamina_pattern, updated_params):
+                    updated_params = re.sub(stamina_pattern, rf'\g<1>{move_data.stamina}', updated_params)
+                    modified = True
+
+            # Update priority if there's a mismatch and it's not a complex move
+            if move_data.priority != '?' and isinstance(move_data.priority, int):
+                expected_priority = self.csv_priority_to_contract_priority(move_data.priority)
+                # Handle both direct numbers and DEFAULT_PRIORITY expressions
+                priority_pattern = r'(PRIORITY:\s*)([^\n,]+)'
+                priority_match = re.search(priority_pattern, updated_params)
+                if priority_match:
+                    current_priority_expr = priority_match.group(2).strip()
+                    # If it's DEFAULT_PRIORITY based, keep that format
+                    if 'DEFAULT_PRIORITY' in current_priority_expr:
+                        offset = expected_priority - self.DEFAULT_PRIORITY
+                        if offset == 0:
+                            new_priority_expr = 'DEFAULT_PRIORITY'
+                        elif offset > 0:
+                            new_priority_expr = f'DEFAULT_PRIORITY + {offset}'
+                        else:
+                            new_priority_expr = f'DEFAULT_PRIORITY - {abs(offset)}'
+                    else:
+                        new_priority_expr = str(expected_priority)
+
+                    updated_params = re.sub(priority_pattern, rf'\g<1>{new_priority_expr}', updated_params)
+                    modified = True
+
+            # Update move type if there's a mismatch
+            if move_data.move_type:
+                type_pattern = r'(MOVE_TYPE:\s*)Type\.\w+'
+                if re.search(type_pattern, updated_params):
+                    updated_params = re.sub(type_pattern, rf'\g<1>Type.{move_data.move_type}', updated_params)
+                    modified = True
+
+            # Update move class if there's a mismatch
+            if move_data.move_class:
+                class_pattern = r'(MOVE_CLASS:\s*)MoveClass\.\w+'
+                if re.search(class_pattern, updated_params):
+                    updated_params = re.sub(class_pattern, rf'\g<1>MoveClass.{move_data.move_class}', updated_params)
+                    modified = True
+
+            # Replace the params block in the content
+            if modified:
+                content = content.replace(
+                    attack_params_match.group(0),
+                    attack_params_match.group(1) + updated_params + attack_params_match.group(3)
+                )
+
+        # Handle custom IMoveSet implementations with simple constant returns
+        elif result['is_custom_implementation']:
+            # Update stamina function if it's a simple constant return
+            if (move_data.stamina != '?' and isinstance(move_data.stamina, int) and
+                self._is_simple_constant_return(content, 'stamina')):
+                stamina_pattern = r'(function\s+stamina\s*\([^)]*\)\s*[^{]*\{\s*return\s+)(\d+)(;)'
+                if re.search(stamina_pattern, content, re.DOTALL):
+                    content = re.sub(stamina_pattern, rf'\g<1>{move_data.stamina}\g<3>', content, flags=re.DOTALL)
+                    modified = True
+
+            # Update priority function if it's a simple constant return
+            if (move_data.priority != '?' and isinstance(move_data.priority, int) and
+                self._is_simple_constant_return(content, 'priority')):
+                expected_priority = self.csv_priority_to_contract_priority(move_data.priority)
+
+                # Calculate the new priority expression
+                offset = expected_priority - self.DEFAULT_PRIORITY
+                if offset == 0:
+                    new_priority_expr = 'DEFAULT_PRIORITY'
+                elif offset > 0:
+                    new_priority_expr = f'DEFAULT_PRIORITY + {offset}'
+                else:
+                    new_priority_expr = f'DEFAULT_PRIORITY - {abs(offset)}'
+
+                priority_pattern = r'(function\s+priority\s*\([^)]*\)\s*[^{]*\{\s*return\s+)([^;]+)(;)'
+                if re.search(priority_pattern, content, re.DOTALL):
+                    content = re.sub(priority_pattern, rf'\g<1>{new_priority_expr}\g<3>', content, flags=re.DOTALL)
+                    modified = True
+
+            # Update moveType function if it's a simple constant return
+            if move_data.move_type and self._is_simple_constant_return(content, 'moveType'):
+                type_pattern = r'(function\s+moveType\s*\([^)]*\)\s*[^{]*\{\s*return\s+)Type\.\w+(;)'
+                if re.search(type_pattern, content, re.DOTALL):
+                    content = re.sub(type_pattern, rf'\g<1>Type.{move_data.move_type}\g<2>', content, flags=re.DOTALL)
+                    modified = True
+
+            # Update moveClass function if it's a simple constant return
+            if move_data.move_class and self._is_simple_constant_return(content, 'moveClass'):
+                class_pattern = r'(function\s+moveClass\s*\([^)]*\)\s*[^{]*\{\s*return\s+)MoveClass\.\w+(;)'
+                if re.search(class_pattern, content, re.DOTALL):
+                    content = re.sub(class_pattern, rf'\g<1>MoveClass.{move_data.move_class}\g<2>', content, flags=re.DOTALL)
+                    modified = True
+
+        # Write back if modified
+        if modified and content != original_content:
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            return True
+
+        return False
+
+    def update_all_contracts(self) -> None:
+        """Update all contract files with CSV values where there are mismatches"""
+        print("\n" + "="*80)
+        print("UPDATING CONTRACTS")
+        print("="*80)
+
+        updated_count = 0
+        no_changes_count = 0
+
+        for result in self.validation_results:
+            if not result['errors']:
+                continue
+
+            impl_type = "StandardAttack" if result['is_standard_attack'] else "Custom IMoveSet"
+            print(f"\n  Updating ({impl_type}): {result['contract_file']}")
+
+            if self.update_contract_file(result):
+                print(f"    ✅ Updated successfully")
+                updated_count += 1
+            else:
+                print(f"    ⚠️  No changes made (may require manual update)")
+                no_changes_count += 1
+
+        print(f"\n" + "="*80)
+        print(f"Updated {updated_count} files")
+        if no_changes_count > 0:
+            print(f"{no_changes_count} files had no changes (complex logic may require manual update)")
+        print("="*80)
 
 
 def main():

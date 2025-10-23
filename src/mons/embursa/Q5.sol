@@ -39,7 +39,7 @@ contract Q5 is IMoveSet, BasicEffect {
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 5;
+        return 2;
     }
 
     function priority(bytes32, uint256 attackerPlayerIndex) external view returns (uint32) {

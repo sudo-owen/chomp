@@ -49,7 +49,7 @@ contract ChainExpansion is IMoveSet, BasicEffect {
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 4;
+        return 1;
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {

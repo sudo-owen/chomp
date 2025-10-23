@@ -20,8 +20,8 @@ contract UnexpectedCarrot is StandardAttack {
             _TYPE_CALCULATOR,
             ATTACK_PARAMS({
                 NAME: "Unexpected Carrot",
-                BASE_POWER: 80,
-                STAMINA_COST: 2,
+                BASE_POWER: 120,
+                STAMINA_COST: 4,
                 ACCURACY: 100,
                 MOVE_TYPE: Type.Nature,
                 MOVE_CLASS: MoveClass.Physical,
