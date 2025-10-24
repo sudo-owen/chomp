@@ -24,28 +24,19 @@ contract BattleHistory is IEngineHook {
     mapping(bytes32 => BattleSummary) private _battleSummaries;
 
     struct BattleSummary {
-        uint256 totalBattles;
-        uint256 p0Wins; // wins by the lower address (p0 in the sorted pair)
+        uint128 totalBattles;
+        uint128 p0Wins; // wins by the lower address (p0 in the sorted pair)
     }
 
     constructor(IEngine _engine) {
         engine = _engine;
     }
 
-    /// @notice Called when a battle starts
-    function onBattleStart(bytes32 battleKey) external {
-        // Not used in this implementation
-    }
+    function onBattleStart(bytes32 battleKey) external {}
 
-    /// @notice Called when a round starts
-    function onRoundStart(bytes32 battleKey) external {
-        // Not used in this implementation
-    }
+    function onRoundStart(bytes32 battleKey) external {}
 
-    /// @notice Called when a round ends
-    function onRoundEnd(bytes32 battleKey) external {
-        // Not used in this implementation
-    }
+    function onRoundEnd(bytes32 battleKey) external {}
 
     /// @notice Called when a battle ends - updates battle statistics
     function onBattleEnd(bytes32 battleKey) external {
@@ -107,14 +98,6 @@ contract BattleHistory is IEngineHook {
     /// @return Array of opponent addresses
     function getOpponents(address player) external view returns (address[] memory) {
         return _opponents[player].values();
-    }
-
-    /// @notice Check if two players have fought before
-    /// @param p0 First player address
-    /// @param p1 Second player address
-    /// @return True if players have fought at least one battle
-    function haveFought(address p0, address p1) external view returns (bool) {
-        return _opponents[p0].contains(p1);
     }
 
     /// @notice Get the number of unique opponents a player has fought

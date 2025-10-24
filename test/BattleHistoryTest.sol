@@ -307,7 +307,8 @@ contract BattleHistoryTest is Test, BattleHelper {
     function test_OpponentTrackingFunctions() public {
         // Initially, no opponents
         assertEq(battleHistory.getNumOpponents(ALICE), 0);
-        assertFalse(battleHistory.haveFought(ALICE, BOB));
+        (uint256 aliceBobBattles, ) = battleHistory.getBattleSummary(ALICE, BOB);
+        assertEq(aliceBobBattles, 0);
 
         // Alice fights Bob
         bytes32 battleKey1 = _startCustomBattle(ALICE, BOB, 2, 1);
@@ -315,8 +316,10 @@ contract BattleHistoryTest is Test, BattleHelper {
 
         assertEq(battleHistory.getNumOpponents(ALICE), 1);
         assertEq(battleHistory.getNumOpponents(BOB), 1);
-        assertTrue(battleHistory.haveFought(ALICE, BOB));
-        assertTrue(battleHistory.haveFought(BOB, ALICE));
+        (aliceBobBattles, ) = battleHistory.getBattleSummary(ALICE, BOB);
+        assertGt(aliceBobBattles, 0);
+        (uint256 bobAliceBattles, ) = battleHistory.getBattleSummary(BOB, ALICE);
+        assertGt(bobAliceBattles, 0);
 
         // Alice fights Carol
         bytes32 battleKey2 = _startCustomBattle(ALICE, CAROL, 2, 1);
@@ -325,8 +328,10 @@ contract BattleHistoryTest is Test, BattleHelper {
         assertEq(battleHistory.getNumOpponents(ALICE), 2);
         assertEq(battleHistory.getNumOpponents(BOB), 1);
         assertEq(battleHistory.getNumOpponents(CAROL), 1);
-        assertTrue(battleHistory.haveFought(ALICE, CAROL));
-        assertFalse(battleHistory.haveFought(BOB, CAROL));
+        (uint256 aliceCarolBattles, ) = battleHistory.getBattleSummary(ALICE, CAROL);
+        assertGt(aliceCarolBattles, 0);
+        (uint256 bobCarolBattles, ) = battleHistory.getBattleSummary(BOB, CAROL);
+        assertEq(bobCarolBattles, 0);
 
         // Check opponent lists
         address[] memory aliceOpponents = battleHistory.getOpponents(ALICE);
