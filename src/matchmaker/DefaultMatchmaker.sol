@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {Engine} from "../Engine.sol";
+import {IEngine} from "../IEngine.sol";
 import {Battle, Mon, ProposedBattle} from "../Structs.sol";
 import {IMatchmaker} from "./IMatchmaker.sol";
 
@@ -10,7 +10,7 @@ contract DefaultMatchmaker is IMatchmaker {
     bytes32 constant public FAST_BATTLE_SENTINAL_HASH = bytes32("FAST_BATTLE_SENTINAL_HASH"); // Used to skip the confirmBattle step
     uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 1; // Used to tell if a battle has been accepted by p1 or not
 
-    Engine public immutable ENGINE;
+    IEngine public immutable ENGINE;
 
     event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1, bool isFastBattle);
     event BattleAcceptance(bytes32 indexed battleKey, address indexed p1, bytes32 indexed updatedBattleKey);
@@ -26,7 +26,7 @@ contract DefaultMatchmaker is IMatchmaker {
     mapping(bytes32 battleKey => ProposedBattle) private proposals;
     mapping(bytes32 newBattleKey => bytes32 oldBattleKey) private preP1FillBattleKey;
 
-    constructor(Engine engine) {
+    constructor(IEngine engine) {
         ENGINE = engine;
     }
 

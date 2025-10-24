@@ -21,6 +21,7 @@ import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 import {TypeCalculator} from "../src/types/TypeCalculator.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 // Important effects
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
@@ -89,6 +90,9 @@ contract EngineAndPeriphery is Script {
 
         CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
         deployedContracts.push(DeployData({name: "OKAY CPU MOVE MANAGER", contractAddress: address(okayMoveManager)}));
+
+        DefaultMatchmaker matchmaker = new DefaultMatchmaker(engine);
+        deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));
 
         deployGameFundamentals(engine);
         vm.stopBroadcast();

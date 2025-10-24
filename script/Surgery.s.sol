@@ -8,6 +8,7 @@ import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
 import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
 import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 struct DeployData {
     string name;
@@ -19,16 +20,8 @@ contract Surgery is Script {
 
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
-        GachaRegistry gachaRegistry = new GachaRegistry(
-            DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY")),
-            IEngine(vm.envAddress("ENGINE")),
-            IGachaRNG(address(0))
-        );
-        deployedContracts.push(DeployData({name: "GACHA REGISTRY", contractAddress: address(gachaRegistry)}));
-        GachaTeamRegistry gachaTeamRegistry = new GachaTeamRegistry(
-            LookupTeamRegistry.Args({REGISTRY: gachaRegistry, MONS_PER_TEAM: 4, MOVES_PER_MON: 4}), gachaRegistry
-        );
-        deployedContracts.push(DeployData({name: "GACHA TEAM REGISTRY", contractAddress: address(gachaTeamRegistry)}));
+        DefaultMatchmaker matchmaker = new DefaultMatchmaker(IEngine(vm.envAddress("ENGINE")));
+        deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));
         vm.stopBroadcast();
 
         return deployedContracts;
