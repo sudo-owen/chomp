@@ -157,15 +157,49 @@ contract BattleHistoryTest is Test, BattleHelper {
         return battleKey;
     }
 
+    /// @notice Helper to commit, reveal, and execute moves for any two players
+    function _commitRevealExecute(
+        bytes32 battleKey,
+        address p0,
+        address p1,
+        uint256 p0MoveIndex,
+        uint256 p1MoveIndex,
+        bytes memory p0ExtraData,
+        bytes memory p1ExtraData
+    ) internal {
+        bytes32 salt = "";
+        bytes32 p0MoveHash = keccak256(abi.encodePacked(p0MoveIndex, salt, p0ExtraData));
+        bytes32 p1MoveHash = keccak256(abi.encodePacked(p1MoveIndex, salt, p1ExtraData));
+
+        uint256 turnId = engine.getTurnIdForBattleState(battleKey);
+        if (turnId % 2 == 0) {
+            vm.startPrank(p0);
+            commitManager.commitMove(battleKey, p0MoveHash);
+            vm.startPrank(p1);
+            commitManager.revealMove(battleKey, p1MoveIndex, salt, p1ExtraData, true);
+            vm.startPrank(p0);
+            commitManager.revealMove(battleKey, p0MoveIndex, salt, p0ExtraData, true);
+        } else {
+            vm.startPrank(p1);
+            commitManager.commitMove(battleKey, p1MoveHash);
+            vm.startPrank(p0);
+            commitManager.revealMove(battleKey, p0MoveIndex, salt, p0ExtraData, true);
+            vm.startPrank(p1);
+            commitManager.revealMove(battleKey, p1MoveIndex, salt, p1ExtraData, true);
+        }
+    }
+
     /// @notice Helper to complete a battle
     function _completeBattle(bytes32 battleKey) internal {
+        Battle memory battle = engine.getBattle(battleKey);
+
         // First move - both players switch to their mon
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        _commitRevealExecute(
+            battleKey, battle.p0, battle.p1, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
         // Second move - both attack (faster mon wins)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
+        _commitRevealExecute(battleKey, battle.p0, battle.p1, 0, 0, "", "");
     }
 
     function test_BattleHistoryOnlyUpdatesWhenCompleted() public {
@@ -178,16 +212,14 @@ contract BattleHistoryTest is Test, BattleHelper {
         assertEq(battleHistory.getNumBattles(BOB), 0, "Bob should have 0 battles before completion");
 
         // First turn - both switch to their mons
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
-        );
+        _commitRevealExecute(battleKey, ALICE, BOB, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
 
         // Stats should still be 0 after first turn
         assertEq(battleHistory.getNumBattles(ALICE), 0, "Alice should have 0 battles after switch");
         assertEq(battleHistory.getNumBattles(BOB), 0, "Bob should have 0 battles after switch");
 
         // Second turn - both attack (Alice wins)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
+        _commitRevealExecute(battleKey, ALICE, BOB, 0, 0, "", "");
 
         // Now stats should be updated
         assertEq(battleHistory.getNumBattles(ALICE), 1, "Alice should have 1 battle after completion");
