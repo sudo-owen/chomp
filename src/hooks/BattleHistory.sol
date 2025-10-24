@@ -12,8 +12,7 @@ contract BattleHistory is IEngineHook {
     using EnumerableSetLib for EnumerableSetLib.AddressSet;
 
     IEngine public immutable engine;
-
-    // Mapping from player address to total number of battles fought
+    
     mapping(address => uint256) private _numBattles;
 
     // Mapping from player address to set of all opponents fought

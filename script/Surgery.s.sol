@@ -4,10 +4,6 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 
 import {IEngine} from "../src/IEngine.sol";
-import {GachaRegistry, IGachaRNG} from "../src/gacha/GachaRegistry.sol";
-import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
-import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
-import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 struct DeployData {

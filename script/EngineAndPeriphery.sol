@@ -22,6 +22,7 @@ import {GachaTeamRegistry} from "../src/teams/GachaTeamRegistry.sol";
 import {LookupTeamRegistry} from "../src/teams/LookupTeamRegistry.sol";
 import {TypeCalculator} from "../src/types/TypeCalculator.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
+import {BattleHistory} from "../src/hooks/BattleHistory.sol";
 
 // Important effects
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
@@ -93,6 +94,9 @@ contract EngineAndPeriphery is Script {
 
         DefaultMatchmaker matchmaker = new DefaultMatchmaker(engine);
         deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));
+
+        BattleHistory battleHistory = new BattleHistory(engine);
+        deployedContracts.push(DeployData({name: "BATTLE HISTORY", contractAddress: address(battleHistory)}));
 
         deployGameFundamentals(engine);
         vm.stopBroadcast();
