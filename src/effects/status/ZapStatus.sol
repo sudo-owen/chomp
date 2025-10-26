@@ -7,6 +7,10 @@ import {IEngine} from "../../IEngine.sol";
 import {StatusEffect} from "./StatusEffect.sol";
 
 contract ZapStatus is StatusEffect {
+    // State constants
+    uint8 private constant NOT_YET_SKIPPED = 0; // Skip flag not yet processed
+    uint8 private constant ALREADY_SKIPPED = 1; // Skip flag processed, ready for removal
+
     constructor(IEngine engine) StatusEffect(engine) {}
 
     function name() public pure override returns (string memory) {
@@ -27,7 +31,6 @@ contract ZapStatus is StatusEffect {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         uint256 priorityPlayerIndex = ENGINE.getPriorityPlayerIndex(battleKey, rng);
 
-        // State: 0 = waiting for RoundStart, 1 = ready to remove at RoundEnd
         uint8 state;
 
         // Check if opponent has yet to move
@@ -35,11 +38,11 @@ contract ZapStatus is StatusEffect {
             // Opponent hasn't moved yet (they're the non-priority player)
             // Set skip turn flag immediately
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
-            state = 1; // Ready to remove at RoundEnd
+            state = ALREADY_SKIPPED; // Ready to remove at RoundEnd
         } else {
             // Opponent has already moved (they're the priority player)
             // Don't set skip flag yet, wait for RoundStart
-            state = 0; // Waiting for RoundStart
+            state = NOT_YET_SKIPPED; // Waiting for RoundStart
         }
 
         return (abi.encode(state), false);
@@ -52,10 +55,10 @@ contract ZapStatus is StatusEffect {
     {
         uint8 state = abi.decode(extraData, (uint8));
 
-        if (state == 0) {
+        if (state == NOT_YET_SKIPPED) {
             // Set skip turn flag now
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
-            state = 1; // Ready to remove at RoundEnd
+            state = ALREADY_SKIPPED; // Ready to remove at RoundEnd
         }
 
         return (abi.encode(state), false);
@@ -68,13 +71,14 @@ contract ZapStatus is StatusEffect {
     {
         uint8 state = abi.decode(extraData, (uint8));
 
-        if (state == 0) {
+        if (state == NOT_YET_SKIPPED) {
             // Set skip turn flag when switching in
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
-            state = 1; // Ready to remove at RoundEnd
+            // Don't change state - the mon hasn't had a chance to move yet
+            // State will transition to ALREADY_SKIPPED at next RoundStart
         }
 
-        return (abi.encode(state), false);
+        return (extraData, false);
     }
 
     function onRemove(bytes memory data, uint256 targetIndex, uint256 monIndex) public override {
@@ -89,8 +93,8 @@ contract ZapStatus is StatusEffect {
     {
         uint8 state = abi.decode(extraData, (uint8));
 
-        // Remove the effect if we've already set the skip flag
-        if (state == 1) {
+        // Remove the effect if we've already set the skip flag and it's been processed
+        if (state == ALREADY_SKIPPED) {
             return (extraData, true);
         }
 
