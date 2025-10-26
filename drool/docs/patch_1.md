@@ -3,7 +3,15 @@
 ## Effects
 
 Zap:
-- When applied, stays. At beginning of turn, clears and applies skipTurn flag. (Vs clearing at end of turn and applying flag)
+- When applied, check if opponent has yet to move. If so, set skip for turn flag
+- Otherwise, if opponent has already moved just apply the effect, but don't clear it at the end of this turn
+- At beginning of turn, set skip for turn flag
+- In all cases, remove at end of turn (*if* skip for turn flag was applied)
+
+Sleep:
+- Forces opponent to select NO_OP
+
+Storm --> Rename to Overclock (your team becomes overclocked)
 
 ## Mons
 
@@ -14,7 +22,7 @@ Hard to find a current niche, making their gameplay more toxic (e.g. status spam
 
 Inutia:
 Generally strong in terms of passing buffs to sweepers, but other moves aren't getting enough usage. Making Initialize more situational, and buffing Chain Expansion massively.
-- Remove shrine strike
+- Remove shrine strike (too much coverage)
 - Increase stamina cost for Initialize (1 to 3) [x]
 - Reduce cost for Chain Expansion (4 to 1) [x]
 - Add in new move to be damage + swap (2 stamina cost)
@@ -40,31 +48,42 @@ Good enough level of power, might be a bit overtuned, but will keep as-is for no
 
 Sofabbi
 Not enough moves to take advantage of Carrot Harvest, increasing both power and stamina of unexpected carrot to counter
-- Unexpected Carrot power 80 -> 120, stamina 2 -> 5 [x]
+- Unexpected Carrot power 80 -> 120, stamina 2 -> 4 [x]
 
 Pengym
-- NEW Ability: At end of round, if opponent has Frostbite, gain 10% speed and attack.
-- NEW Move: 
+- NEW Ability: At end of round, if opponent has Frostbite, gain 20% speed.
+- NEW Move: Icy Tracks: If opponent swaps in or swaps out, they get Frostbite
 
 Embursa
 - reduce Q5 stamina cost to be 2, encourage using it more often [x]
+- Change ability from Split The Pot to something different
 
 Volthare:
 Storm on switch in is a little too strong given the lack of other speed tiers / priority moves.
 - Fix dual shock to correctly inflict Zap on self at end of turn
-- NEW Ability: Preemptive Shock: On switch in (after the first one), deals a small amount of damage to the opposing mon.
+- NEW Ability: Preempt: On switch in (after the first one), deals a small amount of damage to the opposing mon.
 CONSIDER: renaming Storm to be something that implies it isn't global (both teams can have an instance active)
-- NEW Move: Synthesize Storm, sets Storm on the battlefield. Storm lasts 5 turns, boosts Speed and decreases Def and ZDef.
-- NEW Move: Aftershock: deals damage for 3 turns, 2 stamina. Power is boosted by Storm. Subsequent moves only refresh the duration and do not stack.
+- NEW Move: Overclock, sets Overclock on the battlefield. Overclock lasts 5 turns, boosts Speed and decreases Def and ZDef.
+- NEW Move: tbd
 - Rename Move: Megavoltage: Clears Storm and deals massive damage, otherwise accuracy is 50%
 
 Aurox: NEW MON
 Type: Metal
-Aurox is designed to be a tanky. Limited offensive options, but a strong defensive option, hard countering most status effects.
-- Ability: Long and Strong
-After taking damage, depending on amount of damage taken, Aurox gains % Attack boost. (0.25% attack boost for each % in health lost)
-- Moves:
-- Volatile Punch: 3 stamina, 50 power, 15% chance of Burn, 15% chance of Frostbite for self and opponent
+Aurox is designed to be tanky. Limited offensive options, but a strong defensive option, hard countering most status effects.
+Ability: Long and Strong
+After taking damage, gain 5% attack boost.
+Moves:
+- Volatile Punch: 3 stamina, 50 power, 15% chance of Burn, 15% chance of Frostbite for self and opponent, deals 10% max hp to self.
 - Gilded Recovery: 2 stamina. Select a mon and heal it of any status conditions. If successful, Aurox also heals 50% of max HP and the healed mon gets +1 stamina.
 - Iron Wall: 2 stamina, Until the end of next turn, when Aurox takes damage, heal 50% of it.
-- Bull Rush: 3 stamina, 80 power, deals damage
+- Bull Rush: 3 stamina, 80 power, deals 10% max hp damage to self.
+
+Xmon: NEW MON
+Type: Cosmic
+Xmon is designed to be utility mon. Spams negative status but with little kill potential.
+Ability: Dreamcatcher, on Rest, heals all team by 1/16 max HP.
+Moves:
+- Drain: 3 stamina 50 power, 30% chance to steal 1 stamina
+- Forced Slumber: 3 stamina, both mons fall asleep.
+- Dreamcatcher: At the end of every turn, Xmon spends 1 stamina to deal damage to the opponent. If the opponent is asleep, deals double damage. Can stack. Clears when Xmon switches out. If not enough stamina, Xmon goes to sleep.
+- immunity move?
