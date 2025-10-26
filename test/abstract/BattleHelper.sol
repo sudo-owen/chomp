@@ -131,4 +131,22 @@ abstract contract BattleHelper is Test {
 
         return battleKey;
     }
+
+    function _createMon() internal pure returns (Mon memory) {
+        return Mon({
+            stats: MonStats({
+                hp: 1,
+                stamina: 10,
+                speed: 1,
+                attack: 10,
+                defense: 1,
+                specialAttack: 1,
+                specialDefense: 1,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: new IMoveSet[](0),
+            ability: IAbility(address(0))
+        });
+    }
 }

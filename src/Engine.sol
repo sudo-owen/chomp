@@ -236,7 +236,7 @@ contract Engine is IEngine {
             state.pRNGStream.push(rng);
 
             // Calculate the priority and non-priority player indices
-            priorityPlayerIndex = _computePriorityPlayerIndex(battleKey, rng);
+            priorityPlayerIndex = computePriorityPlayerIndex(battleKey, rng);
             uint256 otherPlayerIndex;
             if (priorityPlayerIndex == 0) {
                 otherPlayerIndex = 1;
@@ -682,25 +682,13 @@ contract Engine is IEngine {
         MonState storage currentMonState = state.monStates[playerIndex][state.activeMonIndex[playerIndex]];
         if (currentMonState.shouldSkipTurn) {
             currentMonState.shouldSkipTurn = false;
-
-            // If the move is NOT a switch, then we just return early
-            if (move.moveIndex != SWITCH_MOVE_INDEX) {
-                return playerSwitchForTurnFlag;
-            }
+            return playerSwitchForTurnFlag;
         }
 
-        // If either player has a KOed mon, then we also just return early without running the move
-        uint256 otherPlayerIndex = (playerIndex + 1) % 2;
-        {
-            bool isPlayerKOed = state.monStates[playerIndex][state.activeMonIndex[playerIndex]].isKnockedOut;
-            bool isOtherPlayerKOed =
-                state.monStates[otherPlayerIndex][state.activeMonIndex[otherPlayerIndex]].isKnockedOut;
-
-            // Only do this check for 2-player turns
-            // (Note that we check the current state's switch for turn flag)
-            if ((isPlayerKOed || isOtherPlayerKOed) && (state.playerSwitchForTurnFlag == 2)) {
-                return playerSwitchForTurnFlag;
-            }
+        // If we've already determined next turn only one player has to move, 
+        // this implies the other player has to switch, so we can just short circuit here
+        if (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1) {
+            return playerSwitchForTurnFlag;
         }
 
         // Handle a switch or a no-op
@@ -741,6 +729,7 @@ contract Engine is IEngine {
 
         // Set Game Over if true, and calculate and return switch for turn flag
         // (We check for both players)
+        uint256 otherPlayerIndex = (playerIndex + 1) % 2;
         (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(battleKey, playerIndex);
         (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(battleKey, otherPlayerIndex);
         return playerSwitchForTurnFlag;
@@ -850,7 +839,7 @@ contract Engine is IEngine {
         return playerSwitchForTurnFlag;
     }
 
-    function _computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) internal view returns (uint256) {
+    function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
         Battle storage battle = battles[battleKey];
         BattleState storage state = battleStates[battleKey];
         RevealedMove memory p0Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);

@@ -604,7 +604,7 @@ contract EffectTest is Test, BattleHelper {
 
     function test_zap() public {
         // Deploy an attack with burn status
-        IMoveSet zapAttack = standardAttackFactory.createAttack(
+        IMoveSet fasterThanSwapZap = standardAttackFactory.createAttack(
             ATTACK_PARAMS({
                 BASE_POWER: 0,
                 STAMINA_COST: 1,
@@ -615,13 +615,28 @@ contract EffectTest is Test, BattleHelper {
                 MOVE_CLASS: MoveClass.Physical,
                 CRIT_RATE: 0,
                 VOLATILITY: 0,
+                NAME: "ZapHitFast",
+                EFFECT: zapStatus
+            })
+        );
+        IMoveSet normalZap = standardAttackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 0,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 100,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
                 NAME: "ZapHit",
                 EFFECT: zapStatus
             })
         );
-
-        IMoveSet[] memory moves = new IMoveSet[](1);
-        moves[0] = zapAttack;
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = fasterThanSwapZap;
+        moves[1] = normalZap;
 
         // Create mons with HP = 256 for easy division by 16 (burn damage denominator)
         Mon memory fastMon = Mon({
@@ -667,11 +682,11 @@ contract EffectTest is Test, BattleHelper {
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        DefaultValidator twoMonOneMoveValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator validatorTouse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+        bytes32 battleKey = _startBattle(validatorTouse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -682,30 +697,36 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // But Alice should outspeed Bob, so Bob should have zero stamina delta
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 0);
-
         // Whereas Alice should have -1 stamina delta
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 0);
         assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -1);
 
         // Alice uses Zap, Bob switches to mon index 1
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, SWITCH_MOVE_INDEX, "", abi.encode(1));
 
-        // Bob's mon index 0 should not have the skip turn flag because they swapped out
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.ShouldSkipTurn), 0);
+        // The move should outspeed the swap, so the swap doesn't happen
+        // So Bob's active mon index should still be 0
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 0);
 
-        // Also effect should still be there for Bob's mon index 0
-        (, bytes[] memory extraData) = engine.getEffects(battleKey, 1, 0);
-        assertEq(extraData.length, 1);
+        // Alice uses slower Zap, Bob switches to mon index 1
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, SWITCH_MOVE_INDEX, "", abi.encode(1));
 
-        // Bob switches back to mon index 0, Alice does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0)
-        );
+        // Bob's active mon index should be 1 (swap goes before getting Zapped)
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
 
-        // Bob's mon index 0 should have the skip turn flag set (the effect triggers on on switch in)
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.ShouldSkipTurn), 1);
+        // Bob's active mon should have the Zap effect
+        (IEffect[] memory effects, bytes[] memory extraData) = engine.getEffects(battleKey, 1, 1);
+        assertEq(effects.length, 1);
 
-        (, extraData) = engine.getEffects(battleKey, 1, 0);
+        // Alice does nothing, Bob attempts to switch to mon index 1
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0));
+
+        // Nothing happens because the Zap occurred
+        // Check that Bob's active mon index is still 1 and the effect is removed
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
+        (effects, extraData) = engine.getEffects(battleKey, 1, 1);
+        assertEq(effects.length, 0);
+
         assertEq(extraData.length, 0);
     }
 

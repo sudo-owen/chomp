@@ -23,12 +23,14 @@ contract PanicStatus is StatusEffect {
     }
 
     // At the start of the turn, check to see if we should apply stamina debuff or end early
-    function onRoundStart(uint256 rng, bytes memory extraData, uint256, uint256)
+    function onRoundStart(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
         pure
         override
         returns (bytes memory, bool)
-    {
+    {   
+        // Set rng to be unique to the target index and mon index
+        rng = uint256(keccak256(abi.encode(rng, targetIndex, monIndex)));
         bool wakeEarly = rng % 3 == 0;
         if (wakeEarly) {
             return (extraData, true);

@@ -28,6 +28,7 @@ interface IEngine {
 
     // Getters
     function computeBattleKey(address p0, address p1) external view returns (bytes32 battleKey, bytes32 pairHash);
+    function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256);
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager);
     function getBattle(bytes32 battleKey) external view returns (Battle memory);
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory);

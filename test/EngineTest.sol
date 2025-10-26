@@ -29,6 +29,7 @@ import {ForceSwitchMove} from "./mocks/ForceSwitchMove.sol";
 import {GlobalEffectAttack} from "./mocks/GlobalEffectAttack.sol";
 import {InstantDeathEffect} from "./mocks/InstantDeathEffect.sol";
 import {InstantDeathOnSwitchInEffect} from "./mocks/InstantDeathOnSwitchInEffect.sol";
+import {SelfSwitchAndDamageMove} from "./mocks/SelfSwitchAndDamageMove.sol";
 import {InvalidMove} from "./mocks/InvalidMove.sol";
 import {MockRandomnessOracle} from "./mocks/MockRandomnessOracle.sol";
 
@@ -3024,5 +3025,32 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
         bytes32 newBattleKey = _startDummyBattleWithTwoMons();
         assertNotEq(battleKey, newBattleKey);
+    }
+
+    function test_swapPlusDamageCorrectlySetsSwitchForTurnFlagAndSkipsKOMove() public {
+        IMoveSet[] memory moves = new IMoveSet[](1);
+        moves[0] = new SelfSwitchAndDamageMove(engine, 1);
+        Mon memory mon = _createMon();
+        mon.moves = moves;
+        Mon[] memory team = new Mon[](2);
+        Mon memory fastMon = _createMon();
+        fastMon.moves = moves;
+        fastMon.stats.speed = 2;
+        team[0] = mon;
+        team[1] = fastMon;
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        );
+        bytes32 battleKey = _startBattle(validatorToUse, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
+        // Alice sends in mon index 0, Bob sends in the fast mon
+        _commitRevealExecuteForAliceAndBob(battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(1));
+        // Both players pick move index 0
+        _commitRevealExecuteForAliceAndBob(battleKey, 0, 0, abi.encode(1), abi.encode(0));
+        // Switch for turn flag should be 0, Bob's active mon index should now be 0
+        BattleState memory state = engine.getBattleState(battleKey);
+        assertEq(state.playerSwitchForTurnFlag, 0);
+        assertEq(state.activeMonIndex[1], 0);
     }
 }
