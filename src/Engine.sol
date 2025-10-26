@@ -1071,4 +1071,8 @@ contract Engine is IEngine {
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager) {
         return battles[battleKey].moveManager;
     }
+
+    function getPriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256) {
+        return _computePriorityPlayerIndex(battleKey, rng);
+    }
 }

@@ -603,14 +603,14 @@ contract EffectTest is Test, BattleHelper {
     }
 
     function test_zap() public {
-        // Deploy an attack with burn status
+        // Deploy an attack with zap status
         IMoveSet zapAttack = standardAttackFactory.createAttack(
             ATTACK_PARAMS({
                 BASE_POWER: 0,
                 STAMINA_COST: 1,
                 ACCURACY: 100,
-                PRIORITY: uint32(SWITCH_PRIORITY) + 1, // Make it faster than switching
-                MOVE_TYPE: Type.Fire,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Electric,
                 EFFECT_ACCURACY: 100,
                 MOVE_CLASS: MoveClass.Physical,
                 CRIT_RATE: 0,
@@ -620,93 +620,128 @@ contract EffectTest is Test, BattleHelper {
             })
         );
 
-        IMoveSet[] memory moves = new IMoveSet[](1);
-        moves[0] = zapAttack;
+        IMoveSet noOpAttack = standardAttackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 0,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Normal,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "NoOp",
+                EFFECT: IEffect(address(0))
+            })
+        );
 
-        // Create mons with HP = 256 for easy division by 16 (burn damage denominator)
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = zapAttack;
+        moves[1] = noOpAttack;
+
+        // Fast mon (Alice) - higher speed
         Mon memory fastMon = Mon({
             stats: MonStats({
-                hp: 256,
+                hp: 100,
                 stamina: 10,
-                speed: 5,
-                attack: 32, // Use 32 for easy division by 2 (attack reduction denominator)
-                defense: 5,
-                specialAttack: 5,
-                specialDefense: 5,
+                speed: 10,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 10,
                 type1: Type.Fire,
                 type2: Type.None
             }),
             moves: moves,
             ability: IAbility(address(0))
         });
+
+        // Slow mon (Bob) - lower speed
         Mon memory slowMon = Mon({
             stats: MonStats({
-                hp: 256,
+                hp: 100,
                 stamina: 10,
                 speed: 1,
-                attack: 32, // Use 32 for easy division by 2 (attack reduction denominator)
-                defense: 5,
-                specialAttack: 5,
-                specialDefense: 5,
-                type1: Type.Fire,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 10,
+                type1: Type.Water,
                 type2: Type.None
             }),
             moves: moves,
             ability: IAbility(address(0))
         });
 
-        Mon[] memory fastTeam = new Mon[](2);
+        Mon[] memory fastTeam = new Mon[](1);
         fastTeam[0] = fastMon;
-        fastTeam[1] = fastMon;
 
-        Mon[] memory slowTeam = new Mon[](2);
+        Mon[] memory slowTeam = new Mon[](1);
         slowTeam[0] = slowMon;
-        slowTeam[1] = slowMon;
 
-        // Register both teams
+        // Register both teams (Alice gets fast team, Bob gets slow team)
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
 
-        DefaultValidator twoMonOneMoveValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator twoMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(twoMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+        bytes32 battleKey = _startBattle(twoMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Alice and Bob both select attacks, both of them are move index 0 (apply zap status)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
+        // Test Case 1: Fast player (Alice) uses Zap on slow player (Bob)
+        // Bob hasn't moved yet, so skip flag should be set immediately
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 1, "", "");
 
-        // But Alice should outspeed Bob, so Bob should have zero stamina delta
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 0);
+        BattleState memory state = engine.getBattleState(battleKey);
 
-        // Whereas Alice should have -1 stamina delta
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -1);
+        // Alice should have used stamina
+        assertEq(state.monStates[0][0].staminaDelta, -1);
 
-        // Alice uses Zap, Bob switches to mon index 1
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, SWITCH_MOVE_INDEX, "", abi.encode(1));
+        // Bob should have been skipped (no stamina used)
+        assertEq(state.monStates[1][0].staminaDelta, 0);
 
-        // Bob's mon index 0 should not have the skip turn flag because they swapped out
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.ShouldSkipTurn), 0);
+        // Bob should have the skip flag set
+        assertEq(state.monStates[1][0].shouldSkipTurn, false); // Should be cleared after turn
 
-        // Also effect should still be there for Bob's mon index 0
-        (, bytes[] memory extraData) = engine.getEffects(battleKey, 1, 0);
-        assertEq(extraData.length, 1);
+        // Zap effect should be removed from Bob at end of turn
+        assertEq(state.monStates[1][0].targetedEffects.length, 0);
 
-        // Bob switches back to mon index 0, Alice does nothing
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0)
-        );
+        // Test Case 2: Slow player (Bob) uses Zap on fast player (Alice)
+        // Alice has already moved, so skip flag should NOT be set yet
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 0, "", "");
 
-        // Bob's mon index 0 should have the skip turn flag set (the effect triggers on on switch in)
-        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.ShouldSkipTurn), 1);
+        state = engine.getBattleState(battleKey);
 
-        (, extraData) = engine.getEffects(battleKey, 1, 0);
-        assertEq(extraData.length, 0);
+        // Both should have used stamina (Alice for noOp, Bob for Zap)
+        assertEq(state.monStates[0][0].staminaDelta, -2);
+        assertEq(state.monStates[1][0].staminaDelta, -1);
+
+        // Alice should NOT have skip flag set yet
+        assertEq(state.monStates[0][0].shouldSkipTurn, false);
+
+        // Alice should have the Zap effect (not removed yet)
+        assertEq(state.monStates[0][0].targetedEffects.length, 1);
+
+        // Next turn: Alice should be skipped at the beginning
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 1, "", "");
+
+        state = engine.getBattleState(battleKey);
+
+        // Alice should have been skipped (no additional stamina used)
+        assertEq(state.monStates[0][0].staminaDelta, -2);
+
+        // Bob should have used stamina
+        assertEq(state.monStates[1][0].staminaDelta, -2);
+
+        // Zap effect should now be removed from Alice
+        assertEq(state.monStates[0][0].targetedEffects.length, 0);
     }
 
     function test_staminaRegen() public {

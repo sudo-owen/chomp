@@ -63,4 +63,5 @@ interface IEngine {
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
     function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256);
     function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory);
+    function getPriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256);
 }
