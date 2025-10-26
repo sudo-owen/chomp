@@ -744,6 +744,150 @@ contract EffectTest is Test, BattleHelper {
         assertEq(state.monStates[0][0].targetedEffects.length, 0);
     }
 
+    function test_zap_with_switch() public {
+        // Deploy an attack with zap status
+        IMoveSet zapAttack = standardAttackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 0,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Electric,
+                EFFECT_ACCURACY: 100,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "ZapHit",
+                EFFECT: zapStatus
+            })
+        );
+
+        IMoveSet noOpAttack = standardAttackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 0,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Normal,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "NoOp",
+                EFFECT: IEffect(address(0))
+            })
+        );
+
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = zapAttack;
+        moves[1] = noOpAttack;
+
+        // Fast mon (Alice) - higher speed
+        Mon memory fastMon = Mon({
+            stats: MonStats({
+                hp: 100,
+                stamina: 10,
+                speed: 10,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 10,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0))
+        });
+
+        // Slow mon (Bob) - lower speed
+        Mon memory slowMon = Mon({
+            stats: MonStats({
+                hp: 100,
+                stamina: 10,
+                speed: 1,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 10,
+                type1: Type.Water,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0))
+        });
+
+        Mon[] memory fastTeam = new Mon[](2);
+        fastTeam[0] = fastMon;
+        fastTeam[1] = fastMon;
+
+        Mon[] memory slowTeam = new Mon[](2);
+        slowTeam[0] = slowMon;
+        slowTeam[1] = slowMon;
+
+        // Register both teams (Alice gets fast team, Bob gets slow team)
+        defaultRegistry.setTeam(ALICE, fastTeam);
+        defaultRegistry.setTeam(BOB, slowTeam);
+
+        DefaultValidator twoMonTwoMoveValidator = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 2, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        );
+
+        bytes32 battleKey =
+            _startBattle(twoMonTwoMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+
+        // First move of the game has to be selecting their mons (both index 0)
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Test Case: Slow player (Bob) uses Zap on fast player (Alice), then Alice switches out
+        // Alice has already moved, so skip flag should NOT be set immediately (state = NOT_YET_SKIPPED)
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 0, "", "");
+
+        BattleState memory state = engine.getBattleState(battleKey);
+
+        // Alice should have the Zap effect with state = NOT_YET_SKIPPED
+        assertEq(state.monStates[0][0].targetedEffects.length, 1);
+        assertEq(state.monStates[0][0].shouldSkipTurn, false);
+
+        // Alice switches to mon index 1, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 1, abi.encode(1), ""
+        );
+
+        state = engine.getBattleState(battleKey);
+
+        // Alice's mon index 0 should still have the Zap effect (effects persist on inactive mons)
+        assertEq(state.monStates[0][0].targetedEffects.length, 1);
+        assertEq(state.monStates[0][0].shouldSkipTurn, false);
+
+        // Alice switches back to mon index 0, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 1, abi.encode(0), ""
+        );
+
+        state = engine.getBattleState(battleKey);
+
+        // After switching in, the skip flag should be set by onMonSwitchIn
+        // But state should still be NOT_YET_SKIPPED (will be skipped at next RoundStart)
+        assertEq(state.monStates[0][0].shouldSkipTurn, true);
+        assertEq(state.monStates[0][0].targetedEffects.length, 1); // Effect still present
+
+        // Next turn: Alice tries to move but should be skipped at RoundStart
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 1, "", "");
+
+        state = engine.getBattleState(battleKey);
+
+        // Alice should have been skipped (skip flag was set from switch in, then cleared after skip)
+        assertEq(state.monStates[0][0].shouldSkipTurn, false);
+
+        // Alice should have no stamina change (move was skipped)
+        assertEq(state.monStates[0][0].staminaDelta, 0);
+
+        // Zap effect should now be removed (state transitioned to ALREADY_SKIPPED at RoundStart, removed at RoundEnd)
+        assertEq(state.monStates[0][0].targetedEffects.length, 0);
+    }
+
     function test_staminaRegen() public {
         StaminaRegen regen = new StaminaRegen(engine);
         IEffect[] memory effects = new IEffect[](1);
