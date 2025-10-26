@@ -70,13 +70,12 @@ CONSIDER: renaming Storm to be something that implies it isn't global (both team
 Aurox: NEW MON
 Type: Metal
 Aurox is designed to be tanky. Limited offensive options, but a strong defensive option, hard countering most status effects.
-Ability: Long and Strong
-After taking damage, gain 5% attack boost.
+Ability: Up Only: After taking damage, gain 5% attack boost. Permanent.
 Moves:
-- Volatile Punch: 3 stamina, 50 power, 15% chance of Burn, 15% chance of Frostbite for self and opponent, deals 10% max hp to self.
-- Gilded Recovery: 2 stamina. Select a mon and heal it of any status conditions. If successful, Aurox also heals 50% of max HP and the healed mon gets +1 stamina.
-- Iron Wall: 2 stamina, Until the end of next turn, when Aurox takes damage, heal 50% of it.
-- Bull Rush: 3 stamina, 80 power, deals 10% max hp damage to self.
+- Volatile Punch: Metal, 3 stamina, 50 power, 15% chance of Burn, 15% chance of Frostbite for self and opponent, deals 10% max hp to self.
+- Gilded Recovery: Mythic, 2 stamina. Select a mon and heal it of any status conditions. If successful, Aurox also heals 50% of max HP and the healed mon gets +1 stamina.
+- Iron Wall: Metal, 2 stamina, Until the end of next turn, when Aurox takes damage, heal 50% of it.
+- Bull Rush: Metal, 3 stamina, 80 power, deals 10% max hp damage to self.
 
 Xmon: NEW MON
 Type: Cosmic
