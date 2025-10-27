@@ -8,8 +8,6 @@ out/
 /broadcast/**/dry-run/
 /broadcast
 
-# Docs
-docs/
 log.txt
 
 # Dotenv file

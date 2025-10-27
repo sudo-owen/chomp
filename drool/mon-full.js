@@ -27,12 +27,32 @@ document.addEventListener("DOMContentLoaded", async function () {
     function goToPrevMon() {
         monIndex = (monIndex - 1 + monsFromCsv.length) % monsFromCsv.length;
         showActiveMon();
+        updateUrlHash();
     }
 
     // Function to navigate to next monster
     function goToNextMon() {
         monIndex = (monIndex + 1 + monsFromCsv.length) % monsFromCsv.length;
         showActiveMon();
+        updateUrlHash();
+    }
+
+    // Function to navigate to a specific mon by index
+    function goToMon(index) {
+        if (index >= 0 && index < monsFromCsv.length) {
+            monIndex = index;
+            showActiveMon();
+            updateUrlHash();
+        }
+    }
+
+    // Function to update URL hash with current mon index
+    function updateUrlHash() {
+        // Only update hash if we're on the mons tab
+        const monsTabActive = document.querySelector(".tab[data-tab='mons']").classList.contains("active");
+        if (monsTabActive) {
+            window.history.replaceState(null, null, `#mons${monIndex}`);
+        }
     }
 
     // Bind to prev/next buttons to update index
@@ -54,8 +74,25 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     });
 
-    // Show the first mon
-    showActiveMon();
+    // Listen for navigate-to-mon events from URL hash changes
+    document.addEventListener("navigate-to-mon", (event) => {
+        goToMon(event.detail.index);
+    });
+
+    // Check if there's a hash on initial load
+    const initialHash = window.location.hash.substring(1);
+    const monsMatch = initialHash.match(/^mons(\d+)$/);
+    if (monsMatch) {
+        const initialIndex = parseInt(monsMatch[1], 10);
+        goToMon(initialIndex);
+    } else if (!initialHash || initialHash === 'mons') {
+        // Only show first mon and update hash if no hash or just #mons
+        showActiveMon();
+        updateUrlHash();
+    } else {
+        // For other hashes (like #stats), just show the first mon without updating hash
+        showActiveMon();
+    }
 
     // Create all monster elements but hide them
     function createAllMonElements(mons, maxStats, movesData) {

@@ -262,6 +262,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderMovesTable() {
+      // Render table headers dynamically
+      const movesTableHead = movesTable.querySelector("thead tr");
+      movesTableHead.innerHTML = "";
+
+      columns.forEach((column) => {
+        const th = document.createElement("th");
+        th.textContent = column.name;
+        movesTableHead.appendChild(th);
+      });
+
       const movesTableBody = movesTable.querySelector("tbody");
       movesTableBody.innerHTML = "";
 
@@ -505,6 +515,28 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             td.appendChild(select);
+          } else if (column.name === "DevDescription" || column.name === "UserDescription") {
+            // Use textarea for description fields to support multi-line editing
+            const textarea = document.createElement("textarea");
+            textarea.style.width = "100%";
+            textarea.style.minWidth = "200px";
+            textarea.style.minHeight = "60px";
+            textarea.style.padding = "4px";
+            textarea.style.backgroundColor = "transparent";
+            textarea.style.border = "1px solid #444";
+            textarea.style.color = "inherit";
+            textarea.style.fontFamily = "inherit";
+            textarea.style.fontSize = "inherit";
+            textarea.style.resize = "vertical";
+            textarea.value = row[column.name] || "";
+
+            textarea.addEventListener("blur", (e) => {
+              data[rowIndex][column.name] = e.target.value;
+              markUnsavedChanges();
+              notifyMovesDataUpdated();
+            });
+
+            td.appendChild(textarea);
           } else {
             if (column.editable) {
               td.contentEditable = true;

@@ -157,11 +157,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Handle special case for stats hash which should activate data tab
       if (hash === "stats") {
-        activateTab("data");
+        activateTab("stats");
         // Update mobile dropdown to match
         if (mobileTabsSelect) {
-          mobileTabsSelect.value = "data";
+          mobileTabsSelect.value = "stats";
         }
+        return;
+      }
+
+      // Handle mons with index pattern (e.g., #mons0, #mons1)
+      const monsMatch = hash.match(/^mons(\d+)$/);
+      if (monsMatch) {
+        const monIndex = parseInt(monsMatch[1], 10);
+        activateTab("mons");
+        // Update mobile dropdown to match
+        if (mobileTabsSelect) {
+          mobileTabsSelect.value = "mons";
+        }
+        // Dispatch event to navigate to specific mon
+        document.dispatchEvent(new CustomEvent("navigate-to-mon", { detail: { index: monIndex } }));
         return;
       }
 
@@ -177,7 +191,11 @@ document.addEventListener("DOMContentLoaded", function () {
     // Listen for hash changes (browser back/forward buttons)
     window.addEventListener("hashchange", checkUrlHash);
 
-    // Check hash when page loads
+    // Initialize tables first, then check hash
+    renderDataTable();
+    notifyDataUpdated(); // Notify other components about initial data
+
+    // Check hash when page loads (after rendering)
     checkUrlHash();
 
     // Add event listener for keyboard shortcuts
@@ -194,10 +212,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
     });
-
-    // Initialize tables
-    renderDataTable();
-    notifyDataUpdated(); // Notify other components about initial data
 
     // Functions
     function renderDataTable() {
