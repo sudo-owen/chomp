@@ -97,37 +97,22 @@ contract AuroxTest is Test, BattleHelper {
         );
 
         // Use HP that's a multiple of 100 to avoid precision errors
-        Mon memory aliceMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Metal,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory aliceMon = _createMon();
+        aliceMon.stats.hp = 1000;
+        aliceMon.stats.speed = 10;
+        aliceMon.stats.defense = 10;
+        aliceMon.stats.specialAttack = 10;
+        aliceMon.stats.specialDefense = 10;
+        aliceMon.stats.type1 = Type.Metal;
+        aliceMon.moves = aliceMoves;
 
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 5,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory bobMon = _createMon();
+        bobMon.stats.hp = 1000;
+        bobMon.stats.speed = 5;
+        bobMon.stats.defense = 10;
+        bobMon.stats.specialAttack = 10;
+        bobMon.stats.specialDefense = 10;
+        bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](1);
         aliceTeam[0] = aliceMon;
@@ -205,37 +190,22 @@ contract AuroxTest is Test, BattleHelper {
         bobMoves[1] = damageAttack;
 
         // Use HP that's a multiple of the heal denominator (100 / 50 = 2)
-        Mon memory aliceMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Metal,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory aliceMon = _createMon();
+        aliceMon.stats.hp = 1000;
+        aliceMon.stats.speed = 10;
+        aliceMon.stats.defense = 10;
+        aliceMon.stats.specialAttack = 10;
+        aliceMon.stats.specialDefense = 10;
+        aliceMon.stats.type1 = Type.Metal;
+        aliceMon.moves = aliceMoves;
 
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 5,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory bobMon = _createMon();
+        bobMon.stats.hp = 1000;
+        bobMon.stats.speed = 5;
+        bobMon.stats.defense = 10;
+        bobMon.stats.specialAttack = 10;
+        bobMon.stats.specialDefense = 10;
+        bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](2);
         aliceTeam[0] = aliceMon;
@@ -338,37 +308,22 @@ contract AuroxTest is Test, BattleHelper {
         bobMoves[0] = damageAttack;
         bobMoves[1] = damageAttack;
 
-        Mon memory aliceMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Metal,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory aliceMon = _createMon();
+        aliceMon.stats.hp = 1000;
+        aliceMon.stats.speed = 10;
+        aliceMon.stats.defense = 10;
+        aliceMon.stats.specialAttack = 10;
+        aliceMon.stats.specialDefense = 10;
+        aliceMon.stats.type1 = Type.Metal;
+        aliceMon.moves = aliceMoves;
 
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 5,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory bobMon = _createMon();
+        bobMon.stats.hp = 1000;
+        bobMon.stats.speed = 5;
+        bobMon.stats.defense = 10;
+        bobMon.stats.specialAttack = 10;
+        bobMon.stats.specialDefense = 10;
+        bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](1);
         aliceTeam[0] = aliceMon;
@@ -489,53 +444,34 @@ contract AuroxTest is Test, BattleHelper {
         bobMoves[0] = weakAttack;
         bobMoves[1] = normalAttack;
 
-        Mon memory aliceMonWithUpOnly = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 5,
-                attack: 100,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Metal,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(upOnly))
-        });
+        Mon memory aliceMonWithUpOnly = _createMon();
+        aliceMonWithUpOnly.stats.hp = 1000;
+        aliceMonWithUpOnly.stats.speed = 5;
+        aliceMonWithUpOnly.stats.attack = 100;
+        aliceMonWithUpOnly.stats.defense = 10;
+        aliceMonWithUpOnly.stats.specialAttack = 10;
+        aliceMonWithUpOnly.stats.specialDefense = 10;
+        aliceMonWithUpOnly.stats.type1 = Type.Metal;
+        aliceMonWithUpOnly.moves = aliceMoves;
+        aliceMonWithUpOnly.ability = IAbility(address(upOnly));
 
-        Mon memory aliceMonRegular = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 5,
-                attack: 100,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Metal,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory aliceMonRegular = _createMon();
+        aliceMonRegular.stats.hp = 1000;
+        aliceMonRegular.stats.speed = 5;
+        aliceMonRegular.stats.attack = 100;
+        aliceMonRegular.stats.defense = 10;
+        aliceMonRegular.stats.specialAttack = 10;
+        aliceMonRegular.stats.specialDefense = 10;
+        aliceMonRegular.stats.type1 = Type.Metal;
+        aliceMonRegular.moves = aliceMoves;
 
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory bobMon = _createMon();
+        bobMon.stats.hp = 1000;
+        bobMon.stats.speed = 10;
+        bobMon.stats.defense = 10;
+        bobMon.stats.specialAttack = 10;
+        bobMon.stats.specialDefense = 10;
+        bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](2);
         aliceTeam[0] = aliceMonWithUpOnly;
@@ -649,37 +585,22 @@ contract AuroxTest is Test, BattleHelper {
             })
         );
 
-        Mon memory aliceMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Metal,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory aliceMon = _createMon();
+        aliceMon.stats.hp = 1000;
+        aliceMon.stats.speed = 10;
+        aliceMon.stats.defense = 10;
+        aliceMon.stats.specialAttack = 10;
+        aliceMon.stats.specialDefense = 10;
+        aliceMon.stats.type1 = Type.Metal;
+        aliceMon.moves = aliceMoves;
 
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 10,
-                speed: 5,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0))
-        });
+        Mon memory bobMon = _createMon();
+        bobMon.stats.hp = 1000;
+        bobMon.stats.speed = 5;
+        bobMon.stats.defense = 10;
+        bobMon.stats.specialAttack = 10;
+        bobMon.stats.specialDefense = 10;
+        bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](1);
         aliceTeam[0] = aliceMon;
