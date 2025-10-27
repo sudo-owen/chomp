@@ -100,18 +100,12 @@ contract AuroxTest is Test, BattleHelper {
         Mon memory aliceMon = _createMon();
         aliceMon.stats.hp = 1000;
         aliceMon.stats.speed = 10;
-        aliceMon.stats.defense = 10;
-        aliceMon.stats.specialAttack = 10;
-        aliceMon.stats.specialDefense = 10;
         aliceMon.stats.type1 = Type.Metal;
         aliceMon.moves = aliceMoves;
 
         Mon memory bobMon = _createMon();
         bobMon.stats.hp = 1000;
         bobMon.stats.speed = 5;
-        bobMon.stats.defense = 10;
-        bobMon.stats.specialAttack = 10;
-        bobMon.stats.specialDefense = 10;
         bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](1);
@@ -193,18 +187,12 @@ contract AuroxTest is Test, BattleHelper {
         Mon memory aliceMon = _createMon();
         aliceMon.stats.hp = 1000;
         aliceMon.stats.speed = 10;
-        aliceMon.stats.defense = 10;
-        aliceMon.stats.specialAttack = 10;
-        aliceMon.stats.specialDefense = 10;
         aliceMon.stats.type1 = Type.Metal;
         aliceMon.moves = aliceMoves;
 
         Mon memory bobMon = _createMon();
         bobMon.stats.hp = 1000;
         bobMon.stats.speed = 5;
-        bobMon.stats.defense = 10;
-        bobMon.stats.specialAttack = 10;
-        bobMon.stats.specialDefense = 10;
         bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](2);
@@ -311,18 +299,12 @@ contract AuroxTest is Test, BattleHelper {
         Mon memory aliceMon = _createMon();
         aliceMon.stats.hp = 1000;
         aliceMon.stats.speed = 10;
-        aliceMon.stats.defense = 10;
-        aliceMon.stats.specialAttack = 10;
-        aliceMon.stats.specialDefense = 10;
         aliceMon.stats.type1 = Type.Metal;
         aliceMon.moves = aliceMoves;
 
         Mon memory bobMon = _createMon();
         bobMon.stats.hp = 1000;
         bobMon.stats.speed = 5;
-        bobMon.stats.defense = 10;
-        bobMon.stats.specialAttack = 10;
-        bobMon.stats.specialDefense = 10;
         bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](1);
@@ -448,9 +430,6 @@ contract AuroxTest is Test, BattleHelper {
         aliceMonWithUpOnly.stats.hp = 1000;
         aliceMonWithUpOnly.stats.speed = 5;
         aliceMonWithUpOnly.stats.attack = 100;
-        aliceMonWithUpOnly.stats.defense = 10;
-        aliceMonWithUpOnly.stats.specialAttack = 10;
-        aliceMonWithUpOnly.stats.specialDefense = 10;
         aliceMonWithUpOnly.stats.type1 = Type.Metal;
         aliceMonWithUpOnly.moves = aliceMoves;
         aliceMonWithUpOnly.ability = IAbility(address(upOnly));
@@ -459,18 +438,12 @@ contract AuroxTest is Test, BattleHelper {
         aliceMonRegular.stats.hp = 1000;
         aliceMonRegular.stats.speed = 5;
         aliceMonRegular.stats.attack = 100;
-        aliceMonRegular.stats.defense = 10;
-        aliceMonRegular.stats.specialAttack = 10;
-        aliceMonRegular.stats.specialDefense = 10;
         aliceMonRegular.stats.type1 = Type.Metal;
         aliceMonRegular.moves = aliceMoves;
 
         Mon memory bobMon = _createMon();
         bobMon.stats.hp = 1000;
         bobMon.stats.speed = 10;
-        bobMon.stats.defense = 10;
-        bobMon.stats.specialAttack = 10;
-        bobMon.stats.specialDefense = 10;
         bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](2);
@@ -588,18 +561,12 @@ contract AuroxTest is Test, BattleHelper {
         Mon memory aliceMon = _createMon();
         aliceMon.stats.hp = 1000;
         aliceMon.stats.speed = 10;
-        aliceMon.stats.defense = 10;
-        aliceMon.stats.specialAttack = 10;
-        aliceMon.stats.specialDefense = 10;
         aliceMon.stats.type1 = Type.Metal;
         aliceMon.moves = aliceMoves;
 
         Mon memory bobMon = _createMon();
         bobMon.stats.hp = 1000;
         bobMon.stats.speed = 5;
-        bobMon.stats.defense = 10;
-        bobMon.stats.specialAttack = 10;
-        bobMon.stats.specialDefense = 10;
         bobMon.moves = bobMoves;
 
         Mon[] memory aliceTeam = new Mon[](1);
