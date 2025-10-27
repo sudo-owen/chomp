@@ -3,8 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
-import {IEngine} from "../src/IEngine.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
+import {Engine} from "../src/Engine.sol";
 
 struct DeployData {
     string name;
@@ -16,10 +15,9 @@ contract Surgery is Script {
 
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
-        DefaultMatchmaker matchmaker = new DefaultMatchmaker(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));
+        Engine engine = new Engine();
+        deployedContracts.push(DeployData({name: "ENGINE", contractAddress: address(engine)}));
         vm.stopBroadcast();
-
         return deployedContracts;
     }
 }

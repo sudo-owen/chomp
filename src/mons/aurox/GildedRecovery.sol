@@ -44,25 +44,25 @@ contract GildedRecovery is IMoveSet {
                     break;
                 }
             }
+            // Give +1 stamina
+            ENGINE.updateMonState(attackerPlayerIndex, targetMonIndex, MonStateIndexName.Stamina, STAMINA_BONUS);
 
-            // Heal 50% of max HP
+            // Heal 50% of max HP for self
+            uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
             int32 maxHp =
-                int32(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, targetMonIndex, MonStateIndexName.Hp));
+                int32(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp));
             int32 healAmount = (maxHp * HEAL_PERCENT) / 100;
 
             // Don't overheal
             int32 currentHpDelta =
-                ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, targetMonIndex, MonStateIndexName.Hp);
+                ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
             if (currentHpDelta + healAmount > 0) {
                 healAmount = -currentHpDelta;
             }
 
             if (healAmount != 0) {
-                ENGINE.updateMonState(attackerPlayerIndex, targetMonIndex, MonStateIndexName.Hp, healAmount);
+                ENGINE.updateMonState(attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp, healAmount);
             }
-
-            // Give +1 stamina
-            ENGINE.updateMonState(attackerPlayerIndex, targetMonIndex, MonStateIndexName.Stamina, STAMINA_BONUS);
         }
         // If no status effect, do nothing
     }

@@ -49,14 +49,14 @@ contract EngineAndPeriphery is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
+        TypeCalculator typeCalc = new TypeCalculator();
+        deployedContracts.push(DeployData({name: "TYPE CALCULATOR", contractAddress: address(typeCalc)}));
+
         Engine engine = new Engine();
         deployedContracts.push(DeployData({name: "ENGINE", contractAddress: address(engine)}));
 
         DefaultCommitManager commitManager = new DefaultCommitManager(engine);
         deployedContracts.push(DeployData({name: "COMMIT MANAGER", contractAddress: address(commitManager)}));
-
-        TypeCalculator typeCalc = new TypeCalculator();
-        deployedContracts.push(DeployData({name: "TYPE CALCULATOR", contractAddress: address(typeCalc)}));
 
         DefaultMonRegistry monRegistry = new DefaultMonRegistry();
         deployedContracts.push(DeployData({name: "DEFAULT MON REGISTRY", contractAddress: address(monRegistry)}));
@@ -99,6 +99,7 @@ contract EngineAndPeriphery is Script {
         deployedContracts.push(DeployData({name: "BATTLE HISTORY", contractAddress: address(battleHistory)}));
 
         deployGameFundamentals(engine);
+        
         vm.stopBroadcast();
         return deployedContracts;
     }

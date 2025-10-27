@@ -138,7 +138,7 @@ abstract contract BattleHelper is Test {
                 hp: 1,
                 stamina: 10,
                 speed: 1,
-                attack: 10,
+                attack: 1,
                 defense: 1,
                 specialAttack: 1,
                 specialDefense: 1,
