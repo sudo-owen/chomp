@@ -55,7 +55,7 @@ contract VolatilePunch is StandardAttack {
                 ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[defenderPlayerIndex];
 
             // Use a different part of the RNG for status application
-            uint256 statusRng = uint256(keccak256(abi.encode(rng, "BURN")));
+            uint256 statusRng = uint256(keccak256(abi.encode(rng, "STATUS_EFFECT")));
 
             // 30% chance for Burn or Frostbite
             if ((statusRng % 100) < STATUS_EFFECT_CHANCE) {

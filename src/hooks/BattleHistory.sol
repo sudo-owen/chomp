@@ -4,19 +4,17 @@ pragma solidity ^0.8.0;
 import {IEngineHook} from "../IEngineHook.sol";
 import {IEngine} from "../IEngine.sol";
 import {Battle, BattleState} from "../Structs.sol";
-import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 
 /// @title BattleHistory
 /// @notice Tracks battle statistics for all players including total battles fought and wins/losses
 contract BattleHistory is IEngineHook {
-    using EnumerableSetLib for EnumerableSetLib.AddressSet;
 
     IEngine public immutable engine;
     
     mapping(address => uint256) private _numBattles;
 
     // Mapping from player address to set of all opponents fought
-    mapping(address => EnumerableSetLib.AddressSet) private _opponents;
+    mapping(address => address[]) private _opponents;
 
     // Mapping from player pair to battle summary
     // Key is keccak256(abi.encodePacked(p0, p1)) where p0 < p1
@@ -51,8 +49,8 @@ contract BattleHistory is IEngineHook {
         _numBattles[p1]++;
 
         // Add opponents to each player's set
-        _opponents[p0].add(p1);
-        _opponents[p1].add(p0);
+        _opponents[p0].push(p1);
+        _opponents[p1].push(p0);
 
         // Update battle summary for this pair
         bytes32 pairKey = _getPairKey(p0, p1);
@@ -96,14 +94,14 @@ contract BattleHistory is IEngineHook {
     /// @param player The player address
     /// @return Array of opponent addresses
     function getOpponents(address player) external view returns (address[] memory) {
-        return _opponents[player].values();
+        return _opponents[player];
     }
 
     /// @notice Get the number of unique opponents a player has fought
     /// @param player The player address
     /// @return Number of unique opponents
     function getNumOpponents(address player) external view returns (uint256) {
-        return _opponents[player].length();
+        return _opponents[player].length;
     }
 
     /// @dev Sort two addresses and return them in ascending order

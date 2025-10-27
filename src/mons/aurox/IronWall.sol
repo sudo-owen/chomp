@@ -38,7 +38,7 @@ contract IronWall is IMoveSet, BasicEffect {
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 2;
+        return 3;
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {
