@@ -279,7 +279,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                                                 <span class="stat-icon">🎯</span> ${move.Accuracy || '-'}%
                                             </div>
                                         </div>
-                                        ${move.Description ? `<div class="move-description">${move.Description}</div>` : ''}
+                                        ${move.DevDescription ? `<div class="move-description">${move.DevDescription}</div>` : ''}
                                     </div>
                                 `;
                             }).join('')}
