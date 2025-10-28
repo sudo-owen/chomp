@@ -248,7 +248,7 @@ contract AuroxTest is Test, BattleHelper {
         IronWall ironWall = new IronWall(IEngine(address(engine)));
         StandardAttack attack = attackFactory.createAttack(
             ATTACK_PARAMS({
-                BASE_POWER: 50,
+                BASE_POWER: maxHp / 2,
                 STAMINA_COST: 1,
                 ACCURACY: 100,
                 PRIORITY: DEFAULT_PRIORITY,
@@ -281,5 +281,28 @@ contract AuroxTest is Test, BattleHelper {
         DefaultValidator validator = new DefaultValidator(
             IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: fastTeam.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
         );
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+
+        // Both players select their first mon
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Alice uses Iron Wall, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+        
+        // Alice does nothing, Bob attacks
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, "", "");
+
+        // Verify that Alice's mon index 0 has taken damage (should be the basePower of the move multiplied by 100 - the heal percent)
+        int32 aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(aliceDamage, -1 * int32(attack.basePower(battleKey)) * int32(100 - ironWall.HEAL_PERCENT()) / 100, "Alice's mon should take reduced damage");
+
+        // Verify that the effect is gone
+        (IEffect[] memory effects,) = engine.getEffects(battleKey, 0, 0);
+        for (uint256 i = 0; i < effects.length; i++) {
+            assertNotEq(address(effects[i]), address(ironWall), "Alice's mon should no longer have Iron Wall");
+        }
     }
 }
