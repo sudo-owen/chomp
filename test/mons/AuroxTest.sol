@@ -37,11 +37,11 @@ import {UpOnly} from "../../src/mons/aurox/UpOnly.sol";
 import {VolatilePunch} from "../../src/mons/aurox/VolatilePunch.sol";
 
  /**
-        - Bull Rush correctly deals SELF_DAMAGE_PERCENT of max hp to self 
-        - Gilded Recovery heals for HEAL_PERCENT of max hp if there is a status effect
-        - Gilded Recovery gives +1 stamina if there is a status effect
-        - Iron Wall correctly heals damage dealt until end of next turn
-        - Up Only correctly boosts on damage, and it stays on switch in/out
+        - Bull Rush correctly deals SELF_DAMAGE_PERCENT of max hp to self [x]
+        - Gilded Recovery heals for HEAL_PERCENT of max hp if there is a status effect [x]
+        - Gilded Recovery gives +1 stamina if there is a status effect [x]
+        - Iron Wall correctly heals damage dealt until end of next turn [x]
+        - Up Only correctly boosts on damage, and it stays on switch in/out [x]
         - Volatile Punch correctly deals damage and can trigger status effects
             - rng of 2 should trigger frostbite
             - rng of 10 should trigger burn
@@ -304,5 +304,121 @@ contract AuroxTest is Test, BattleHelper {
         for (uint256 i = 0; i < effects.length; i++) {
             assertNotEq(address(effects[i]), address(ironWall), "Alice's mon should no longer have Iron Wall");
         }
+    }
+
+    function test_upOnlyBoostsOnDamage() public {
+        uint32 maxHp = 100;
+        uint32 maxAtk = 100;
+        uint32 maxDef = 100;
+
+        UpOnly upOnly = new UpOnly(IEngine(address(engine)), statBoosts);
+        StandardAttack attack = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: maxHp / 2,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: DEFAULT_PRIORITY,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack",
+                EFFECT: IEffect(address(0))
+            })
+        );
+        IMoveSet[] memory moves = new IMoveSet[](1);
+        moves[0] = attack;
+
+        Mon memory mon = _createMon();
+        mon.moves = moves;
+        mon.ability = upOnly;
+        mon.stats.hp = maxHp;
+        mon.stats.attack = maxAtk;
+        mon.stats.defense = maxDef;
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+
+        // Both players select their first mon
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Alice uses attack, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+
+        // Verify that Bob's mon index 0 has a positive attack delta of upOnly.ATTACK_BOOST_PERCENT()
+        int32 bobAttackDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
+        assertEq(bobAttackDelta, int32(upOnly.ATTACK_BOOST_PERCENT()) * int32(maxHp) / 100, "Bob's mon should be boosted");
+
+        // Alice does nothing, Bob switches to mon index 1
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1));
+
+        // Verify that Bob's mon index 0 has a positive attack delta of upOnly.ATTACK_BOOST_PERCENT()
+        bobAttackDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
+        assertEq(bobAttackDelta, int32(upOnly.ATTACK_BOOST_PERCENT()) * int32(maxHp) / 100, "Bob's mon should be boosted");
+    }
+
+    function test_volatilePunchDealsDamageAndTriggersStatusEffects() public {
+        uint32 maxHp = 100;
+
+        BurnStatus burnStatus = new BurnStatus(IEngine(address(engine)), statBoosts);
+        FrostbiteStatus frostbiteStatus = new FrostbiteStatus(IEngine(address(engine)), statBoosts);
+        VolatilePunch volatilePunch = new VolatilePunch(
+            IEngine(address(engine)), typeCalc, burnStatus, frostbiteStatus
+        );
+        IMoveSet[] memory moves = new IMoveSet[](1);
+        moves[0] = volatilePunch;
+
+        Mon memory mon = _createMon();
+        mon.moves = moves;
+        mon.stats.hp = maxHp;
+        Mon[] memory team = new Mon[](1);
+        team[0] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+
+        // Both players select their first mon
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Set rng to be 2 to trigger frostbite
+        mockOracle.setRNG(2);
+
+        // Alice uses volatile punch, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+
+        // Verify that Bob's mon index 0 has frostbite (first effect is stat boost)
+        (IEffect[] memory effects,) = engine.getEffects(battleKey, 1, 0);
+
+        assertEq(address(effects[1]), address(frostbiteStatus), "Bob's mon should have frostbite");
+
+        // Set rng to be 10 to trigger burn
+        mockOracle.setRNG(6);
+
+        // Alice does nothing, Bob uses volatile punch
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
+
+        // Verify that Alice's mon index 0 has burn (first effect is stat boost)
+        (effects,) = engine.getEffects(battleKey, 0, 0);
+        assertEq(address(effects[1]), address(burnStatus), "Alice's mon should have burn");
     }
 }
