@@ -22,7 +22,6 @@ contract Engine is IEngine, MappingAllocator {
     mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle
     mapping(bytes32 battleKey => BattleState) private battleStates;
     mapping(bytes32 battleKey => mapping(bytes32 => bytes32)) private globalKV;
-    mapping(bytes32 battleKeyPlusPlayerOffset => uint256) private monsKOedBitmap;
     uint256 private transient currentStep; // Used to bubble up step data for events
     int32 private transient damageDealt; // Used to provide access to onAfterDamage hook for effects
     address private transient upstreamCaller; // Used to bubble up caller data for events
@@ -118,12 +117,9 @@ contract Engine is IEngine, MappingAllocator {
 
         // Store the battle config
         battleConfig[battleConfigKey] = BattleConfig({
-            teamRegistry: battle.teamRegistry,
             validator: battle.validator,
             rngOracle: battle.rngOracle,
-            ruleset: battle.ruleset,
-            moveManager: battle.moveManager,
-            matchmaker: battle.matchmaker
+            moveManager: battle.moveManager
         });
 
         // Store the battle data
@@ -160,7 +156,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Validate the battle config
-        if (!battle.validator.validateGameStart(battleData[battleKey], battleConfig[battleConfigKey], battle.p0TeamIndex, battle.p1TeamIndex
+        if (!battle.validator.validateGameStart(battleData[battleKey], battle.teamRegistry, battle.p0TeamIndex, battle.p1TeamIndex
         )) {
             revert InvalidBattleConfig();
         }
@@ -390,7 +386,7 @@ contract Engine is IEngine, MappingAllocator {
 
         // Progress turn index and finally set the player switch for turn flag on the state
         state.turnId += 1;
-        state.playerSwitchForTurnFlag = playerSwitchForTurnFlag;
+        state.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
         emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
@@ -454,10 +450,18 @@ contract Engine is IEngine, MappingAllocator {
             // Update the bitmap for the KO flag
             if (valueToAdd % 2 == 1) {
                 // Set it to be KOed
-                monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] |= 1 << monIndex;
+                if (playerIndex == 0) {
+                    state.p0MonsKOedBitmap |= uint128(1) << uint128(monIndex);
+                } else {
+                    state.p1MonsKOedBitmap |= uint128(1) << uint128(monIndex);
+                }
             } else {
                 // Set it to be not KOed
-                monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] &= ~(1 << monIndex);
+                if (playerIndex == 0) {
+                    state.p0MonsKOedBitmap &= ~(uint128(1) << uint128(monIndex));
+                } else {
+                    state.p1MonsKOedBitmap &= ~(uint128(1) << uint128(monIndex));
+                }
             }
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
             monState.shouldSkipTurn = (valueToAdd % 2) == 1;
@@ -555,18 +559,21 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
         MonState storage monState = battleStates[battleKey].monStates[playerIndex][monIndex];
-        damageDealt = damage;
         monState.hpDelta -= damage;
         // Set KO flag if the total hpDelta is greater than the original mon HP
         uint32 baseHp = battleData[battleKey].teams[playerIndex][monIndex].stats.hp;
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
-            monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] |= 1 << monIndex;
+            if (playerIndex == 0) {
+                battleStates[battleKey].p0MonsKOedBitmap |= uint128(1) << uint128(monIndex);
+            } else {
+                battleStates[battleKey].p1MonsKOedBitmap |= uint128(1) << uint128(monIndex);
+            }
         }
         uint256[] storage rngValues = battleStates[battleKey].pRNGStream;
         uint256 rngValue = rngValues[rngValues.length - 1];
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCaller(), currentStep);
-        _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage);
+        _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage));
     }
 
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external {
@@ -585,7 +592,7 @@ contract Engine is IEngine, MappingAllocator {
             if (isGameOver) return;
 
             // Set the player switch for turn flag
-            battleStates[battleKey].playerSwitchForTurnFlag = playerSwitchForTurnFlag;
+            battleStates[battleKey].playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
 
             // TODO: consider also checking game over / setting flag for other player
             // Also upstreaming more updates from `_handleSwitch` and change it to also add `_handleEffects`
@@ -672,20 +679,20 @@ contract Engine is IEngine, MappingAllocator {
         // Go through each effect to see if it should be cleared after a switch,
         // If so, remove the effect and the extra data
         if (!currentMonState.isKnockedOut) {
-            _runEffects(battleKey, rng, playerIndex, playerIndex, EffectStep.OnMonSwitchOut);
+            _runEffects(battleKey, rng, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
 
             // Then run the global on mon switch out hook as well
-            _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchOut);
+            _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
         }
 
         // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
         state.activeMonIndex[playerIndex] = monToSwitchIndex;
 
         // Run onMonSwitchIn hook for local effects
-        _runEffects(battleKey, rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn);
+        _runEffects(battleKey, rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run onMonSwitchIn hook for global effects
-        _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchIn);
+        _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run ability for the newly switched in mon (as long as it's not turn 0, execute() has a special case to run activateOnSwitch after both moves are handled)
         Mon memory mon = battleData[battleKey].teams[playerIndex][monToSwitchIndex];
@@ -766,7 +773,7 @@ contract Engine is IEngine, MappingAllocator {
      * effect index: the index to grab the relevant effect array
      *    player index: the player to pass into the effects args
      */
-    function _runEffects(bytes32 battleKey, uint256 rng, uint256 effectIndex, uint256 playerIndex, EffectStep round)
+    function _runEffects(bytes32 battleKey, uint256 rng, uint256 effectIndex, uint256 playerIndex, EffectStep round, bytes memory extraEffectsData)
         internal
     {
         BattleState storage state = battleStates[battleKey];
@@ -812,7 +819,7 @@ contract Engine is IEngine, MappingAllocator {
                         effects[i].onMonSwitchOut(rng, extraData[i], playerIndex, monIndex);
                 } else if (round == EffectStep.AfterDamage) {
                     (updatedExtraData, removeAfterRun) =
-                        effects[i].onAfterDamage(rng, extraData[i], playerIndex, monIndex, damageDealt);
+                        effects[i].onAfterDamage(rng, extraData[i], playerIndex, monIndex, abi.decode(extraEffectsData, (int32)));
                 } else if (round == EffectStep.AfterMove) {
                     (updatedExtraData, removeAfterRun) =
                         effects[i].onAfterMove(rng, extraData[i], playerIndex, monIndex);
@@ -857,7 +864,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Otherwise, run the effect
-        _runEffects(battleKey, rng, effectIndex, playerIndex, round);
+        _runEffects(battleKey, rng, effectIndex, playerIndex, round, "");
 
         // Set Game Over if true, and calculate and return switch for turn flag
         // (We check for both players)
@@ -941,12 +948,12 @@ contract Engine is IEngine, MappingAllocator {
             p0TeamIndex: 0, // this info is lost
             p1: data.p1,
             p1TeamIndex: 0, // this info is lost
-            teamRegistry: config.teamRegistry,
+            teamRegistry: ITeamRegistry(address(0)), // this info is lost
             validator: config.validator,
             rngOracle: config.rngOracle,
-            ruleset: config.ruleset,
+            ruleset: IRuleset(address(0)), // this info is lost
             moveManager: config.moveManager,
-            matchmaker: config.matchmaker,
+            matchmaker: IMatchmaker(address(0)), // this info is lost
             startTimestamp: data.startTimestamp,
             engineHooks: data.engineHooks
         });
@@ -1078,7 +1085,11 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getMonKOCount(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
-        return monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)];
+        if (playerIndex == 0) {
+            return battleStates[battleKey].p0MonsKOedBitmap;
+        } else {
+            return battleStates[battleKey].p1MonsKOedBitmap;
+        }
     }
 
     function getWinner(bytes32 battleKey) external view returns (address) {

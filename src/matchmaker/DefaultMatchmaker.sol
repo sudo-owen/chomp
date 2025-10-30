@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IEngine} from "../IEngine.sol";
-import {Battle, Mon, ProposedBattle} from "../Structs.sol";
+import {Battle, ProposedBattle} from "../Structs.sol";
 import {IMatchmaker} from "./IMatchmaker.sol";
 import {MappingAllocator} from "../lib/MappingAllocator.sol";
 

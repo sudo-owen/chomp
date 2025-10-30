@@ -11,7 +11,7 @@ import {ICPU} from "./ICPU.sol";
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
-import {Battle, BattleState, Mon, ProposedBattle, RevealedMove} from "../Structs.sol";
+import {Battle, BattleState, ProposedBattle, RevealedMove} from "../Structs.sol";
 
 abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
     uint256 private immutable NUM_MOVES;

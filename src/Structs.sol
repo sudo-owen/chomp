@@ -52,21 +52,20 @@ struct BattleData {
 }
 
 struct BattleConfig {
-    ITeamRegistry teamRegistry;
     IValidator validator;
     IRandomnessOracle rngOracle;
-    IRuleset ruleset;
     IMoveManager moveManager;
-    IMatchmaker matchmaker;
 }
 
 struct BattleState {
-    uint256 turnId;
+    address winner;
+    uint64 turnId;
+    uint8 playerSwitchForTurnFlag;
+    uint128 p0MonsKOedBitmap;
+    uint128 p1MonsKOedBitmap;
     uint256[] playerSwitchForTurnFlagHistory;
-    uint256 playerSwitchForTurnFlag; // 0 for p0 only move, 1 for p1 only move, 2 for both players
     uint256[] activeMonIndex;
     uint256[] pRNGStream;
-    address winner;
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
@@ -103,12 +102,6 @@ struct MonState {
     // These we can't do much about
     IEffect[] targetedEffects;
     bytes[] extraDataForTargetedEffects;
-}
-
-struct Commitment {
-    bytes32 moveHash;
-    uint256 turnId;
-    uint256 timestamp;
 }
 
 struct MoveCommitment {
