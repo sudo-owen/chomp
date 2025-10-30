@@ -37,11 +37,27 @@ struct Battle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IEngineHook[] engineHooks;
     IMoveManager moveManager;
     IMatchmaker matchmaker;
     uint96 startTimestamp;
+    IEngineHook[] engineHooks;
+}
+
+struct BattleData {
+    address p0;
+    address p1;
+    uint96 startTimestamp;
+    IEngineHook[] engineHooks;
     Mon[][] teams;
+}
+
+struct BattleConfig {
+    ITeamRegistry teamRegistry;
+    IValidator validator;
+    IRandomnessOracle rngOracle;
+    IRuleset ruleset;
+    IMoveManager moveManager;
+    IMatchmaker matchmaker;
 }
 
 struct BattleState {

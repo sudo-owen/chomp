@@ -84,7 +84,6 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
         }
         proposal.p1TeamIndex = p1TeamIndex;
         if (proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH) {
-            Mon[][] memory emptyTeams = new Mon[][](2);
             ENGINE.startBattle(
                 Battle({
                     p0: proposal.p0,
@@ -98,8 +97,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
                     engineHooks: proposal.engineHooks,
                     moveManager: proposal.moveManager,
                     matchmaker: proposal.matchmaker,
-                    startTimestamp: 0, // This gets filled in by the Engine
-                    teams: emptyTeams
+                    startTimestamp: 0
                 })
             );
             _cleanUpBattleProposal(battleKey);
@@ -127,7 +125,6 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
         if (revealedP0TeamHash != proposal.p0TeamHash) {
             revert InvalidP0TeamHash();
         }
-        Mon[][] memory emptyTeams = new Mon[][](2);
         ENGINE.startBattle(
             Battle({
                 p0: proposal.p0,
@@ -141,8 +138,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
                 engineHooks: proposal.engineHooks,
                 moveManager: proposal.moveManager,
                 matchmaker: proposal.matchmaker,
-                startTimestamp: 0, // This gets filled in by the Engine
-                teams: emptyTeams
+                startTimestamp: 0 // This gets filled in by the Engine
             })
         );
         _cleanUpBattleProposal(battleKey);

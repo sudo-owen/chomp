@@ -10,15 +10,16 @@ import "./moves/IMoveSet.sol";
 import {IEngine} from "./IEngine.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
+import {MappingAllocator} from "./lib/MappingAllocator.sol";
 
-contract Engine is IEngine {
-    // Public state variables
+contract Engine is IEngine, MappingAllocator {
+
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
     mapping(bytes32 => uint256) public pairHashNonces; // imposes a global ordering across all matches
     mapping(address player => mapping(address maker => bool)) public isMatchmakerFor;
 
-    // Private state variables (battles and battleStates values are granularly accessible via getters)
-    mapping(bytes32 battleKey => Battle) private battles;
+    mapping(bytes32 => BattleData) private battleData; // These are immutable after a battle begins
+    mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle
     mapping(bytes32 battleKey => BattleState) private battleStates;
     mapping(bytes32 battleKey => mapping(bytes32 => bytes32)) private globalKV;
     mapping(bytes32 battleKeyPlusPlayerOffset => uint256) private monsKOedBitmap;
@@ -112,15 +113,31 @@ contract Engine is IEngine {
             revert MatchmakerError();
         }
 
-        // Store the values in storage
-        battles[battleKey] = battle;
+        // Get the storage key for the battle config (reusable)
+        bytes32 battleConfigKey = _initializeStorageKey(battleKey);
 
-        // Set start timestamp
-        battles[battleKey].startTimestamp = uint96(block.timestamp);
+        // Store the battle config
+        battleConfig[battleConfigKey] = BattleConfig({
+            teamRegistry: battle.teamRegistry,
+            validator: battle.validator,
+            rngOracle: battle.rngOracle,
+            ruleset: battle.ruleset,
+            moveManager: battle.moveManager,
+            matchmaker: battle.matchmaker
+        });
+
+        // Store the battle data
+        battleData[battleKey] = BattleData({
+            p0: battle.p0,
+            p1: battle.p1,
+            startTimestamp: uint96(block.timestamp),
+            engineHooks: battle.engineHooks,
+            teams: new Mon[][](2)
+        });
 
         // Set the team for p0 and p1
-        battles[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
-        battles[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
+        battleData[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
+        battleData[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
 
         // Initialize empty mon state, move history, and active mon index for each team
         for (uint256 i; i < 2; ++i) {
@@ -128,7 +145,7 @@ contract Engine is IEngine {
             battleStates[battleKey].activeMonIndex.push();
 
             // Initialize empty mon delta states for each mon on the team
-            for (uint256 j; j < battles[battleKey].teams[i].length; ++j) {
+            for (uint256 j; j < battleData[battleKey].teams[i].length; ++j) {
                 battleStates[battleKey].monStates[i].push();
             }
         }
@@ -143,7 +160,8 @@ contract Engine is IEngine {
         }
 
         // Validate the battle config
-        if (!battle.validator.validateGameStart(battles[battleKey])) {
+        if (!battle.validator.validateGameStart(battleData[battleKey], battleConfig[battleConfigKey], battle.p0TeamIndex, battle.p1TeamIndex
+        )) {
             revert InvalidBattleConfig();
         }
 
@@ -160,7 +178,8 @@ contract Engine is IEngine {
     // THE IMPORTANT FUNCTION
     function execute(bytes32 battleKey) external {
         // Load storage vars
-        Battle storage battle = battles[battleKey];
+        BattleData storage battle = battleData[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleState storage state = battleStates[battleKey];
 
         // Check for game over
@@ -228,11 +247,11 @@ contract Engine is IEngine {
         else {
             // Validate both moves have been revealed for the current turn
             // (accessing the values will revert if they haven't been set)
-            RevealedMove memory p0Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
-            RevealedMove memory p1Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
+            RevealedMove memory p0Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
+            RevealedMove memory p1Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
 
             // Update the PRNG hash to include the newest value
-            uint256 rng = battle.rngOracle.getRNG(p0Move.salt, p1Move.salt);
+            uint256 rng = config.rngOracle.getRNG(p0Move.salt, p1Move.salt);
             state.pRNGStream.push(rng);
 
             // Calculate the priority and non-priority player indices
@@ -358,19 +377,20 @@ contract Engine is IEngine {
             );
         }
 
-        // Progress turn index and finally set the player switch for turn flag on the state
+        // If a winner has been set, handle the game over
         if (state.winner != address(0)) {
-            for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-                battle.engineHooks[i].onBattleEnd(battleKey);
-            }
+            _handleGameOver(battleKey, state.winner);
             return;
         }
-        state.turnId += 1;
-        state.playerSwitchForTurnFlag = playerSwitchForTurnFlag;
 
+        // Run the round end hooks
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
             battle.engineHooks[i].onRoundEnd(battleKey);
         }
+
+        // Progress turn index and finally set the player switch for turn flag on the state
+        state.turnId += 1;
+        state.playerSwitchForTurnFlag = playerSwitchForTurnFlag;
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
         emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
@@ -378,22 +398,29 @@ contract Engine is IEngine {
 
     function end(bytes32 battleKey) external {
         BattleState storage state = battleStates[battleKey];
-        Battle storage battle = battles[battleKey];
+        BattleData storage data = battleData[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         if (state.winner != address(0)) {
             revert GameAlreadyOver();
         }
         for (uint256 i; i < 2; ++i) {
-            address potentialLoser = battle.validator.validateTimeout(battleKey, i);
+            address potentialLoser = config.validator.validateTimeout(battleKey, i);
             if (potentialLoser != address(0)) {
-                address winner = potentialLoser == battle.p0 ? battle.p1 : battle.p0;
+                address winner = potentialLoser == data.p0 ? data.p1 : data.p0;
                 state.winner = winner;
-                for (uint256 j = 0; j < battle.engineHooks.length; j++) {
-                    battle.engineHooks[j].onBattleEnd(battleKey);
-                }
-                emit BattleComplete(battleKey, winner);
+                _handleGameOver(battleKey, winner);
                 return;
             }
         }
+    }
+
+    function _handleGameOver(bytes32 battleKey, address winner) internal {
+        for (uint256 i = 0; i < battleData[battleKey].engineHooks.length; i++) {
+            battleData[battleKey].engineHooks[i].onBattleEnd(battleKey);
+        }
+        // Free the key used for battle configs so other battles can use it
+        _freeStorageKey(battleKey);
+        emit BattleComplete(battleKey, winner);
     }
 
     /**
@@ -531,7 +558,7 @@ contract Engine is IEngine {
         damageDealt = damage;
         monState.hpDelta -= damage;
         // Set KO flag if the total hpDelta is greater than the original mon HP
-        uint32 baseHp = battles[battleKey].teams[playerIndex][monIndex].stats.hp;
+        uint32 baseHp = battleData[battleKey].teams[playerIndex][monIndex].stats.hp;
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
             monsKOedBitmap[bytes32(uint256(battleKey) + playerIndex)] |= 1 << monIndex;
@@ -549,7 +576,7 @@ contract Engine is IEngine {
         }
 
         // Use the validator to check if the switch is valid
-        if (battles[battleKey].validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex)) {
+        if (battleConfig[_getStorageKey(battleKey)].validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex)) {
             // Only call the internal switch function if the switch is valid
             _handleSwitch(battleKey, playerIndex, monToSwitchIndex, msg.sender);
 
@@ -596,15 +623,14 @@ contract Engine is IEngine {
             bool isGameOver
         )
     {
-        Battle storage battle = battles[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleState storage state = battleStates[battleKey];
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
-        address gameResult = battle.validator.validateGameOver(battleKey, priorityPlayerIndex);
+        address gameResult = config.validator.validateGameOver(battleKey, priorityPlayerIndex);
         if (gameResult != address(0)) {
-            // Ensure we only emit the event / update the state once (we may call this multiple times during one stack frame)
+            // Set the winner on the state (events and hooks will be called at the end)
             if (state.winner == address(0)) {
                 state.winner = gameResult;
-                emit BattleComplete(battleKey, gameResult);
             }
             isGameOver = true;
         } else {
@@ -662,7 +688,7 @@ contract Engine is IEngine {
         _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchIn);
 
         // Run ability for the newly switched in mon (as long as it's not turn 0, execute() has a special case to run activateOnSwitch after both moves are handled)
-        Mon memory mon = battles[battleKey].teams[playerIndex][monToSwitchIndex];
+        Mon memory mon = battleData[battleKey].teams[playerIndex][monToSwitchIndex];
         if (address(mon.ability) != address(0) && state.turnId != 0) {
             mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
         }
@@ -672,9 +698,10 @@ contract Engine is IEngine {
         internal
         returns (uint256 playerSwitchForTurnFlag)
     {
-        Battle storage battle = battles[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        BattleData storage data = battleData[battleKey];
         BattleState storage state = battleStates[battleKey];
-        RevealedMove memory move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
+        RevealedMove memory move = config.moveManager.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
@@ -707,12 +734,12 @@ contract Engine is IEngine {
             // Call validateSpecificMoveSelection again from the validator to ensure that it is still valid to execute
             // If not, then we just return early
             // Handles cases where e.g. some condition outside of the player's control leads to an invalid move
-            if (!battle.validator.validateSpecificMoveSelection(battleKey, move.moveIndex, playerIndex, move.extraData))
+            if (!config.validator.validateSpecificMoveSelection(battleKey, move.moveIndex, playerIndex, move.extraData))
             {
                 return playerSwitchForTurnFlag;
             }
 
-            IMoveSet moveSet = battle.teams[playerIndex][state.activeMonIndex[playerIndex]].moves[move.moveIndex];
+            IMoveSet moveSet = data.teams[playerIndex][state.activeMonIndex[playerIndex]].moves[move.moveIndex];
 
             // Update the mon state directly to account for the stamina cost of the move
             staminaCost = int32(moveSet.stamina(battleKey, playerIndex, state.activeMonIndex[playerIndex]));
@@ -840,10 +867,11 @@ contract Engine is IEngine {
     }
 
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
-        Battle storage battle = battles[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        BattleData storage data = battleData[battleKey];
         BattleState storage state = battleStates[battleKey];
-        RevealedMove memory p0Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
-        RevealedMove memory p1Move = battle.moveManager.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
+        RevealedMove memory p0Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
+        RevealedMove memory p1Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
         uint256 p0ActiveMonIndex = state.activeMonIndex[0];
         uint256 p1ActiveMonIndex = state.activeMonIndex[1];
         uint256 p0Priority;
@@ -854,14 +882,14 @@ contract Engine is IEngine {
             if (p0Move.moveIndex == SWITCH_MOVE_INDEX || p0Move.moveIndex == NO_OP_MOVE_INDEX) {
                 p0Priority = SWITCH_PRIORITY;
             } else {
-                IMoveSet p0MoveSet = battle.teams[0][p0ActiveMonIndex].moves[p0Move.moveIndex];
+                IMoveSet p0MoveSet = data.teams[0][p0ActiveMonIndex].moves[p0Move.moveIndex];
                 p0Priority = p0MoveSet.priority(battleKey, 0);
             }
 
             if (p1Move.moveIndex == SWITCH_MOVE_INDEX || p1Move.moveIndex == NO_OP_MOVE_INDEX) {
                 p1Priority = SWITCH_PRIORITY;
             } else {
-                IMoveSet p1MoveSet = battle.teams[1][p1ActiveMonIndex].moves[p1Move.moveIndex];
+                IMoveSet p1MoveSet = data.teams[1][p1ActiveMonIndex].moves[p1Move.moveIndex];
                 p1Priority = p1MoveSet.priority(battleKey, 1);
             }
         }
@@ -877,10 +905,10 @@ contract Engine is IEngine {
         } else {
             // Calculate speeds by combining base stats with deltas
             uint32 p0MonSpeed = uint32(
-                int32(battle.teams[0][p0ActiveMonIndex].stats.speed) + state.monStates[0][p0ActiveMonIndex].speedDelta
+                int32(data.teams[0][p0ActiveMonIndex].stats.speed) + state.monStates[0][p0ActiveMonIndex].speedDelta
             );
             uint32 p1MonSpeed = uint32(
-                int32(battle.teams[1][p1ActiveMonIndex].stats.speed) + state.monStates[1][p1ActiveMonIndex].speedDelta
+                int32(data.teams[1][p1ActiveMonIndex].stats.speed) + state.monStates[1][p1ActiveMonIndex].speedDelta
             );
             if (p0MonSpeed > p1MonSpeed) {
                 return 0;
@@ -906,7 +934,22 @@ contract Engine is IEngine {
 
     // getBattle and getBattleState are intended to be consumed by offchain clients
     function getBattle(bytes32 battleKey) external view returns (Battle memory) {
-        return battles[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        BattleData storage data = battleData[battleKey];
+        return Battle({
+            p0: data.p0,
+            p0TeamIndex: 0, // this info is lost
+            p1: data.p1,
+            p1TeamIndex: 0, // this info is lost
+            teamRegistry: config.teamRegistry,
+            validator: config.validator,
+            rngOracle: config.rngOracle,
+            ruleset: config.ruleset,
+            moveManager: config.moveManager,
+            matchmaker: config.matchmaker,
+            startTimestamp: data.startTimestamp,
+            engineHooks: data.engineHooks
+        });
     }
 
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory) {
@@ -914,7 +957,7 @@ contract Engine is IEngine {
     }
 
     function getBattleValidator(bytes32 battleKey) external view returns (IValidator) {
-        return battles[battleKey].validator;
+        return battleConfig[_getStorageKey(battleKey)].validator;
     }
 
     function getMonValueForBattle(
@@ -924,30 +967,30 @@ contract Engine is IEngine {
         MonStateIndexName stateVarIndex
     ) external view returns (uint32) {
         if (stateVarIndex == MonStateIndexName.Hp) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.hp;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.hp;
         } else if (stateVarIndex == MonStateIndexName.Stamina) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.stamina;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.stamina;
         } else if (stateVarIndex == MonStateIndexName.Speed) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.speed;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.speed;
         } else if (stateVarIndex == MonStateIndexName.Attack) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.attack;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.attack;
         } else if (stateVarIndex == MonStateIndexName.Defense) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.defense;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.defense;
         } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.specialAttack;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.specialAttack;
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
-            return battles[battleKey].teams[playerIndex][monIndex].stats.specialDefense;
+            return battleData[battleKey].teams[playerIndex][monIndex].stats.specialDefense;
         } else if (stateVarIndex == MonStateIndexName.Type1) {
-            return uint32(battles[battleKey].teams[playerIndex][monIndex].stats.type1);
+            return uint32(battleData[battleKey].teams[playerIndex][monIndex].stats.type1);
         } else if (stateVarIndex == MonStateIndexName.Type2) {
-            return uint32(battles[battleKey].teams[playerIndex][monIndex].stats.type2);
+            return uint32(battleData[battleKey].teams[playerIndex][monIndex].stats.type2);
         } else {
             return 0;
         }
     }
 
     function getTeamSize(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
-        return battles[battleKey].teams[playerIndex].length;
+        return battleData[battleKey].teams[playerIndex].length;
     }
 
     function getMoveForMonForBattle(bytes32 battleKey, uint256 playerIndex, uint256 monIndex, uint256 moveIndex)
@@ -955,13 +998,13 @@ contract Engine is IEngine {
         view
         returns (IMoveSet)
     {
-        return battles[battleKey].teams[playerIndex][monIndex].moves[moveIndex];
+        return battleData[battleKey].teams[playerIndex][monIndex].moves[moveIndex];
     }
 
     function getPlayersForBattle(bytes32 battleKey) external view returns (address[] memory) {
         address[] memory players = new address[](2);
-        players[0] = battles[battleKey].p0;
-        players[1] = battles[battleKey].p1;
+        players[0] = battleData[battleKey].p0;
+        players[1] = battleData[battleKey].p1;
         return players;
     }
 
@@ -1043,7 +1086,7 @@ contract Engine is IEngine {
     }
 
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256) {
-        return battles[battleKey].startTimestamp;
+        return battleData[battleKey].startTimestamp;
     }
 
     function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256) {
@@ -1058,6 +1101,6 @@ contract Engine is IEngine {
     }
 
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager) {
-        return battles[battleKey].moveManager;
+        return battleConfig[_getStorageKey(battleKey)].moveManager;
     }
 }

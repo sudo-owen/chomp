@@ -37,18 +37,19 @@ contract DefaultValidator is IValidator {
     }
 
     // Validates that there are MONS_PER_TEAM mons per team w/ MOVES_PER_MON moves each
-    function validateGameStart(Battle calldata b) external returns (bool) {
-        IMonRegistry monRegistry = b.teamRegistry.getMonRegistry();
+    function validateGameStart(BattleData calldata b, BattleConfig calldata c, uint256 p0TeamIndex, uint256 p1TeamIndex
+    ) external returns (bool) {
+        IMonRegistry monRegistry = c.teamRegistry.getMonRegistry();
 
         // p0 and p1 each have 6 mons, each mon has 4 moves
         uint256[2] memory playerIndices = [uint256(0), uint256(1)];
         address[2] memory players = [b.p0, b.p1];
-        uint256[2] memory teamIndex = [uint256(b.p0TeamIndex), uint256(b.p1TeamIndex)];
+        uint256[2] memory teamIndex = [uint256(p0TeamIndex), uint256(p1TeamIndex)];
 
         // If either player has a team count of zero, then it's invalid
         {
-            uint256 p0teamCount = b.teamRegistry.getTeamCount(b.p0);
-            uint256 p1TeamCount = b.teamRegistry.getTeamCount(b.p1);
+            uint256 p0teamCount = c.teamRegistry.getTeamCount(b.p0);
+            uint256 p1TeamCount = c.teamRegistry.getTeamCount(b.p1);
             if (p0teamCount == 0 || p1TeamCount == 0) {
                 return false;
             }
@@ -60,7 +61,7 @@ contract DefaultValidator is IValidator {
             }
 
             // Should be the same length as teams[i].length
-            uint256[] memory teamIndices = b.teamRegistry.getMonRegistryIndicesForTeam(players[i], teamIndex[i]);
+            uint256[] memory teamIndices = c.teamRegistry.getMonRegistryIndicesForTeam(players[i], teamIndex[i]);
 
             // Check that each mon is still up to date with the current mon registry values
             for (uint256 j; j < MONS_PER_TEAM; ++j) {
