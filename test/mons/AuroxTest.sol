@@ -12,8 +12,6 @@ import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {Engine} from "../../src/Engine.sol";
 import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
 import {IEngine} from "../../src/IEngine.sol";
-import {IValidator} from "../../src/IValidator.sol";
-import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {BurnStatus} from "../../src/effects/status/BurnStatus.sol";

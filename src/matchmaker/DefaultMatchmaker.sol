@@ -4,8 +4,9 @@ pragma solidity ^0.8.0;
 import {IEngine} from "../IEngine.sol";
 import {Battle, Mon, ProposedBattle} from "../Structs.sol";
 import {IMatchmaker} from "./IMatchmaker.sol";
+import {MappingAllocator} from "../lib/MappingAllocator.sol";
 
-contract DefaultMatchmaker is IMatchmaker {
+contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
 
     bytes32 constant public FAST_BATTLE_SENTINAL_HASH = bytes32("FAST_BATTLE_SENTINAL_HASH"); // Used to skip the confirmBattle step
     uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 1; // Used to tell if a battle has been accepted by p1 or not
@@ -57,8 +58,9 @@ contract DefaultMatchmaker is IMatchmaker {
             revert P0P1Same();
         }
         (battleKey,) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
-        proposals[battleKey] = proposal;
-        proposals[battleKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
+        bytes32 storageKey = _initializeStorageKey(battleKey);
+        proposals[storageKey] = proposal;
+        proposals[storageKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
         emit BattleProposal(battleKey, proposal.p0, proposal.p1, proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH);
         return battleKey;
     }
@@ -67,7 +69,7 @@ contract DefaultMatchmaker is IMatchmaker {
         external
         returns (bytes32 updatedBattleKey)
     {
-        ProposedBattle storage proposal = proposals[battleKey];
+        ProposedBattle storage proposal = proposals[_getStorageKey(battleKey)];
         // Override battle key if p1 is accepting an open battle proposal
         if (proposal.p1 == address(0)) {
             proposal.p1 = msg.sender;
@@ -100,6 +102,7 @@ contract DefaultMatchmaker is IMatchmaker {
                     teams: emptyTeams
                 })
             );
+            _cleanUpBattleProposal(battleKey);
         }
         else {
             emit BattleAcceptance(battleKey, msg.sender, updatedBattleKey);
@@ -112,7 +115,7 @@ contract DefaultMatchmaker is IMatchmaker {
         if (battleKeyOverride != bytes32(0)) {
             battleKeyToUse = battleKeyOverride;
         }
-        ProposedBattle storage proposal = proposals[battleKeyToUse];
+        ProposedBattle storage proposal = proposals[_getStorageKey(battleKeyToUse)];
         if (proposal.p1TeamIndex == UNSET_P1_TEAM_INDEX) {
             revert BattleNotAccepted();
         }
@@ -142,6 +145,12 @@ contract DefaultMatchmaker is IMatchmaker {
                 teams: emptyTeams
             })
         );
+        _cleanUpBattleProposal(battleKey);
+    }
+
+    function _cleanUpBattleProposal(bytes32 battleKey) internal {
+        _freeStorageKey(battleKey);
+        delete preP1FillBattleKey[battleKey];
     }
 
     function validateMatch(bytes32 battleKey, address player) external view returns (bool) {
@@ -150,7 +159,7 @@ contract DefaultMatchmaker is IMatchmaker {
         if (battleKeyOverride != bytes32(0)) {
             battleKeyToUse = battleKeyOverride;
         }
-        ProposedBattle storage proposal = proposals[battleKeyToUse];
+        ProposedBattle storage proposal = proposals[_getStorageKey(battleKeyToUse)];
         bool isPlayer = player == proposal.p0 || player == proposal.p1;
         return isPlayer;
     }
