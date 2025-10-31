@@ -191,15 +191,15 @@ contract BattleHistoryTest is Test, BattleHelper {
 
     /// @notice Helper to complete a battle
     function _completeBattle(bytes32 battleKey) internal {
-        Battle memory battle = engine.getBattle(battleKey);
+        (, BattleData memory battleData) = engine.getBattle(battleKey);
 
         // First move - both players switch to their mon
         _commitRevealExecute(
-            battleKey, battle.p0, battle.p1, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+            battleKey, battleData.p0, battleData.p1, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
         // Second move - both attack (faster mon wins)
-        _commitRevealExecute(battleKey, battle.p0, battle.p1, 0, 0, "", "");
+        _commitRevealExecute(battleKey, battleData.p0, battleData.p1, 0, 0, "", "");
     }
 
     function test_BattleHistoryOnlyUpdatesWhenCompleted() public {

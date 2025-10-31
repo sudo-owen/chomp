@@ -25,6 +25,10 @@ import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 
+import {FrostbiteStatus} from "../../src/effects/status/FrostbiteStatus.sol";
+import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
+import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
+
 contract StatBoostTest is Test, BattleHelper {
     Engine engine;
     DefaultCommitManager commitManager;
@@ -359,5 +363,133 @@ contract StatBoostTest is Test, BattleHelper {
                 "No Stat Boost effects should remain after switching out"
             );
         }
+    }
+
+    /**
+    - Start with mon
+    - mon uses stat boosting moves (boost 2 diff stats) (should be temp)
+    - swap out
+    - swap back in, use stat boosting move again
+
+    You switched in Inutia!
+    owen-4 switched in Pengym!
+    Pengym's attack is weakened (from Interweaving)!
+
+    Turn 1
+    Pengym is resting!
+    Inutia used Initialize!
+    Inutia's special attack is boosted (from Initialize)!
+    Inutia's attack is boosted (from Initialize)!
+
+    Turn 2
+    Inutia is resting!
+    Pengym used Chill Out!
+    Inutia's special attack is weakened (from Frostbite Status)!
+    Inutia took 21 damage!
+
+    Turn 3
+    You switched in Gorillax!
+    Pengym's special attack is weakened (from Interweaving)!
+    Gorillax's special attack is boosted (from Initialize)!
+    Gorillax's attack is boosted (from Initialize)!
+    Pengym is resting!
+
+    Turn 4
+    owen-4 switched in Sofabbi!
+    You switched in Embursa!
+    Turn 5
+    owen-4 switched in Pengym!
+    You switched in Inutia!
+    Pengym's attack is weakened (from Interweaving)!
+    Inutia took 21 damage!
+     */
+    
+    function test_permanentTempStatBoostInteraction() public {
+        StandardAttackFactory attackFactory = new StandardAttackFactory(engine, typeCalc);
+        FrostbiteStatus frostbiteStatus = new FrostbiteStatus(engine, statBoosts);
+
+        // Create teams with two mons each
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = statBoostMove;
+        moves[1] = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 0,
+                STAMINA_COST: 0,
+                ACCURACY: 100,
+                PRIORITY: 1,
+                MOVE_TYPE: Type.Ice,
+                EFFECT_ACCURACY: 100,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "FrostbiteHit",
+                EFFECT: IEffect(address(frostbiteStatus))
+            })
+        );
+        uint32 maxSpAtk = 100;
+        Mon memory mon = _createMon();
+        mon.stats.specialAttack = maxSpAtk;
+        mon.moves = moves;
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        // Both players select their first mon (index 0)
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Alice uses stat boost move to boost her mon's special atk 50%, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(
+            engine,
+            commitManager,
+            battleKey,
+            0, // Alice uses stat boost move
+            NO_OP_MOVE_INDEX, // Bob does nothing
+            abi.encode(0, 0, uint256(MonStateIndexName.SpecialAttack), int32(50)), // Alice boosts her own mon by 50%
+            "" // Bob does nothing
+        );
+
+        // Verify the stat was boosted
+        int32 boostedStat = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
+        assertEq(boostedStat, 50, "Stat should be boosted by 50%");
+
+        // Alice does nothing, Bob uses FrostbiteHit to apply FrostbiteStatus to Alice's mon
+        _commitRevealExecuteForAliceAndBob(
+            engine,
+            commitManager,
+            battleKey,
+            NO_OP_MOVE_INDEX, // Alice does nothing
+            1, // Bob uses FrostbiteHit
+            "", // Alice does nothing
+            "" // Bob does nothing
+        );
+
+        // Verify the stat was reduced
+        int32 reducedStat = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
+        assertEq(reducedStat, -25, "Stat is at 75% of original value");
+
+        // Alice swaps out, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(
+            engine,
+            commitManager,
+            battleKey,
+            SWITCH_MOVE_INDEX, // Alice switches
+            NO_OP_MOVE_INDEX, // Bob does nothing
+            abi.encode(1), // Alice switches to mon 1
+            "" // Bob does nothing
+        );
+
+        // Verify the stat was reduced
+        int32 reducedStatAfterSwitch = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
+        assertEq(reducedStatAfterSwitch, -50, "Stat should be set to -50% now");
     }
 }

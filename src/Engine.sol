@@ -204,9 +204,6 @@ contract Engine is IEngine, MappingAllocator {
         if (state.playerSwitchForTurnFlag == 0 || state.playerSwitchForTurnFlag == 1) {
             uint256 rngForSoloTurn = 0;
 
-            // Push 0 to rng stream as only single player is switching, to keep in line with turnId
-            state.pRNGStream.push(rngForSoloTurn);
-
             // Get the player index that needs to switch for this turn
             uint256 playerIndex = state.playerSwitchForTurnFlag;
 
@@ -246,9 +243,9 @@ contract Engine is IEngine, MappingAllocator {
             RevealedMove memory p0Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
             RevealedMove memory p1Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
 
-            // Update the PRNG hash to include the newest value
+            // Update the rng to the newest value
             uint256 rng = config.rngOracle.getRNG(p0Move.salt, p1Move.salt);
-            state.pRNGStream.push(rng);
+            state.rng = rng;
 
             // Calculate the priority and non-priority player indices
             priorityPlayerIndex = computePriorityPlayerIndex(battleKey, rng);
@@ -496,9 +493,8 @@ contract Engine is IEngine, MappingAllocator {
 
             // Check if we have to run an onApply state update
             if (effect.shouldRunAtStep(EffectStep.OnApply)) {
-                uint256 rng = state.pRNGStream[state.pRNGStream.length - 1];
                 // If so, we run the effect first, and get updated extraData if necessary
-                (extraDataToUse, removeAfterRun) = effect.onApply(rng, extraData, targetIndex, monIndex);
+                (extraDataToUse, removeAfterRun) = effect.onApply(state.rng, extraData, targetIndex, monIndex);
             }
             if (!removeAfterRun) {
                 if (targetIndex == 2) {
@@ -570,10 +566,8 @@ contract Engine is IEngine, MappingAllocator {
                 battleStates[battleKey].p1MonsKOedBitmap |= uint128(1) << uint128(monIndex);
             }
         }
-        uint256[] storage rngValues = battleStates[battleKey].pRNGStream;
-        uint256 rngValue = rngValues[rngValues.length - 1];
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCaller(), currentStep);
-        _runEffects(battleKey, rngValue, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage));
+        _runEffects(battleKey, battleStates[battleKey].rng, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage));
     }
 
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external {
@@ -670,7 +664,6 @@ contract Engine is IEngine, MappingAllocator {
 
         BattleState storage state = battleStates[battleKey];
         MonState storage currentMonState = state.monStates[playerIndex][state.activeMonIndex[playerIndex]];
-        uint256 rng = state.pRNGStream[state.pRNGStream.length - 1];
 
         // Emit event first, then run effects
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
@@ -679,20 +672,20 @@ contract Engine is IEngine, MappingAllocator {
         // Go through each effect to see if it should be cleared after a switch,
         // If so, remove the effect and the extra data
         if (!currentMonState.isKnockedOut) {
-            _runEffects(battleKey, rng, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
+            _runEffects(battleKey, state.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
 
             // Then run the global on mon switch out hook as well
-            _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
+            _runEffects(battleKey, state.rng, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
         }
 
         // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
         state.activeMonIndex[playerIndex] = monToSwitchIndex;
 
         // Run onMonSwitchIn hook for local effects
-        _runEffects(battleKey, rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
+        _runEffects(battleKey, state.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run onMonSwitchIn hook for global effects
-        _runEffects(battleKey, rng, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
+        _runEffects(battleKey, state.rng, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run ability for the newly switched in mon (as long as it's not turn 0, execute() has a special case to run activateOnSwitch after both moves are handled)
         Mon memory mon = battleData[battleKey].teams[playerIndex][monToSwitchIndex];
@@ -938,25 +931,10 @@ contract Engine is IEngine, MappingAllocator {
     /**
      * - Getters to simplify read access for other components
      */
-
-    // getBattle and getBattleState are intended to be consumed by offchain clients
-    function getBattle(bytes32 battleKey) external view returns (Battle memory) {
+    function getBattle(bytes32 battleKey) external view returns (BattleConfig memory, BattleData memory) {
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleData storage data = battleData[battleKey];
-        return Battle({
-            p0: data.p0,
-            p0TeamIndex: 0, // this info is lost
-            p1: data.p1,
-            p1TeamIndex: 0, // this info is lost
-            teamRegistry: ITeamRegistry(address(0)), // this info is lost
-            validator: config.validator,
-            rngOracle: config.rngOracle,
-            ruleset: IRuleset(address(0)), // this info is lost
-            moveManager: config.moveManager,
-            matchmaker: IMatchmaker(address(0)), // this info is lost
-            startTimestamp: data.startTimestamp,
-            engineHooks: data.engineHooks
-        });
+        return (config, data);
     }
 
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory) {
@@ -1098,13 +1076,6 @@ contract Engine is IEngine, MappingAllocator {
 
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256) {
         return battleData[battleKey].startTimestamp;
-    }
-
-    function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256) {
-        if (index == type(uint256).max) {
-            return battleStates[battleKey].pRNGStream[battleStates[battleKey].pRNGStream.length - 1];
-        }
-        return battleStates[battleKey].pRNGStream[index];
     }
 
     function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory) {

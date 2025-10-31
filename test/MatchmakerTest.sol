@@ -389,9 +389,9 @@ contract MatchmakerTest is Test, BattleHelper {
         matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
 
         // Check that the battle has started on the Engine
-        Battle memory battle = engine.getBattle(battleKey);
-        assertEq(battle.p0, ALICE);
-        assertEq(battle.p1, BOB);
+        (, BattleData memory battleData) = engine.getBattle(battleKey);
+        assertEq(battleData.p0, ALICE);
+        assertEq(battleData.p1, BOB);
 
         // Check that Alice and Bob can commit/reveal/reveal to switch to mon index 0
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));

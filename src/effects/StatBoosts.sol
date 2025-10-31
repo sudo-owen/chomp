@@ -7,6 +7,32 @@ import "../Structs.sol";
 import {IEngine} from "../IEngine.sol";
 import {BasicEffect} from "./BasicEffect.sol";
 
+/**
+ Extra Data:
+ [ uint32 empty | uint32 atkBoost | uint32 defBoost | uint32 spAtkBoost | uint32 spDefBoost | uint32 spdBoost ] <-- uint256
+ [ [ uintX empty | uint128 key | uint32 boostAmount | uint8 boostInfo (uint4 empty | uint3 statType | uint1 direction)] ] <-- uint256 array for temporary boosts
+ [ same as above ] <-- uint256 array for permanent boosts
+
+  adding a boost:
+  - check if key is already in array
+  - if so, update value in array
+  - otherwise, add to array
+  - recalculate stat amount for modified stat
+  - update mon state
+
+  removing a boost:
+  - check for key in array
+  - if so, remove value from array
+  - recalculate stat amount for modified stat
+  - update mon state
+
+  removing all temporary boosts:
+  - calculate total for each stat given by the temporary boosts
+  - clear array
+  - recalculate stat amount for modified stats
+  - update mon states
+ */
+
 contract StatBoosts is BasicEffect {
     uint256 public constant SCALE = 100;
 
@@ -17,7 +43,7 @@ contract StatBoosts is BasicEffect {
     }
 
     /**
-     * Should only be applied once per mon
+     * Should only be applied once per mon per stat index
      *
      *     getKeyForMonIndex => hash(targetIndex, monIndex, statIndex, name(), TEMP/PERM/EXISTENCE)
      *     TEMP/PERM

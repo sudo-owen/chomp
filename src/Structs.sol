@@ -13,6 +13,7 @@ import {IMoveSet} from "./moves/IMoveSet.sol";
 import {IRandomnessOracle} from "./rng/IRandomnessOracle.sol";
 import {ITeamRegistry} from "./teams/ITeamRegistry.sol";
 
+// Used by DefaultMatchmaker
 struct ProposedBattle {
     address p0;
     uint96 p0TeamIndex;
@@ -28,6 +29,7 @@ struct ProposedBattle {
     IMatchmaker matchmaker;
 }
 
+// Used by Engine to initialize a battle's parameters
 struct Battle {
     address p0;
     uint96 p0TeamIndex;
@@ -39,10 +41,10 @@ struct Battle {
     IRuleset ruleset;
     IMoveManager moveManager;
     IMatchmaker matchmaker;
-    uint96 startTimestamp;
     IEngineHook[] engineHooks;
 }
 
+// Stored by the Engine, tracks immutable battle data
 struct BattleData {
     address p0;
     address p1;
@@ -51,21 +53,23 @@ struct BattleData {
     Mon[][] teams;
 }
 
+// Stored by the Engine for a battle, is overwritten after a battle is over
 struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IMoveManager moveManager;
 }
 
+// Stored by the Engine for a battle, tracks mutable battle data
 struct BattleState {
     address winner;
     uint64 turnId;
     uint8 playerSwitchForTurnFlag;
     uint128 p0MonsKOedBitmap;
     uint128 p1MonsKOedBitmap;
+    uint256 rng;
     uint256[] playerSwitchForTurnFlagHistory;
     uint256[] activeMonIndex;
-    uint256[] pRNGStream;
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
@@ -99,7 +103,6 @@ struct MonState {
     int32 specialDefenceDelta;
     bool isKnockedOut; // Is either 0 or 1
     bool shouldSkipTurn; // Used for effects to skip turn, or when moves become invalid (outside of user control)
-    // These we can't do much about
     IEffect[] targetedEffects;
     bytes[] extraDataForTargetedEffects;
 }

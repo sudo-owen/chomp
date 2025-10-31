@@ -11,7 +11,7 @@ import {ICPU} from "./ICPU.sol";
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
-import {Battle, BattleState, ProposedBattle, RevealedMove} from "../Structs.sol";
+import {BattleConfig, BattleState, Battle, ProposedBattle, RevealedMove} from "../Structs.sol";
 
 abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
     uint256 private immutable NUM_MOVES;
@@ -62,7 +62,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
             nonceToUse = nonce;
             return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
         } else {
-            Battle memory battle = ENGINE.getBattle(battleKey);
+            (BattleConfig memory config,) = ENGINE.getBattle(battleKey);
             uint256[] memory validSwitchIndices;
             uint256 validSwitchCount;
             // Check for valid switches
@@ -72,7 +72,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                 validSwitchIndices = new uint256[](teamSize);
                 for (uint256 i = 0; i < teamSize; i++) {
                     if (i != activeMonIndex[playerIndex]) {
-                        if (battle.validator
+                        if (config.validator
                             .validatePlayerMove(battleKey, SWITCH_MOVE_INDEX, playerIndex, abi.encode(i))) {
                             validSwitchIndices[validSwitchCount++] = i;
                         }
@@ -115,7 +115,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                         extraDataToUse = abi.encode(validSwitchIndices[randomIndex]);
                         validMoveExtraData[validMoveCount] = extraDataToUse;
                     }
-                    if (battle.validator.validatePlayerMove(battleKey, i, playerIndex, extraDataToUse)) {
+                    if (config.validator.validatePlayerMove(battleKey, i, playerIndex, extraDataToUse)) {
                         validMoveIndices[validMoveCount++] = i;
                     }
                 }
@@ -158,8 +158,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                 ruleset: proposal.ruleset,
                 engineHooks: proposal.engineHooks,
                 moveManager: proposal.moveManager,
-                matchmaker: proposal.matchmaker,
-                startTimestamp: 0
+                matchmaker: proposal.matchmaker
             })
         );
     }

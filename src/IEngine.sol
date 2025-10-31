@@ -30,7 +30,7 @@ interface IEngine {
     function computeBattleKey(address p0, address p1) external view returns (bytes32 battleKey, bytes32 pairHash);
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256);
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager);
-    function getBattle(bytes32 battleKey) external view returns (Battle memory);
+    function getBattle(bytes32 battleKey) external view returns (BattleConfig memory, BattleData memory);
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory);
     function getMonValueForBattle(
         bytes32 battleKey,
@@ -62,6 +62,5 @@ interface IEngine {
     function getMonKOCount(bytes32 battleKey, uint256 playerIndex) external view returns (uint256);
     function getWinner(bytes32 battleKey) external view returns (address);
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
-    function getRNG(bytes32 battleKey, uint256 index) external view returns (uint256);
     function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory);
 }

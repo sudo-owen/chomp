@@ -477,7 +477,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Both Alice and Bob's mons have the same speed, so the final priority player is rng % 2
         BattleState memory state = engine.getBattleState(battleKey);
-        uint256 finalRNG = state.pRNGStream[state.pRNGStream.length - 1];
+        uint256 finalRNG = state.rng;
         uint256 winnerIndex = finalRNG % 2;
         if (winnerIndex == 0) {
             assertEq(state.winner, ALICE);

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IEngineHook} from "../IEngineHook.sol";
 import {IEngine} from "../IEngine.sol";
-import {Battle, BattleState} from "../Structs.sol";
+import {BattleData, BattleState} from "../Structs.sol";
 import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 
 /// @title BattleHistory
@@ -39,11 +39,11 @@ contract BattleHistory is IEngineHook {
 
     /// @notice Called when a battle ends - updates battle statistics
     function onBattleEnd(bytes32 battleKey) external {
-        Battle memory battle = engine.getBattle(battleKey);
+        (, BattleData memory battleData) = engine.getBattle(battleKey);
         BattleState memory battleState = engine.getBattleState(battleKey);
 
-        address p0 = battle.p0;
-        address p1 = battle.p1;
+        address p0 = battleData.p0;
+        address p1 = battleData.p1;
         address winner = battleState.winner;
 
         // Update total battles for both players

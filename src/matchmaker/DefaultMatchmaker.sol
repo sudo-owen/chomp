@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IEngine} from "../IEngine.sol";
-import {Battle, ProposedBattle} from "../Structs.sol";
+import {ProposedBattle, Battle} from "../Structs.sol";
 import {IMatchmaker} from "./IMatchmaker.sol";
 import {MappingAllocator} from "../lib/MappingAllocator.sol";
 
@@ -96,8 +96,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
                     ruleset: proposal.ruleset,
                     engineHooks: proposal.engineHooks,
                     moveManager: proposal.moveManager,
-                    matchmaker: proposal.matchmaker,
-                    startTimestamp: 0
+                    matchmaker: proposal.matchmaker
                 })
             );
             _cleanUpBattleProposal(battleKey);
@@ -137,8 +136,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
                 ruleset: proposal.ruleset,
                 engineHooks: proposal.engineHooks,
                 moveManager: proposal.moveManager,
-                matchmaker: proposal.matchmaker,
-                startTimestamp: 0 // This gets filled in by the Engine
+                matchmaker: proposal.matchmaker
             })
         );
         _cleanUpBattleProposal(battleKey);
