@@ -44,6 +44,8 @@ import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {BattleHelper} from "./abstract/BattleHelper.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
+import {EditEffectAttack} from "./mocks/EditEffectAttack.sol";
+import {DummyStatus} from "./mocks/DummyStatus.sol";
 
 contract EngineTest is Test, BattleHelper {
     DefaultCommitManager commitManager;
@@ -3052,5 +3054,36 @@ contract EngineTest is Test, BattleHelper {
         BattleState memory state = engine.getBattleState(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
         assertEq(state.activeMonIndex[1], 0);
+    }
+
+    function test_editEffect() public {
+        EditEffectAttack editEffectAttack = new EditEffectAttack(engine);
+        DummyStatus d = new DummyStatus();
+        EffectAbility effectAbility = new EffectAbility(engine, d);
+        Mon memory mon = _createMon();
+        mon.ability = effectAbility;
+        mon.moves = new IMoveSet[](1);
+        mon.moves[0] = editEffectAttack;
+        Mon[] memory team = new Mon[](1);
+        team[0] = mon;
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: mon.moves.length, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        );
+        bytes32 battleKey = _startBattle(validatorToUse, engine, defaultOracle, defaultRegistry, matchmaker, commitManager);
+
+        // Alice and Bob send in their first mon
+        _commitRevealExecuteForAliceAndBob(battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
+
+        // Verify the dummy effect is applied to Alice's mon
+        (IEffect[] memory effects, bytes[] memory extraData) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects.length, 1);
+
+        // Alice uses the edit effect attack to change the extra data to 69 on Bob
+        _commitRevealExecuteForAliceAndBob(battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(1, 0, 0), "");
+        (effects, extraData) = engine.getEffects(battleKey, 1, 0);
+        assertEq(extraData[0], abi.encode(69));
     }
 }
