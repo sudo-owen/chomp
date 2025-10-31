@@ -275,7 +275,9 @@ contract StatBoosts is BasicEffect {
         pure
         returns (uint256[] memory newBoosts, uint8 oldStatType, bool wasUpdate)
     {
-        (bool found, uint256 index) = findBoost(boosts, key);
+        bool found;
+        uint256 index;
+        (found, index) = findBoost(boosts, key);
 
         if (found) {
             // Update existing boost
@@ -303,7 +305,8 @@ contract StatBoosts is BasicEffect {
         pure
         returns (uint256[] memory newBoosts, bool found, uint8 oldStatType)
     {
-        (found, uint256 index) = findBoost(boosts, key);
+        uint256 index;
+        (found, index) = findBoost(boosts, key);
 
         if (!found) {
             return (boosts, false, 0);
@@ -360,9 +363,15 @@ contract StatBoosts is BasicEffect {
         uint8 statType = monStateIndexToStatType(statIndex);
 
         // Get current effect data (if exists)
-        (bool found, uint256 effectIndex, bytes memory currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
-        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
-            decodeExtraData(currentExtraData);
+        bool found;
+        uint256 effectIndex;
+        bytes memory currentExtraData;
+        (found, effectIndex, currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
+
+        uint256 netDeltas;
+        uint256[] memory tempBoosts;
+        uint256[] memory permBoosts;
+        (netDeltas, tempBoosts, permBoosts) = decodeExtraData(currentExtraData);
 
         // Get the base stat value
         uint32 baseStat = ENGINE.getMonValueForBattle(
@@ -430,13 +439,18 @@ contract StatBoosts is BasicEffect {
         require(boostFlag != StatBoostFlag.Existence, "Cannot use Existence flag");
 
         // Get current effect data
-        (bool found, uint256 effectIndex, bytes memory currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
+        bool found;
+        uint256 effectIndex;
+        bytes memory currentExtraData;
+        (found, effectIndex, currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
         if (!found) {
             return; // No effect to remove from
         }
 
-        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
-            decodeExtraData(currentExtraData);
+        uint256 netDeltas;
+        uint256[] memory tempBoosts;
+        uint256[] memory permBoosts;
+        (netDeltas, tempBoosts, permBoosts) = decodeExtraData(currentExtraData);
 
         // Remove the boost
         uint256[] memory newArray;
@@ -487,13 +501,18 @@ contract StatBoosts is BasicEffect {
      */
     function removeAllTemporaryBoosts(uint256 targetIndex, uint256 monIndex) public {
         // Get current effect data
-        (bool found, uint256 effectIndex, bytes memory currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
+        bool found;
+        uint256 effectIndex;
+        bytes memory currentExtraData;
+        (found, effectIndex, currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
         if (!found) {
             return; // No effect to modify
         }
 
-        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
-            decodeExtraData(currentExtraData);
+        uint256 netDeltas;
+        uint256[] memory tempBoosts;
+        uint256[] memory permBoosts;
+        (netDeltas, tempBoosts, permBoosts) = decodeExtraData(currentExtraData);
 
         if (tempBoosts.length == 0) {
             return; // Nothing to remove
