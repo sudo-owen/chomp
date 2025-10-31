@@ -34,6 +34,8 @@ import {BasicEffect} from "./BasicEffect.sol";
  */
 
 contract StatBoosts is BasicEffect {
+    uint256 public constant SCALE = 100;
+
     IEngine immutable ENGINE;
 
     constructor(IEngine _ENGINE) {
@@ -54,6 +56,7 @@ contract StatBoosts is BasicEffect {
      * Pack a boost instance into a uint256
      * Layout: [uint56 empty | uint160 key | uint32 boostAmount | uint8 boostInfo]
      * boostInfo: [uint4 empty | uint3 statType | uint1 direction]
+     * boostAmount: percentage in SCALE units (e.g., 10 = 10% = multiply by 110/100 or 90/100)
      */
     function packBoostInstance(uint160 key, uint32 boostAmount, uint8 statType, bool isPositive)
         internal
@@ -138,108 +141,115 @@ contract StatBoosts is BasicEffect {
     // ============ EFFECT DATA MANAGEMENT ============
 
     /**
-     * Get the storage key for net deltas
+     * Find the StatBoosts effect for a mon and return its index and extraData
+     * Returns: (found, effectIndex, extraData)
      */
-    function getNetDeltasKey(uint256 targetIndex, uint256 monIndex) internal view returns (bytes32) {
-        return keccak256(abi.encode(targetIndex, monIndex, name(), "NET_DELTAS"));
-    }
-
-    /**
-     * Get the storage key for array length
-     */
-    function getArrayLengthKey(uint256 targetIndex, uint256 monIndex, string memory arrayType)
+    function findStatBoostsEffect(uint256 targetIndex, uint256 monIndex)
         internal
         view
-        returns (bytes32)
+        returns (bool found, uint256 effectIndex, bytes memory extraData)
     {
-        return keccak256(abi.encode(targetIndex, monIndex, name(), arrayType, "LENGTH"));
+        (IEffect[] memory effects, bytes[] memory extraDatas) =
+            ENGINE.getEffects(ENGINE.battleKeyForWrite(), targetIndex, monIndex);
+
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i]) == address(this)) {
+                return (true, i, extraDatas[i]);
+            }
+        }
+
+        return (false, 0, "");
     }
 
     /**
-     * Get the storage key for array element
+     * Decode extraData into its components
      */
-    function getArrayElementKey(uint256 targetIndex, uint256 monIndex, string memory arrayType, uint256 index)
+    function decodeExtraData(bytes memory extraData)
         internal
-        view
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(targetIndex, monIndex, name(), arrayType, index));
-    }
-
-    /**
-     * Load effect data for a mon
-     * Returns: (netDeltas, tempBoosts, permBoosts)
-     */
-    function loadEffectData(uint256 targetIndex, uint256 monIndex)
-        internal
-        view
+        pure
         returns (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts)
     {
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
-
-        // Load net deltas
-        netDeltas = uint256(ENGINE.getGlobalKV(battleKey, getNetDeltasKey(targetIndex, monIndex)));
-
-        // Load temp boosts array
-        uint256 tempLength = uint256(ENGINE.getGlobalKV(battleKey, getArrayLengthKey(targetIndex, monIndex, "TEMP")));
-        tempBoosts = new uint256[](tempLength);
-        for (uint256 i = 0; i < tempLength; i++) {
-            tempBoosts[i] = uint256(ENGINE.getGlobalKV(battleKey, getArrayElementKey(targetIndex, monIndex, "TEMP", i)));
-        }
-
-        // Load perm boosts array
-        uint256 permLength = uint256(ENGINE.getGlobalKV(battleKey, getArrayLengthKey(targetIndex, monIndex, "PERM")));
-        permBoosts = new uint256[](permLength);
-        for (uint256 i = 0; i < permLength; i++) {
-            permBoosts[i] = uint256(ENGINE.getGlobalKV(battleKey, getArrayElementKey(targetIndex, monIndex, "PERM", i)));
+        if (extraData.length == 0) {
+            tempBoosts = new uint256[](0);
+            permBoosts = new uint256[](0);
+            netDeltas = 0;
+        } else {
+            (netDeltas, tempBoosts, permBoosts) = abi.decode(extraData, (uint256, uint256[], uint256[]));
         }
     }
 
     /**
-     * Save effect data for a mon
+     * Encode data into extraData
      */
-    function saveEffectData(
-        uint256 targetIndex,
-        uint256 monIndex,
-        uint256 netDeltas,
-        uint256[] memory tempBoosts,
-        uint256[] memory permBoosts
-    ) internal {
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
-
-        // Save net deltas
-        ENGINE.setGlobalKV(getNetDeltasKey(targetIndex, monIndex), bytes32(netDeltas));
-
-        // Save temp boosts array
-        ENGINE.setGlobalKV(getArrayLengthKey(targetIndex, monIndex, "TEMP"), bytes32(tempBoosts.length));
-        for (uint256 i = 0; i < tempBoosts.length; i++) {
-            ENGINE.setGlobalKV(getArrayElementKey(targetIndex, monIndex, "TEMP", i), bytes32(tempBoosts[i]));
-        }
-
-        // Save perm boosts array
-        ENGINE.setGlobalKV(getArrayLengthKey(targetIndex, monIndex, "PERM"), bytes32(permBoosts.length));
-        for (uint256 i = 0; i < permBoosts.length; i++) {
-            ENGINE.setGlobalKV(getArrayElementKey(targetIndex, monIndex, "PERM", i), bytes32(permBoosts[i]));
-        }
+    function encodeExtraData(uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(netDeltas, tempBoosts, permBoosts);
     }
 
     // ============ BOOST MANIPULATION ============
 
     /**
-     * Calculate the total boost for a specific stat from an array of boost instances
+     * Calculate the total multiplicative boost for a specific stat from an array of boost instances
+     * Returns the delta to apply to the base stat
+     *
+     * For example, if baseStat=100 and we have boosts of +10% and +5%:
+     * - Multiply by (100+10)/100 * (100+5)/100 = 1.10 * 1.05 = 1.155
+     * - newStat = 100 * 1.155 = 115.5 ≈ 115
+     * - delta = 115 - 100 = 15
      */
-    function calculateTotalBoost(uint256[] memory boosts, uint8 statType) internal pure returns (int32 total) {
-        for (uint256 i = 0; i < boosts.length; i++) {
-            (, uint32 boostAmount, uint8 boostStatType, bool isPositive) = unpackBoostInstance(boosts[i]);
+    function calculateStatDelta(
+        uint256[] memory tempBoosts,
+        uint256[] memory permBoosts,
+        uint8 statType,
+        uint32 baseStat
+    ) internal pure returns (int32 delta) {
+        // Start with base stat
+        uint256 totalMultiplier = SCALE;
+        uint256 totalDivisor = 1;
 
+        // Collect all boosts for this stat
+        uint256 numMultiply = 0;
+        uint256 numDivide = 0;
+
+        // Process temp boosts
+        for (uint256 i = 0; i < tempBoosts.length; i++) {
+            (, uint32 boostAmount, uint8 boostStatType, bool isPositive) = unpackBoostInstance(tempBoosts[i]);
             if (boostStatType == statType) {
                 if (isPositive) {
-                    total += int32(boostAmount);
+                    totalMultiplier = totalMultiplier * (SCALE + boostAmount);
+                    numMultiply++;
                 } else {
-                    total -= int32(boostAmount);
+                    totalMultiplier = totalMultiplier * (SCALE - boostAmount);
+                    numMultiply++;
                 }
             }
         }
+
+        // Process perm boosts
+        for (uint256 i = 0; i < permBoosts.length; i++) {
+            (, uint32 boostAmount, uint8 boostStatType, bool isPositive) = unpackBoostInstance(permBoosts[i]);
+            if (boostStatType == statType) {
+                if (isPositive) {
+                    totalMultiplier = totalMultiplier * (SCALE + boostAmount);
+                    numMultiply++;
+                } else {
+                    totalMultiplier = totalMultiplier * (SCALE - boostAmount);
+                    numMultiply++;
+                }
+            }
+        }
+
+        // Calculate divisor (SCALE raised to the power of total number of boosts + 1 for the initial SCALE)
+        totalDivisor = SCALE ** (numMultiply + 1);
+
+        // Apply the multiplier
+        uint256 newStat = (uint256(baseStat) * totalMultiplier) / totalDivisor;
+
+        // Return the delta
+        return int32(uint32(newStat)) - int32(uint32(baseStat));
     }
 
     /**
@@ -344,17 +354,68 @@ contract StatBoosts is BasicEffect {
     ) public {
         require(boostFlag != StatBoostFlag.Existence, "Cannot use Existence flag");
 
-        // Convert boostType and boostAmount to direction and absolute value
+        // Convert boostType to direction
         bool isPositive = (boostType == StatBoostType.Multiply);
         uint32 absBoostAmount = uint32(boostAmount > 0 ? boostAmount : -boostAmount);
-
         uint8 statType = monStateIndexToStatType(statIndex);
 
-        // First, ensure the effect exists on the mon
-        bytes memory extraData = abi.encode(key, statType, absBoostAmount, isPositive, uint256(boostFlag));
+        // Get current effect data (if exists)
+        (bool found, uint256 effectIndex, bytes memory currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
+        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
+            decodeExtraData(currentExtraData);
+
+        // Get the base stat value
+        uint32 baseStat = ENGINE.getMonValueForBattle(
+            ENGINE.battleKeyForWrite(),
+            targetIndex,
+            monIndex,
+            statTypeToMonStateIndex(statType)
+        );
+
+        // Calculate old delta
+        int32 oldDelta = getNetDelta(netDeltas, statType);
+
+        // Add or update the boost
+        uint8 oldStatType;
+        bool wasUpdate;
+        if (boostFlag == StatBoostFlag.Temp) {
+            (tempBoosts, oldStatType, wasUpdate) = addOrUpdateBoost(tempBoosts, key, absBoostAmount, statType, isPositive);
+        } else {
+            (permBoosts, oldStatType, wasUpdate) = addOrUpdateBoost(permBoosts, key, absBoostAmount, statType, isPositive);
+        }
+
+        // Calculate new delta for the affected stat
+        int32 newDelta = calculateStatDelta(tempBoosts, permBoosts, statType, baseStat);
+        netDeltas = setNetDelta(netDeltas, statType, newDelta);
+
+        // Apply the difference
+        int32 diff = newDelta - oldDelta;
         ENGINE.setUpstreamCaller(msg.sender);
-        ENGINE.addEffect(targetIndex, monIndex, this, extraData);
+        ENGINE.updateMonState(targetIndex, monIndex, statTypeToMonStateIndex(statType), diff);
+
+        // If we updated a boost and it changed stats, recalculate the old stat too
+        if (wasUpdate && oldStatType != statType) {
+            uint32 oldStatBaseStat = ENGINE.getMonValueForBattle(
+                ENGINE.battleKeyForWrite(),
+                targetIndex,
+                monIndex,
+                statTypeToMonStateIndex(oldStatType)
+            );
+            int32 oldStatOldDelta = getNetDelta(netDeltas, oldStatType);
+            int32 oldStatNewDelta = calculateStatDelta(tempBoosts, permBoosts, oldStatType, oldStatBaseStat);
+            netDeltas = setNetDelta(netDeltas, oldStatType, oldStatNewDelta);
+
+            int32 oldStatDiff = oldStatNewDelta - oldStatOldDelta;
+            ENGINE.updateMonState(targetIndex, monIndex, statTypeToMonStateIndex(oldStatType), oldStatDiff);
+        }
+
         ENGINE.setUpstreamCaller(address(0));
+
+        // Update or add the effect
+        if (found) {
+            ENGINE.removeEffect(targetIndex, monIndex, effectIndex);
+        }
+        ENGINE.addEffect(targetIndex, monIndex, this, encodeExtraData(netDeltas, tempBoosts, permBoosts));
     }
 
     /**
@@ -368,48 +429,71 @@ contract StatBoosts is BasicEffect {
     ) public {
         require(boostFlag != StatBoostFlag.Existence, "Cannot use Existence flag");
 
-        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
-            loadEffectData(targetIndex, monIndex);
-
-        uint256[] memory targetArray = (boostFlag == StatBoostFlag.Temp) ? tempBoosts : permBoosts;
-        uint256[] memory newArray;
-        bool found;
-        uint8 oldStatType;
-
-        (newArray, found, oldStatType) = removeBoost(targetArray, key);
-
+        // Get current effect data
+        (bool found, uint256 effectIndex, bytes memory currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
         if (!found) {
-            return; // Nothing to remove
+            return; // No effect to remove from
         }
 
-        // Update the appropriate array
+        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
+            decodeExtraData(currentExtraData);
+
+        // Remove the boost
+        uint256[] memory newArray;
+        bool boostFound;
+        uint8 oldStatType;
+
         if (boostFlag == StatBoostFlag.Temp) {
+            (newArray, boostFound, oldStatType) = removeBoost(tempBoosts, key);
             tempBoosts = newArray;
         } else {
+            (newArray, boostFound, oldStatType) = removeBoost(permBoosts, key);
             permBoosts = newArray;
         }
 
-        // Recalculate the net delta for the affected stat
-        int32 oldNetDelta = getNetDelta(netDeltas, oldStatType);
-        int32 newTotalForStat = calculateTotalBoost(tempBoosts, oldStatType) + calculateTotalBoost(permBoosts, oldStatType);
-        netDeltas = setNetDelta(netDeltas, oldStatType, newTotalForStat);
+        if (!boostFound) {
+            return; // Nothing to remove
+        }
 
-        // Calculate the diff and apply it
-        int32 diff = newTotalForStat - oldNetDelta;
+        // Get the base stat value
+        uint32 baseStat = ENGINE.getMonValueForBattle(
+            ENGINE.battleKeyForWrite(),
+            targetIndex,
+            monIndex,
+            statTypeToMonStateIndex(oldStatType)
+        );
+
+        // Recalculate delta for the affected stat
+        int32 oldDelta = getNetDelta(netDeltas, oldStatType);
+        int32 newDelta = calculateStatDelta(tempBoosts, permBoosts, oldStatType, baseStat);
+        netDeltas = setNetDelta(netDeltas, oldStatType, newDelta);
+
+        // Apply the difference
+        int32 diff = newDelta - oldDelta;
         ENGINE.setUpstreamCaller(msg.sender);
         ENGINE.updateMonState(targetIndex, monIndex, statTypeToMonStateIndex(oldStatType), diff);
         ENGINE.setUpstreamCaller(address(0));
 
-        // Save updated data
-        saveEffectData(targetIndex, monIndex, netDeltas, tempBoosts, permBoosts);
+        // Update the effect
+        ENGINE.removeEffect(targetIndex, monIndex, effectIndex);
+        if (tempBoosts.length > 0 || permBoosts.length > 0) {
+            // Still have boosts, keep the effect
+            ENGINE.addEffect(targetIndex, monIndex, this, encodeExtraData(netDeltas, tempBoosts, permBoosts));
+        }
     }
 
     /**
      * Remove all temporary boosts for a mon
      */
     function removeAllTemporaryBoosts(uint256 targetIndex, uint256 monIndex) public {
+        // Get current effect data
+        (bool found, uint256 effectIndex, bytes memory currentExtraData) = findStatBoostsEffect(targetIndex, monIndex);
+        if (!found) {
+            return; // No effect to modify
+        }
+
         (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
-            loadEffectData(targetIndex, monIndex);
+            decodeExtraData(currentExtraData);
 
         if (tempBoosts.length == 0) {
             return; // Nothing to remove
@@ -425,22 +509,33 @@ contract StatBoosts is BasicEffect {
         // Clear temp boosts
         tempBoosts = new uint256[](0);
 
-        // Recalculate net deltas and apply changes
+        // Recalculate and apply changes for each affected stat
         ENGINE.setUpstreamCaller(msg.sender);
         for (uint8 statType = 0; statType < 5; statType++) {
             if (statsToUpdate[statType]) {
-                int32 oldNetDelta = getNetDelta(netDeltas, statType);
-                int32 newTotalForStat = calculateTotalBoost(permBoosts, statType);
-                netDeltas = setNetDelta(netDeltas, statType, newTotalForStat);
+                uint32 baseStat = ENGINE.getMonValueForBattle(
+                    ENGINE.battleKeyForWrite(),
+                    targetIndex,
+                    monIndex,
+                    statTypeToMonStateIndex(statType)
+                );
 
-                int32 diff = newTotalForStat - oldNetDelta;
+                int32 oldDelta = getNetDelta(netDeltas, statType);
+                int32 newDelta = calculateStatDelta(tempBoosts, permBoosts, statType, baseStat);
+                netDeltas = setNetDelta(netDeltas, statType, newDelta);
+
+                int32 diff = newDelta - oldDelta;
                 ENGINE.updateMonState(targetIndex, monIndex, statTypeToMonStateIndex(statType), diff);
             }
         }
         ENGINE.setUpstreamCaller(address(0));
 
-        // Save updated data
-        saveEffectData(targetIndex, monIndex, netDeltas, tempBoosts, permBoosts);
+        // Update the effect
+        ENGINE.removeEffect(targetIndex, monIndex, effectIndex);
+        if (permBoosts.length > 0) {
+            // Still have permanent boosts, keep the effect
+            ENGINE.addEffect(targetIndex, monIndex, this, encodeExtraData(netDeltas, tempBoosts, permBoosts));
+        }
     }
 
     // ============ EFFECT CALLBACKS ============
@@ -450,61 +545,13 @@ contract StatBoosts is BasicEffect {
         override
         returns (bytes memory, bool)
     {
-        (uint160 key, uint8 statType, uint32 absBoostAmount, bool isPositive, uint256 boostFlagUint) =
-            abi.decode(extraData, (uint160, uint8, uint32, bool, uint256));
-
-        StatBoostFlag boostFlag = StatBoostFlag(boostFlagUint);
-
-        // Load current effect data
-        (uint256 netDeltas, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
-            loadEffectData(targetIndex, monIndex);
-
-        // Determine which array to modify
-        uint256[] memory targetArray = (boostFlag == StatBoostFlag.Temp) ? tempBoosts : permBoosts;
-
-        // Add or update the boost
-        uint8 oldStatType;
-        bool wasUpdate;
-        (targetArray, oldStatType, wasUpdate) = addOrUpdateBoost(targetArray, key, absBoostAmount, statType, isPositive);
-
-        // Update the appropriate array reference
-        if (boostFlag == StatBoostFlag.Temp) {
-            tempBoosts = targetArray;
-        } else {
-            permBoosts = targetArray;
-        }
-
-        // Recalculate net deltas for affected stats
-        int32 oldNetDelta = getNetDelta(netDeltas, statType);
-        int32 newTotalForStat = calculateTotalBoost(tempBoosts, statType) + calculateTotalBoost(permBoosts, statType);
-        netDeltas = setNetDelta(netDeltas, statType, newTotalForStat);
-
-        // Calculate diff and apply it
-        int32 diff = newTotalForStat - oldNetDelta;
-        ENGINE.setUpstreamCaller(msg.sender);
-        ENGINE.updateMonState(targetIndex, monIndex, statTypeToMonStateIndex(statType), diff);
-        ENGINE.setUpstreamCaller(address(0));
-
-        // If we updated a boost and it changed stats, we need to recalculate the old stat too
-        if (wasUpdate && oldStatType != statType) {
-            int32 oldStatOldNetDelta = getNetDelta(netDeltas, oldStatType);
-            int32 oldStatNewTotal = calculateTotalBoost(tempBoosts, oldStatType) + calculateTotalBoost(permBoosts, oldStatType);
-            netDeltas = setNetDelta(netDeltas, oldStatType, oldStatNewTotal);
-
-            int32 oldStatDiff = oldStatNewTotal - oldStatOldNetDelta;
-            ENGINE.setUpstreamCaller(msg.sender);
-            ENGINE.updateMonState(targetIndex, monIndex, statTypeToMonStateIndex(oldStatType), oldStatDiff);
-            ENGINE.setUpstreamCaller(address(0));
-        }
-
-        // Save updated data
-        saveEffectData(targetIndex, monIndex, netDeltas, tempBoosts, permBoosts);
-
-        // Always remove the effect from the queue after running (we just update the stored data)
-        return (extraData, true);
+        // This is called when the effect is added/updated
+        // We've already done all the work in the public functions
+        // Just keep the effect with its data
+        return (extraData, false);
     }
 
-    function onMonSwitchOut(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchOut(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
@@ -512,7 +559,8 @@ contract StatBoosts is BasicEffect {
         // Remove all temporary boosts when switching out
         removeAllTemporaryBoosts(targetIndex, monIndex);
 
-        return ("", false);
+        // Return the updated extra data (though it will be handled by removeAllTemporaryBoosts)
+        return (extraData, false);
     }
 
     // ============ LEGACY COMPATIBILITY ============
