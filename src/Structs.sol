@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {Type} from "./Enums.sol";
+import {Type, MonStateIndexName} from "./Enums.sol";
 import {IEngineHook} from "./IEngineHook.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 import {IRuleset} from "./IRuleset.sol";
@@ -116,4 +116,10 @@ struct RevealedMove {
     uint256 moveIndex;
     bytes32 salt;
     bytes extraData;
+}
+
+struct StatBoostUpdate {
+    MonStateIndexName stat;
+    uint32 oldStat;
+    uint32 newStat;
 }
