@@ -104,11 +104,11 @@ contract StatBoosts is BasicEffect {
         return (false, 0, "");
     }
 
-    function _encodeExtraData(
-        uint256 boostsSnapshot,
-        uint256[] memory tempBoosts,
-        uint256[] memory permBoosts
-    ) internal pure returns (bytes memory extraData) {
+    function _encodeExtraData(uint256 boostsSnapshot, uint256[] memory tempBoosts, uint256[] memory permBoosts)
+        internal
+        pure
+        returns (bytes memory extraData)
+    {
         return abi.encode(boostsSnapshot, tempBoosts, permBoosts);
     }
 
@@ -121,19 +121,20 @@ contract StatBoosts is BasicEffect {
     }
 
     function _packBoostSnapshot(uint32[] memory unpackedSnapshot) internal pure returns (uint256) {
-        return
-            (uint256(unpackedSnapshot[0]) << 160) |
-            (uint256(unpackedSnapshot[1]) << 128) |
-            (uint256(unpackedSnapshot[2]) << 96) |
-            (uint256(unpackedSnapshot[3]) << 64) |
-            (uint256(unpackedSnapshot[4]) << 32);
+        return (uint256(unpackedSnapshot[0]) << 160) | (uint256(unpackedSnapshot[1]) << 128)
+            | (uint256(unpackedSnapshot[2]) << 96) | (uint256(unpackedSnapshot[3]) << 64)
+            | (uint256(unpackedSnapshot[4]) << 32);
     }
 
     /*
         Returns what the scaled stat would be, assuming only the stat boosts were applied
         If an existing stat is 0, we default to the mon's original value
     */
-    function _unpackBoostSnapshot(uint256 playerIndex, uint256 monIndex, uint256 boostSnapshot) internal view returns (uint32[] memory) {
+    function _unpackBoostSnapshot(uint256 playerIndex, uint256 monIndex, uint256 boostSnapshot)
+        internal
+        view
+        returns (uint32[] memory)
+    {
         uint32[] memory snapshotPerStat = new uint32[](5);
         snapshotPerStat[0] = uint32((boostSnapshot >> 160) & 0xFFFFFFFF);
         snapshotPerStat[1] = uint32((boostSnapshot >> 128) & 0xFFFFFFFF);
@@ -141,11 +142,12 @@ contract StatBoosts is BasicEffect {
         snapshotPerStat[3] = uint32((boostSnapshot >> 64) & 0xFFFFFFFF);
         snapshotPerStat[4] = uint32((boostSnapshot >> 32) & 0xFFFFFFFF);
         uint32[] memory stats = _getMonStatSubset(playerIndex, monIndex);
-        for (uint i; i < snapshotPerStat.length; i++) {
+        for (uint256 i; i < snapshotPerStat.length; i++) {
             if (snapshotPerStat[i] == 0) {
                 snapshotPerStat[i] = stats[i];
             }
         }
+        return snapshotPerStat;
     }
 
     function _monStateIndexToStatBoostIndex(MonStateIndexName statIndex) internal pure returns (uint256) {
@@ -161,6 +163,21 @@ contract StatBoosts is BasicEffect {
             return 4;
         }
         return 0;
+    }
+
+    function _statBoostIndexToMonStateIndex(uint256 statBoostIndex) internal pure returns (MonStateIndexName) {
+        if (statBoostIndex == 0) {
+            return MonStateIndexName.Attack;
+        } else if (statBoostIndex == 1) {
+            return MonStateIndexName.Defense;
+        } else if (statBoostIndex == 2) {
+            return MonStateIndexName.SpecialAttack;
+        } else if (statBoostIndex == 3) {
+            return MonStateIndexName.SpecialDefense;
+        } else if (statBoostIndex == 4) {
+            return MonStateIndexName.Speed;
+        }
+        return MonStateIndexName.Attack;
     }
 
     function _getMonStatSubset(uint256 playerIndex, uint256 monIndex) internal view returns (uint32[] memory) {
@@ -221,7 +238,7 @@ contract StatBoosts is BasicEffect {
         }
         StatBoostUpdate[] memory statBoostUpdates = new StatBoostUpdate[](oldBoostedStats.length);
         for (uint256 i; i < oldBoostedStats.length; i++) {
-            statBoostUpdates[i] = StatBoostUpdate(MonStateIndexName(i), oldBoostedStats[i], newBoostedStats[i]);
+            statBoostUpdates[i] = StatBoostUpdate(_statBoostIndexToMonStateIndex(i), oldBoostedStats[i], newBoostedStats[i]);
         }
         return (_packBoostSnapshot(newBoostedStats), statBoostUpdates);
     }
@@ -240,34 +257,34 @@ contract StatBoosts is BasicEffect {
     function addStatBoost(
         uint256 targetIndex,
         uint256 monIndex,
-        uint256 statIndex,
-        int32 boostPercent,
+        MonStateIndexName stateIndex,
+        uint32 boostPercent,
         StatBoostType boostType,
         StatBoostFlag boostFlag
     ) public {
         // By default we assume one stat boost ID per caller
         uint216 key = _generateKey(targetIndex, monIndex, name());
-        _addStatBoostWithKey(targetIndex, monIndex, statIndex, boostPercent, boostType, boostFlag, key);
+        _addStatBoostWithKey(targetIndex, monIndex, stateIndex, boostPercent, boostType, boostFlag, key);
     }
 
     function addKeyedStatBoost(
         uint256 targetIndex,
         uint256 monIndex,
-        uint256 statIndex,
-        int32 boostPercent,
+        MonStateIndexName stateIndex,
+        uint32 boostPercent,
         StatBoostType boostType,
         StatBoostFlag boostFlag,
         string memory salt
     ) public {
         uint216 key = _generateKey(targetIndex, monIndex, salt);
-        _addStatBoostWithKey(targetIndex, monIndex, statIndex, boostPercent, boostType, boostFlag, key);
+        _addStatBoostWithKey(targetIndex, monIndex, stateIndex, boostPercent, boostType, boostFlag, key);
     }
 
     function _addStatBoostWithKey(
         uint256 targetIndex,
         uint256 monIndex,
-        uint256 statIndex,
-        int32 boostPercent,
+        MonStateIndexName stateIndex,
+        uint32 boostPercent,
         StatBoostType boostType,
         StatBoostFlag boostFlag,
         uint216 key
@@ -285,11 +302,41 @@ contract StatBoosts is BasicEffect {
         (bool found, uint256 effectIndex, bytes memory extraData) = _findExistingStatBoosts(targetIndex, monIndex);
         if (found) {
             (activeBoostsSnapshot, tempBoosts, permBoosts) = _decodeExtraData(extraData);
+
+            // bool boostWithKeyAlreadyExists = false;
+            // uint256[] memory targetArray = boostFlag == StatBoostFlag.Temp ? tempBoosts : permBoosts;
+            // for (uint256 i; i < targetArray.length; i++) {
+            //     (uint216 existingKey, uint32 existingBoostPercent,,) = _unpackBoostInstance(targetArray[i]);
+            //     if (existingKey == key) {
+            //         targetArray[i] =
+            //             _packBoostInstance(key, uint32(boostPercent), MonStateIndexName(statIndex), boostType);
+            //         boostWithKeyAlreadyExists = true;
+            //         break;
+            //     }
+            // }
+
+            // If not found, append
+            // if (!keyFound) {
+            //     uint256[] memory newArray = new uint256[](targetArray.length + 1);
+            //     for (uint256 i = 0; i < targetArray.length; i++) {
+            //         newArray[i] = targetArray[i];
+            //     }
+            //     newArray[targetArray.length] =
+            //         _packBoostInstance(key, uint32(boostPercent), MonStateIndexName(statIndex), boostType);
+
+            //     if (boostFlag == StatBoostFlag.Temp) {
+            //         tempBoosts = newArray;
+            //     } else {
+            //         permBoosts = newArray;
+            //     }
+            // }
+
+
         } else {
             tempBoosts = new uint256[](0);
             permBoosts = new uint256[](0);
             uint256 packedBoostInstance =
-                _packBoostInstance(key, uint32(boostPercent), MonStateIndexName(statIndex), boostType);
+                _packBoostInstance(key, boostPercent, stateIndex, boostType);
             if (boostFlag == StatBoostFlag.Temp) {
                 tempBoosts = new uint256[](1);
                 tempBoosts[0] = packedBoostInstance;
@@ -312,8 +359,8 @@ contract StatBoosts is BasicEffect {
     function removeStatBoost(
         uint256 targetIndex,
         uint256 monIndex,
-        uint256 statIndex,
-        int32 boostPercent,
+        MonStateIndexName stateIndex,
+        uint32 boostPercent,
         StatBoostType boostType,
         StatBoostFlag boostFlag
     ) public {}
