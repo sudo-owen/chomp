@@ -185,7 +185,7 @@ contract Engine is IEngine, MappingAllocator {
         BattleState storage state = battleStates[battleKey];
 
         // Check for game over
-        if (state.winner != address(0)) {
+        if (state.winnerIndex != 2) {
             revert GameAlreadyOver();
         }
 
@@ -377,8 +377,9 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // If a winner has been set, handle the game over
-        if (state.winner != address(0)) {
-            _handleGameOver(battleKey, state.winner);
+        if (state.winnerIndex != 2) {
+            address winner = (state.winnerIndex == 0) ? battle.p0 : battle.p1;
+            _handleGameOver(battleKey, winner);
             return;
         }
 
@@ -399,14 +400,14 @@ contract Engine is IEngine, MappingAllocator {
         BattleState storage state = battleStates[battleKey];
         BattleData storage data = battleData[battleKey];
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
-        if (state.winner != address(0)) {
+        if (state.winnerIndex != 2) {
             revert GameAlreadyOver();
         }
         for (uint256 i; i < 2; ++i) {
             address potentialLoser = config.validator.validateTimeout(battleKey, i);
             if (potentialLoser != address(0)) {
                 address winner = potentialLoser == data.p0 ? data.p1 : data.p0;
-                state.winner = winner;
+                state.winnerIndex = (winner == data.p0) ? 0 : 1;
                 _handleGameOver(battleKey, winner);
                 return;
             }
@@ -670,8 +671,9 @@ contract Engine is IEngine, MappingAllocator {
         address gameResult = config.validator.validateGameOver(battleKey, priorityPlayerIndex);
         if (gameResult != address(0)) {
             // Set the winner on the state (events and hooks will be called at the end)
-            if (state.winner == address(0)) {
-                state.winner = gameResult;
+            if (state.winnerIndex == 2) {
+                BattleData storage data = battleData[battleKey];
+                state.winnerIndex = (gameResult == data.p0) ? 0 : 1;
             }
             isGameOver = true;
         } else {
@@ -890,7 +892,7 @@ contract Engine is IEngine, MappingAllocator {
         // Check for Game Over and return early if so
         BattleState storage state = battleStates[battleKey];
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
-        if (state.winner != address(0)) {
+        if (state.winnerIndex != 2) {
             return playerSwitchForTurnFlag;
         }
         // If non-global effect, check if we should still run if mon is KOed
@@ -1152,7 +1154,11 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getWinner(bytes32 battleKey) external view returns (address) {
-        return battleStates[battleKey].winner;
+        uint8 winnerIndex = battleStates[battleKey].winnerIndex;
+        if (winnerIndex == 2) {
+            return address(0);
+        }
+        return (winnerIndex == 0) ? battleData[battleKey].p0 : battleData[battleKey].p1;
     }
 
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256) {

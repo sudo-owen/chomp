@@ -62,7 +62,7 @@ struct BattleConfig {
 
 // Stored by the Engine for a battle, tracks mutable battle data
 struct BattleState {
-    address winner;
+    uint8 winnerIndex; // 2 = uninitialized (no winner), 0 = p0 winner, 1 = p1 winner
     uint64 turnId;
     uint8 prevPlayerSwitchForTurnFlag;
     uint8 playerSwitchForTurnFlag;

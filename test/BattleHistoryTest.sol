@@ -227,7 +227,7 @@ contract BattleHistoryTest is Test, BattleHelper {
 
         // Verify winner
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE, "Alice should be the winner");
+        assertEq(engine.getWinner(battleKey), ALICE, "Alice should be the winner");
     }
 
     function test_GetNumBattlesTracksCorrectly() public {
