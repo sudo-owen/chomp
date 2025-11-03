@@ -4,6 +4,7 @@
 
 Sleep:
 - Forces opponent to select NO_OP
+- Requires engine overhaul
 
 Storm --> Rename to Overclock (your team becomes overclocked)
 
@@ -19,12 +20,13 @@ Generally strong in terms of passing buffs to sweepers, but other moves aren't g
 - Remove shrine strike (too much coverage)
 - Increase stamina cost for Initialize (1 to 3) [x]
 - Reduce cost for Chain Expansion (4 to 1) [x]
-- Add in new move to be damage + swap (2 stamina cost)
+    - and also charge based (4 charges) [x]
+- Add in new move to be damage + swap (2 stamina cost) [ ]
 
 Malalien:
 Generally at a good level of power for a glass cannon, one shots a little too easily. Debuffing moves to make spamming just a bit more difficult.
-- Infinite Love: 2 -> 3 stamina
-- Federal Investigation: 3 -> 4 stamina
+- Infinite Love: 2 -> 3 stamina [ ]
+- Federal Investigation: 3 -> 4 stamina [ ]
 
 Iblivion:
 Full rework as Baselight required attacking which meant every other turn you had to swap moves. 
@@ -45,23 +47,26 @@ Not enough moves to take advantage of Carrot Harvest, increasing both power and 
 - Unexpected Carrot power 80 -> 120, stamina 2 -> 4 [x]
 
 Pengym
-- NEW Ability: At end of round, if opponent has Frostbite, gain 20% speed.
-- NEW Move: Icy Tracks: If opponent swaps in or swaps out, they get Frostbite
+- NEW Ability: At end of round, if opponent has Frostbite, gain 20% speed. [ ]
+- NEW Move: TBD [ ]
 
 Embursa
 - reduce Q5 stamina cost to be 2, encourage using it more often [x]
 - Change ability from Split The Pot to something different
+    - NEW Ability: Tinderclaws
+    After every move, Embursa has a 1/3 chance of getting burned. When burned, Embursa gains a 50% SpATK boost. 
+    When resting, Embursa heals from burn.
 
 Volthare:
 Storm on switch in is a little too strong given the lack of other speed tiers / priority moves.
 - Fix dual shock to correctly inflict Zap on self at end of turn
-- NEW Ability: Preempt: On switch in (after the first one), deals a small amount of damage to the opposing mon.
+- NEW Ability: Preemptive Shock: On switch in (after the first one), deals a small amount of damage to the opposing mon.
 CONSIDER: renaming Storm to be something that implies it isn't global (both teams can have an instance active)
 - NEW Move: Overclock, sets Overclock on the battlefield. Overclock lasts 5 turns, boosts Speed and decreases Def and ZDef.
 - NEW Move: tbd
 - Rename Move: Megavoltage: Clears Storm and deals massive damage, otherwise accuracy is 50%
 
-Aurox: NEW MON
+Aurox: NEW MON [x]
 Type: Metal
 Aurox is designed to be tanky. Limited offensive options, but a strong defensive option, hard countering most status effects.
 Ability: Up Only: After taking damage, gain 5% attack boost. Permanent.
@@ -71,12 +76,12 @@ Moves:
 - Iron Wall: Metal, 2 stamina, Until the end of next turn, when Aurox takes damage, heal 50% of it.
 - Bull Rush: Metal, 3 stamina, 80 power, deals 10% max hp damage to self.
 
-Xmon: NEW MON
+Xmon: NEW MON [ ]
 Type: Cosmic
 Xmon is designed to be utility mon. Spams negative status but with little kill potential.
-Ability: Dreamcatcher, on Rest, heals all team by 1/16 max HP.
+Ability: Dreamcatcher, on stamina gain, heals by 1/16 max hp.
 Moves:
-- Drain: 3 stamina 50 power, 30% chance to steal 1 stamina
-- Forced Slumber: 3 stamina, both mons fall asleep.
-- Dreamcatcher: At the end of every turn, Xmon spends 1 stamina to deal damage to the opponent. If the opponent is asleep, deals double damage. Can stack. Clears when Xmon switches out. If not enough stamina, Xmon goes to sleep.
-- immunity move?
+- Contagious Slumber: Cosmic, 2 stamina, Both active mons fall asleep
+- Vital Siphon: Cosmic, 2 stamina, 40 power, Deals damage, 50% chance to steal 1 stamina from opponent
+- Somniphobia: Cosmic, 3 stamina, For the next 6 turns, any mon that rests will also take 1/16th damage
+- Night Terrors: Cosmic, 0 stamina, Gain a Terror stack. At the end of turn, Xmon pays 1 stamina per stack, dealing 20 damage to the opponent per stack. Deals 30 damage if the opponent is asleep.

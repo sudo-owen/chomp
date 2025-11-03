@@ -448,7 +448,7 @@ contract InutiaTest is Test, BattleHelper {
             engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1)
         );
 
-        // Verify damage dealt to Bob's mon index 1 is 1/16 of max HP
+        // Verify damage dealt to Bob's mon index 1 is 1/16 of max HP (charge 1)
         int32 damageToBobMon1 = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Hp);
         assertEq(damageToBobMon1, -64, "Damage dealt to Bob's mon index 1 should be 1/16 of max HP");
 
@@ -457,7 +457,7 @@ contract InutiaTest is Test, BattleHelper {
             engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(2)
         );
 
-        // Verify damage dealt to Bob's mon index 2 is 1/4 of max HP
+        // Verify damage dealt to Bob's mon index 2 is 1/4 of max HP (charge 2)
         int32 damageToBobMon2 = engine.getMonStateForBattle(battleKey, 1, 2, MonStateIndexName.Hp);
         assertEq(damageToBobMon2, -256, "Damage dealt to Bob's mon index 2 should be 1/4 of max HP");
 
@@ -466,9 +466,18 @@ contract InutiaTest is Test, BattleHelper {
             engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0)
         );
 
-        // Verify damage dealt to Bob's mon index 0 is 1/8 of max HP
+        // Verify damage dealt to Bob's mon index 0 is 1/8 of max HP (charge 3)
         int32 damageToBobMon0 = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
         assertEq(damageToBobMon0, -128, "Damage dealt to Bob's mon index 0 should be 1/8 of max HP");
+
+        // Bob swaps to mon index 1
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1)
+        );
+
+        // Verify damage dealt to Bob's mon index 1 is 1/16 of max HP (charge 4)
+        damageToBobMon1 = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Hp);
+        assertEq(damageToBobMon1, -128, "Damage dealt to Bob's mon index 1 should be 1/16 of max HP (now applied twice)");
 
         // Verify the global effects are now empty (CE is finished)
         (effects,) = engine.getEffects(battleKey, 2, 0);

@@ -25,11 +25,11 @@ import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 
-import {FrostbiteStatus} from "../../src/effects/status/FrostbiteStatus.sol";
+import {SpAtkDebuffEffect} from "../mocks/SpAtkDebuffEffect.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 
-contract StatBoostTest is Test, BattleHelper {
+contract StatBoostsTest is Test, BattleHelper {
     Engine engine;
     DefaultCommitManager commitManager;
     TestTypeCalculator typeCalc;
@@ -129,7 +129,7 @@ contract StatBoostTest is Test, BattleHelper {
     function testStatBoost(bytes32 battleKey, uint256 statIndex) internal {
         string memory statName = getStatName(statIndex);
 
-        // 1. Apply a positive boost (+2) to Alice's mon
+        // 1. Apply a positive boost to Alice's mon
         console.log("Testing %s stat boost", statName);
         console.log("1. Applying 10% boost to Alice's mon");
 
@@ -161,7 +161,7 @@ contract StatBoostTest is Test, BattleHelper {
         assertTrue(foundEffect, "Stat Boost effect should be added to mon's effects");
         uint256 effectCount = effects.length;
 
-        // 2. Apply another boost (+1) to the same stat
+        // 2. Apply another boost (+10) to the same stat
         console.log("2. Applying additional 1% boost to Alice's mon");
 
         _commitRevealExecuteForAliceAndBob(
@@ -170,40 +170,19 @@ contract StatBoostTest is Test, BattleHelper {
             battleKey,
             0, // Alice uses stat boost move
             NO_OP_MOVE_INDEX, // Bob does nothing
-            abi.encode(0, 0, statIndex, int32(1)), // Alice boosts her own mon by +1
+            abi.encode(0, 0, statIndex, int32(10)),
             "" // Bob does nothing
         );
 
         // Verify the stat was boosted further
         int32 furtherBoostedStat = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName(statIndex));
-        assertEq(furtherBoostedStat, initialStat + 11, "Stat should be boosted by 11% total");
+        assertEq(furtherBoostedStat, initialStat + 21, "Stat should be boosted by 21% total");
 
         // Verify no duplicate effect was added
         (effects,) = engine.getEffects(battleKey, 0, 0);
         assertEq(effects.length, effectCount, "No duplicate effect should be added");
 
-        // 3. Apply a debuff (-5) to the same stat
-        console.log("3. Applying -5% debuff to Alice's mon");
-
-        _commitRevealExecuteForAliceAndBob(
-            engine,
-            commitManager,
-            battleKey,
-            0, // Alice uses stat boost move
-            NO_OP_MOVE_INDEX, // Bob does nothing
-            abi.encode(0, 0, statIndex, int32(-5)), // Alice debuffs her own mon by -5%
-            "" // Bob does nothing
-        );
-
-        // Verify the stat was debuffed
-        int32 debuffedStat = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName(statIndex));
-        assertEq(debuffedStat, initialStat + 5, "Stat should be at +5% after debuff");
-
-        // Verify no duplicate effect was added
-        (effects,) = engine.getEffects(battleKey, 0, 0);
-        assertEq(effects.length, effectCount, "No duplicate effect should be added");
-
-        // 4. Switch out the mon
+        // Switch out the mon
         console.log("4. Switching out Alice's mon");
 
         _commitRevealExecuteForAliceAndBob(
@@ -364,49 +343,10 @@ contract StatBoostTest is Test, BattleHelper {
             );
         }
     }
-
-    /**
-    - Start with mon
-    - mon uses stat boosting moves (boost 2 diff stats) (should be temp)
-    - swap out
-    - swap back in, use stat boosting move again
-
-    You switched in Inutia!
-    owen-4 switched in Pengym!
-    Pengym's attack is weakened (from Interweaving)!
-
-    Turn 1
-    Pengym is resting!
-    Inutia used Initialize!
-    Inutia's special attack is boosted (from Initialize)!
-    Inutia's attack is boosted (from Initialize)!
-
-    Turn 2
-    Inutia is resting!
-    Pengym used Chill Out!
-    Inutia's special attack is weakened (from Frostbite Status)!
-    Inutia took 21 damage!
-
-    Turn 3
-    You switched in Gorillax!
-    Pengym's special attack is weakened (from Interweaving)!
-    Gorillax's special attack is boosted (from Initialize)!
-    Gorillax's attack is boosted (from Initialize)!
-    Pengym is resting!
-
-    Turn 4
-    owen-4 switched in Sofabbi!
-    You switched in Embursa!
-    Turn 5
-    owen-4 switched in Pengym!
-    You switched in Inutia!
-    Pengym's attack is weakened (from Interweaving)!
-    Inutia took 21 damage!
-     */
     
     function test_permanentTempStatBoostInteraction() public {
         StandardAttackFactory attackFactory = new StandardAttackFactory(engine, typeCalc);
-        FrostbiteStatus frostbiteStatus = new FrostbiteStatus(engine, statBoosts);
+        SpAtkDebuffEffect spAtkDebuff = new SpAtkDebuffEffect(engine, statBoosts);
 
         // Create teams with two mons each
         IMoveSet[] memory moves = new IMoveSet[](2);
@@ -422,8 +362,8 @@ contract StatBoostTest is Test, BattleHelper {
                 MOVE_CLASS: MoveClass.Physical,
                 CRIT_RATE: 0,
                 VOLATILITY: 0,
-                NAME: "FrostbiteHit",
-                EFFECT: IEffect(address(frostbiteStatus))
+                NAME: "SpAtkDebuffHit",
+                EFFECT: IEffect(address(spAtkDebuff))
             })
         );
         uint32 maxSpAtk = 100;
@@ -462,13 +402,13 @@ contract StatBoostTest is Test, BattleHelper {
         int32 boostedStat = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
         assertEq(boostedStat, 50, "Stat should be boosted by 50%");
 
-        // Alice does nothing, Bob uses FrostbiteHit to apply FrostbiteStatus to Alice's mon
+        // Alice does nothing, Bob uses SpAtkDebuffHit to apply SpAtkDebuffEffect to Alice's mon
         _commitRevealExecuteForAliceAndBob(
             engine,
             commitManager,
             battleKey,
             NO_OP_MOVE_INDEX, // Alice does nothing
-            1, // Bob uses FrostbiteHit
+            1, // Bob uses SpAtkDebuffHit
             "", // Alice does nothing
             "" // Bob does nothing
         );

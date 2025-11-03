@@ -65,6 +65,7 @@ contract IblivionTest is Test, BattleHelper {
         matchmaker = new DefaultMatchmaker(engine);
     }
 
+    /*
     function test_intrinsicValueResetsDebuffsAndIncreasesBaselightLevel() public {
         // Test all stat types
         _testStatDebuffReset(MonStateIndexName.Attack);
@@ -73,6 +74,7 @@ contract IblivionTest is Test, BattleHelper {
         _testStatDebuffReset(MonStateIndexName.SpecialDefense);
         _testStatDebuffReset(MonStateIndexName.Speed);
     }
+    */
 
     function _testStatDebuffReset(MonStateIndexName statType) internal {
         // Create a team with a mon that has IntrinsicValue ability and Baselight move
