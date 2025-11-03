@@ -1038,6 +1038,14 @@ contract Engine is IEngine, MappingAllocator {
         return players;
     }
 
+    function getMonStatsForBattle(bytes32 battleKey, uint256 playerIndex, uint256 monIndex)
+        external
+        view
+        returns (MonStats memory)
+    {
+        return battleData[battleKey].teams[playerIndex][monIndex].stats;
+    }
+
     function getMonStateForBattle(
         bytes32 battleKey,
         uint256 playerIndex,

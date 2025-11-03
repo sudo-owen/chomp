@@ -357,14 +357,14 @@ contract AuroxTest is Test, BattleHelper {
 
         // Verify that Bob's mon index 0 has a positive attack delta of upOnly.ATTACK_BOOST_PERCENT()
         int32 bobAttackDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
-        assertEq(bobAttackDelta, int32(upOnly.ATTACK_BOOST_PERCENT()) * int32(maxHp) / 100, "Bob's mon should be boosted");
+        assertEq(bobAttackDelta, int32(int8(upOnly.ATTACK_BOOST_PERCENT())) * int32(maxHp) / 100, "Bob's mon should be boosted");
 
         // Alice does nothing, Bob switches to mon index 1
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(1));
 
         // Verify that Bob's mon index 0 has a positive attack delta of upOnly.ATTACK_BOOST_PERCENT()
         bobAttackDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack);
-        assertEq(bobAttackDelta, int32(upOnly.ATTACK_BOOST_PERCENT()) * int32(maxHp) / 100, "Bob's mon should be boosted");
+        assertEq(bobAttackDelta, int32(int8(upOnly.ATTACK_BOOST_PERCENT())) * int32(maxHp) / 100, "Bob's mon should be boosted");
     }
 
     function test_volatilePunchDealsDamageAndTriggersStatusEffects() public {

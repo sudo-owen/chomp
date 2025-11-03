@@ -4,14 +4,15 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
 import {StatBoosts} from "../../effects/StatBoosts.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract EternalGrudge is IMoveSet {
-    int32 public constant ATTACK_DEBUFF_PERCENT = 50;
-    int32 public constant SP_ATTACK_DEBUFF_PERCENT = 50;
+    uint8 public constant ATTACK_DEBUFF_PERCENT = 50;
+    uint8 public constant SP_ATTACK_DEBUFF_PERCENT = 50;
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;
@@ -29,22 +30,18 @@ contract EternalGrudge is IMoveSet {
         // Apply the debuff (50% debuff to both attack and special attack)
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
         uint256 defenderMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
-        STAT_BOOSTS.addStatBoost(
-            defenderPlayerIndex,
-            defenderMonIndex,
-            uint256(MonStateIndexName.Attack),
-            ATTACK_DEBUFF_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Perm
-        );
-        STAT_BOOSTS.addStatBoost(
-            defenderPlayerIndex,
-            defenderMonIndex,
-            uint256(MonStateIndexName.SpecialAttack),
-            SP_ATTACK_DEBUFF_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Perm
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](2);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.Attack,
+            boostPercent: ATTACK_DEBUFF_PERCENT,
+            boostType: StatBoostType.Divide
+        });
+        statBoosts[1] = StatBoostToApply({
+            stat: MonStateIndexName.SpecialAttack,
+            boostPercent: SP_ATTACK_DEBUFF_PERCENT,
+            boostType: StatBoostType.Divide
+        });
+        STAT_BOOSTS.addStatBoosts(defenderPlayerIndex, defenderMonIndex, statBoosts, StatBoostFlag.Temp);
         uint256 attackerMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
 
         // KO self by dealing just enough damage

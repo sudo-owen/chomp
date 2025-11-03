@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {EffectStep, MonStateIndexName, StatBoostFlag, StatBoostType} from "../Enums.sol";
-import {StatBoostToApply, StatBoostUpdate} from "../Structs.sol";
+import {StatBoostToApply, StatBoostUpdate, MonStats} from "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
 import {BasicEffect} from "./BasicEffect.sol";
@@ -56,6 +56,8 @@ contract StatBoosts is BasicEffect {
         return (r == EffectStep.OnMonSwitchOut);
     }
 
+    event Foo(uint a);
+
     // Removes all temporary boosts on mon switch out
     function onMonSwitchOut(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
@@ -68,6 +70,9 @@ contract StatBoosts is BasicEffect {
             // Recalculate the stat boosts without the temporary boosts
             (uint256 newBoostsSnapshot, StatBoostUpdate[] memory statBoostUpdates) =
                 _calculateUpdatedStatBoosts(targetIndex, monIndex, activeBoostsSnapshot, new uint256[](0), permBoosts);
+
+            emit Foo(statBoostUpdates.length);
+
             _applyStatBoostUpdates(targetIndex, monIndex, statBoostUpdates);
             bytes memory newExtraData = _encodeExtraData(newBoostsSnapshot, tempBoosts, permBoosts);
             return (newExtraData, false);
@@ -104,9 +109,10 @@ contract StatBoosts is BasicEffect {
         uint8[] memory boostCounts = new uint8[](5);
         bool[] memory isMultiply = new bool[](5);
         for (uint256 i = 0; i < statBoostsToApply.length; i++) {
-            boostPercents[uint8(statBoostsToApply[i].stat)] = statBoostsToApply[i].boostPercent;
-            boostCounts[uint8(statBoostsToApply[i].stat)] = 1;
-            isMultiply[uint8(statBoostsToApply[i].stat)] = statBoostsToApply[i].boostType == StatBoostType.Multiply;
+            uint stateIndex = uint8(_monStateIndexToStatBoostIndex(statBoostsToApply[i].stat));
+            boostPercents[stateIndex] = statBoostsToApply[i].boostPercent;
+            boostCounts[stateIndex] = 1;
+            isMultiply[stateIndex] = statBoostsToApply[i].boostType == StatBoostType.Multiply;
         }
         return _packBoostInstance(key, boostPercents, boostCounts, isMultiply);
     }
@@ -235,11 +241,12 @@ contract StatBoosts is BasicEffect {
     function _getMonStatSubset(uint256 playerIndex, uint256 monIndex) internal view returns (uint32[] memory) {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         uint32[] memory stats = new uint32[](5);
-        stats[0] = ENGINE.getMonValueForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.Attack);
-        stats[1] = ENGINE.getMonValueForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.Defense);
-        stats[2] = ENGINE.getMonValueForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.SpecialAttack);
-        stats[3] = ENGINE.getMonValueForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.SpecialDefense);
-        stats[4] = ENGINE.getMonValueForBattle(battleKey, playerIndex, monIndex, MonStateIndexName.Speed);
+        MonStats memory monStats = ENGINE.getMonStatsForBattle(battleKey, playerIndex, monIndex);
+        stats[0] = monStats.attack;
+        stats[1] = monStats.defense;
+        stats[2] = monStats.specialAttack;
+        stats[3] = monStats.specialDefense;
+        stats[4] = monStats.speed;
         return stats;
     }
 
@@ -285,7 +292,7 @@ contract StatBoosts is BasicEffect {
                 if (numBoostsPerStat[i] > 0) {
                     newBoostedStats[i] = uint32(accumulatedNumeratorPerStat[i] / (DENOM ** numBoostsPerStat[i]));
                 } else {
-                    newBoostedStats[i] = oldBoostedStats[i];
+                    newBoostedStats[i] = stats[i];
                 }
             }
         }
@@ -328,7 +335,7 @@ contract StatBoosts is BasicEffect {
         mergedBoostCounts = existingBoostCounts;
         mergedIsMultiply = existingIsMultiply;
         for (uint256 i; i < newBoostsToApply.length; i++) {
-            uint256 statIndex = uint256(newBoostsToApply[i].stat);
+            uint256 statIndex = _monStateIndexToStatBoostIndex(newBoostsToApply[i].stat);
             if (existingBoostPercents[statIndex] != 0) {
                 mergedBoostCounts[statIndex]++;
             } else {
@@ -495,17 +502,4 @@ contract StatBoosts is BasicEffect {
             }
         }
     }
-
-    // function removeAllTempBoosts(uint256 targetIndex, uint256 monIndex) public {
-    //     if (found) {
-    //         (uint256 activeBoostsSnapshot,, uint256[] memory permBoosts) =
-    //             _decodeExtraData(extraData);
-    //         bytes memory newExtraData = _encodeExtraData(activeBoostsSnapshot, new uint256[](0), permBoosts);
-    //         ENGINE.editEffect(targetIndex, monIndex, effectIndex, newExtraData);
-    //         // Recalculate the stat boosts
-    //         (, StatBoostUpdate[] memory statBoostUpdates) =
-    //             _calculateUpdatedStatBoosts(targetIndex, monIndex, activeBoostsSnapshot, new uint256[](0), permBoosts);
-    //         _applyStatBoostUpdates(targetIndex, monIndex, statBoostUpdates);
-    //     }
-    // }
 }

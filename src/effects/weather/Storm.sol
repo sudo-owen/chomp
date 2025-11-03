@@ -12,8 +12,8 @@ import {StatBoosts} from "../StatBoosts.sol";
 contract Storm is BasicEffect {
     uint256 public constant DEFAULT_DURATION = 3;
 
-    int32 public constant SPEED_PERCENT = 25;
-    int32 public constant SP_DEF_PERCENT = 25;
+    uint8 public constant SPEED_PERCENT = 25;
+    uint8 public constant SP_DEF_PERCENT = 25;
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOST;
@@ -60,42 +60,23 @@ contract Storm is BasicEffect {
 
     function _applyStatChange(uint256 playerIndex, uint256 monIndex) internal {
         // Apply stat boosts (speed buff / sp def debuff)
-        STAT_BOOST.addStatBoost(
-            playerIndex,
-            monIndex,
-            uint256(MonStateIndexName.Speed),
-            SPEED_PERCENT,
-            StatBoostType.Multiply,
-            StatBoostFlag.Temp
-        );
-        STAT_BOOST.addStatBoost(
-            playerIndex,
-            monIndex,
-            uint256(MonStateIndexName.SpecialDefense),
-            SP_DEF_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Temp
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](2);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.Speed,
+            boostPercent: SPEED_PERCENT,
+            boostType: StatBoostType.Multiply
+        });
+        statBoosts[1] = StatBoostToApply({
+            stat: MonStateIndexName.SpecialDefense,
+            boostPercent: SP_DEF_PERCENT,
+            boostType: StatBoostType.Divide
+        });
+        STAT_BOOST.addStatBoosts(playerIndex, monIndex, statBoosts, StatBoostFlag.Temp);
     }
 
     function _removeStatChange(uint256 playerIndex, uint256 monIndex) internal {
         // Reset stat boosts (speed buff / sp def debuff)
-        STAT_BOOST.removeStatBoost(
-            playerIndex,
-            monIndex,
-            uint256(MonStateIndexName.Speed),
-            SPEED_PERCENT,
-            StatBoostType.Multiply,
-            StatBoostFlag.Temp
-        );
-        STAT_BOOST.removeStatBoost(
-            playerIndex,
-            monIndex,
-            uint256(MonStateIndexName.SpecialDefense),
-            SP_DEF_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Temp
-        );
+        STAT_BOOST.removeStatBoosts(playerIndex, monIndex, StatBoostFlag.Temp);
     }
 
     function onApply(uint256, bytes memory extraData, uint256, uint256)

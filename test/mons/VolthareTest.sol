@@ -132,13 +132,13 @@ contract VolthareTest is Test, BattleHelper {
 
         // Verify that Alice's mon's speed is boosted according to Storm's constants
         // Speed should be increased by 25%
-        int32 expectedSpeedBoost = storm.SPEED_PERCENT();
+        int32 expectedSpeedBoost = int32(int8(storm.SPEED_PERCENT()));
         int32 speedDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Speed);
         assertEq(speedDelta, expectedSpeedBoost, "Speed should be boosted");
 
         // Verify that Alice's mon's special defense is decreased according to Storm's constants
         // SpDef should be decreased (3/4)
-        int32 expectedSpDefDebuff = -1 * storm.SP_DEF_PERCENT();
+        int32 expectedSpDefDebuff = -1 * int32(int8(storm.SP_DEF_PERCENT()));
         int32 spDefDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialDefense);
         assertEq(spDefDelta, expectedSpDefDebuff, "Special Defense should be decreased");
 
@@ -237,8 +237,8 @@ contract VolthareTest is Test, BattleHelper {
         );
 
         // Verify that the stat changes are applied to Bob's mon
-        int32 expectedSpeedBoost = storm.SPEED_PERCENT();
-        int32 expectedSpDefDebuff = -1 * storm.SP_DEF_PERCENT();
+        int32 expectedSpeedBoost = int32(int8(storm.SPEED_PERCENT()));
+        int32 expectedSpDefDebuff = int32(int8(storm.SP_DEF_PERCENT())) * -1;
         int32 bobSpeedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
         int32 bobSpDefDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.SpecialDefense);
         assertEq(bobSpeedDelta, expectedSpeedBoost, "Bob's mon's speed should be boosted");

@@ -1,6 +1,7 @@
 # TODO
 
 - Fix stat boosts
+    - add engine method to get all stats for one mon
 - Combine the active mon index value
 - Look into Actus Reus bug
 

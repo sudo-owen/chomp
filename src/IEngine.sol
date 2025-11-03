@@ -39,6 +39,10 @@ interface IEngine {
         uint256 monIndex,
         MonStateIndexName stateVarIndex
     ) external view returns (uint32);
+    function getMonStatsForBattle(bytes32 battleKey, uint256 playerIndex, uint256 monIndex)
+        external
+        view
+        returns (MonStats memory);
     function getMonStateForBattle(
         bytes32 battleKey,
         uint256 playerIndex,

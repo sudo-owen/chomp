@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
 import {StatBoosts} from "../../effects/StatBoosts.sol";
@@ -13,7 +14,7 @@ import {HeatBeaconLib} from "./HeatBeaconLib.sol";
 contract HoneyBribe is IMoveSet {
     uint256 public constant DEFAULT_HEAL_DENOM = 2;
     uint256 public constant MAX_DIVISOR = 3;
-    int32 public constant SP_DEF_PERCENT = 50;
+    uint8 public constant SP_DEF_PERCENT = 50;
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;
@@ -63,14 +64,13 @@ contract HoneyBribe is IMoveSet {
         ENGINE.updateMonState(defenderPlayerIndex, defenderMonIndex, MonStateIndexName.Hp, healAmount);
 
         // Reduce opposing mon's SpDEF by 1/2
-        STAT_BOOSTS.addStatBoost(
-            defenderPlayerIndex,
-            defenderMonIndex,
-            uint256(MonStateIndexName.SpecialDefense),
-            SP_DEF_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Temp
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.SpecialDefense,
+            boostPercent: SP_DEF_PERCENT,
+            boostType: StatBoostType.Divide
+        });
+        STAT_BOOSTS.addStatBoosts(defenderPlayerIndex, defenderMonIndex, statBoosts, StatBoostFlag.Temp);
 
         // Update the bribe level
         _increaseBribeLevel(battleKey, attackerPlayerIndex, activeMonIndex);

@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
@@ -11,8 +12,8 @@ import {StatBoosts} from "../../effects/StatBoosts.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract Initialize is IMoveSet, BasicEffect {
-    int32 public constant ATTACK_BUFF_PERCENT = 50;
-    int32 public constant SP_ATTACK_BUFF_PERCENT = 50;
+    uint8 public constant ATTACK_BUFF_PERCENT = 50;
+    uint8 public constant SP_ATTACK_BUFF_PERCENT = 50;
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;
@@ -48,22 +49,18 @@ contract Initialize is IMoveSet, BasicEffect {
     }
 
     function _applyBuff(uint256 playerIndex, uint256 monIndex) internal {
-        STAT_BOOSTS.addStatBoost(
-            playerIndex,
-            monIndex,
-            uint256(MonStateIndexName.SpecialAttack),
-            SP_ATTACK_BUFF_PERCENT,
-            StatBoostType.Multiply,
-            StatBoostFlag.Temp
-        );
-        STAT_BOOSTS.addStatBoost(
-            playerIndex,
-            monIndex,
-            uint256(MonStateIndexName.Attack),
-            ATTACK_BUFF_PERCENT,
-            StatBoostType.Multiply,
-            StatBoostFlag.Temp
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](2);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.SpecialAttack,
+            boostPercent: SP_ATTACK_BUFF_PERCENT,
+            boostType: StatBoostType.Multiply
+        });
+        statBoosts[1] = StatBoostToApply({
+            stat: MonStateIndexName.Attack,
+            boostPercent: ATTACK_BUFF_PERCENT,
+            boostType: StatBoostType.Multiply
+        });
+        STAT_BOOSTS.addStatBoosts(playerIndex, monIndex, statBoosts, StatBoostFlag.Temp);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

@@ -3,15 +3,17 @@
 pragma solidity ^0.8.0;
 
 import {EffectStep} from "../../Enums.sol";
-import {MonStateIndexName} from "../../Enums.sol";
+import {MonStateIndexName, StatBoostType, StatBoostFlag} from "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 import {IEngine} from "../../IEngine.sol";
 import {IAbility} from "../../abilities/IAbility.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
 import {IEffect} from "../../effects/IEffect.sol";
-import {StatBoosts, StatBoostType, StatBoostFlag} from "../../effects/StatBoosts.sol";
+import {StatBoosts} from "../../effects/StatBoosts.sol";
 
 contract UpOnly is IAbility, BasicEffect {
-    int32 public constant ATTACK_BOOST_PERCENT = 5; // 5% attack boost per hit
+
+    uint8 public constant ATTACK_BOOST_PERCENT = 5; // 5% attack boost per hit
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;
@@ -51,14 +53,13 @@ contract UpOnly is IAbility, BasicEffect {
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
         // Add 5% attack boost every time damage is taken
-        STAT_BOOSTS.addStatBoost(
-            targetIndex,
-            monIndex,
-            uint256(MonStateIndexName.Attack),
-            ATTACK_BOOST_PERCENT,
-            StatBoostType.Multiply,
-            StatBoostFlag.Perm
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.Attack,
+            boostPercent: ATTACK_BOOST_PERCENT,
+            boostType: StatBoostType.Multiply
+        });
+        STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
 
         return (extraData, false);
     }
