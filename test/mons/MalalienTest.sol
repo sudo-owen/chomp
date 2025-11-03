@@ -48,9 +48,9 @@ contract MalalienTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        actusReus = new ActusReus(IEngine(address(engine)));
-        attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         statBoosts = new StatBoosts(engine);
+        actusReus = new ActusReus(IEngine(address(engine)), statBoosts);
+        attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
     }
 
@@ -143,9 +143,15 @@ contract MalalienTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1, "Bob's mon should be KO'd");
 
         // Verify that Alice's mon has an indictment charge
-        assertEq(
-            actusReus.getIndictmentFlag(battleKey, 0, 0), bytes32("1"), "Alice's mon should have an indictment charge"
-        );
+        (IEffect[] memory effects, bytes[] memory extraData) = engine.getEffects(battleKey, 0, 0);
+        bool indictmentFound = false;
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i]) == address(actusReus) && abi.decode(extraData[i], (uint256)) == 1) {
+                indictmentFound = true;
+                break;
+            }
+        }
+        assertTrue(indictmentFound, "Alice's mon should have an indictment charge");
 
         // Bob switches to mon index 1
         vm.startPrank(BOB);
@@ -165,7 +171,7 @@ contract MalalienTest is Test, BattleHelper {
         int32 speedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
 
         // Calculate expected speed debuff
-        int32 expectedSpeedDebuff = -1 * originalSpeed / actusReus.SPEED_DEBUFF_DENOM();
+        int32 expectedSpeedDebuff = -1 * originalSpeed * (100 - int32(int8(actusReus.SPEED_DEBUFF_PERCENT()))) / 100;
 
         // Verify the speed debuff was applied correctly
         assertEq(speedDelta, expectedSpeedDebuff, "Bob's mon should have a speed debuff");

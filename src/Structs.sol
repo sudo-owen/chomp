@@ -64,11 +64,11 @@ struct BattleConfig {
 struct BattleState {
     address winner;
     uint64 turnId;
+    uint8 prevPlayerSwitchForTurnFlag;
     uint8 playerSwitchForTurnFlag;
     uint128 p0MonsKOedBitmap;
     uint128 p1MonsKOedBitmap;
     uint256 rng;
-    uint256[] playerSwitchForTurnFlagHistory;
     uint256[] activeMonIndex;
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
@@ -107,6 +107,7 @@ struct MonState {
     bytes[] extraDataForTargetedEffects;
 }
 
+// Used for Commit manager
 struct MoveCommitment {
     bytes32 moveHash;
     uint256 turnId;

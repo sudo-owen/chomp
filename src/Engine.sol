@@ -194,8 +194,8 @@ contract Engine is IEngine, MappingAllocator {
         uint256 playerSwitchForTurnFlag = 2;
         uint256 priorityPlayerIndex;
 
-        // Store the player switch for turn flag history
-        state.playerSwitchForTurnFlagHistory.push(state.playerSwitchForTurnFlag);
+        // Store the prev player switch for turn flag
+        state.prevPlayerSwitchForTurnFlag = state.playerSwitchForTurnFlag;
 
         // Set the battle key for the stack frame
         // (gets cleared at the end of the transaction)
@@ -1131,8 +1131,8 @@ contract Engine is IEngine, MappingAllocator {
         return battleData[battleKey].startTimestamp;
     }
 
-    function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory) {
-        return battleStates[battleKey].playerSwitchForTurnFlagHistory;
+    function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
+        return battleStates[battleKey].prevPlayerSwitchForTurnFlag;
     }
 
     function getMoveManager(bytes32 battleKey) external view returns (IMoveManager) {

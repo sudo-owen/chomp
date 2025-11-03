@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {EffectStep, MonStateIndexName, StatBoostFlag, StatBoostType} from "../Enums.sol";
-import {StatBoostToApply, StatBoostUpdate, MonStats} from "../Structs.sol";
+import {MonStats, StatBoostToApply, StatBoostUpdate} from "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
 import {BasicEffect} from "./BasicEffect.sol";
@@ -56,7 +56,7 @@ contract StatBoosts is BasicEffect {
         return (r == EffectStep.OnMonSwitchOut);
     }
 
-    event Foo(uint a);
+    event Foo(uint256 a);
 
     // Removes all temporary boosts on mon switch out
     function onMonSwitchOut(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
@@ -64,7 +64,8 @@ contract StatBoosts is BasicEffect {
         override
         returns (bytes memory, bool)
     {
-        (uint256 activeBoostsSnapshot, uint256[] memory tempBoosts, uint256[] memory permBoosts) = _decodeExtraData(extraData);
+        (uint256 activeBoostsSnapshot, uint256[] memory tempBoosts, uint256[] memory permBoosts) =
+            _decodeExtraData(extraData);
         if (tempBoosts.length > 0) {
             tempBoosts = new uint256[](0);
             // Recalculate the stat boosts without the temporary boosts
@@ -109,7 +110,7 @@ contract StatBoosts is BasicEffect {
         uint8[] memory boostCounts = new uint8[](5);
         bool[] memory isMultiply = new bool[](5);
         for (uint256 i = 0; i < statBoostsToApply.length; i++) {
-            uint stateIndex = uint8(_monStateIndexToStatBoostIndex(statBoostsToApply[i].stat));
+            uint256 stateIndex = uint8(_monStateIndexToStatBoostIndex(statBoostsToApply[i].stat));
             boostPercents[stateIndex] = statBoostsToApply[i].boostPercent;
             boostCounts[stateIndex] = 1;
             isMultiply[stateIndex] = statBoostsToApply[i].boostType == StatBoostType.Multiply;
@@ -299,8 +300,9 @@ contract StatBoosts is BasicEffect {
         // Return the deltas from the previous calculation
         StatBoostUpdate[] memory statBoostUpdates = new StatBoostUpdate[](oldBoostedStats.length);
         for (uint256 i; i < oldBoostedStats.length; i++) {
-            statBoostUpdates[i] =
-                StatBoostUpdate(_statBoostIndexToMonStateIndex(i), oldBoostedStats[i], newBoostedStats[i]);
+            statBoostUpdates[i] = StatBoostUpdate({
+                stat: _statBoostIndexToMonStateIndex(i), oldStat: oldBoostedStats[i], newStat: newBoostedStats[i]
+            });
         }
         return (_packBoostSnapshot(newBoostedStats), statBoostUpdates);
     }

@@ -67,5 +67,5 @@ interface IEngine {
     function getMonKOCount(bytes32 battleKey, uint256 playerIndex) external view returns (uint256);
     function getWinner(bytes32 battleKey) external view returns (address);
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
-    function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory);
+    function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256);
 }
