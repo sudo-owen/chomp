@@ -170,6 +170,9 @@ contract Engine is IEngine, MappingAllocator {
         // Set flag to be 2 which means both players act
         battleStates[battleKey].playerSwitchForTurnFlag = 2;
 
+        // Initialize winnerIndex to 2 (uninitialized/no winner)
+        battleStates[battleKey].winnerIndex = 2;
+
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
             battle.engineHooks[i].onBattleStart(battleKey);
         }
