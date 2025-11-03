@@ -140,10 +140,10 @@ contract Engine is IEngine, MappingAllocator {
         battleData[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
         battleData[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
 
-        // Initialize empty mon state, move history, and active mon index for each team
+        // Initialize empty mon state for each team
+        // Note: activeMonIndex is a packed uint16 that defaults to 0 (both players start with mon index 0)
         for (uint256 i; i < 2; ++i) {
             battleStates[battleKey].monStates.push();
-            battleStates[battleKey].activeMonIndex.push();
 
             // Initialize empty mon delta states for each mon on the team
             for (uint256 j; j < battleData[battleKey].teams[i].length; ++j) {
@@ -314,15 +314,15 @@ contract Engine is IEngine, MappingAllocator {
             // For turn 0 only: wait for both mons to be sent in, then handle the ability activateOnSwitch
             // Happens immediately after both mons are sent in, before any other effects
             if (turnId == 0) {
-                Mon memory priorityMon = battle.teams[priorityPlayerIndex][state.activeMonIndex[priorityPlayerIndex]];
+                uint256 priorityMonIndex = _unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex);
+                Mon memory priorityMon = battle.teams[priorityPlayerIndex][priorityMonIndex];
                 if (address(priorityMon.ability) != address(0)) {
-                    priorityMon.ability
-                        .activateOnSwitch(battleKey, priorityPlayerIndex, state.activeMonIndex[priorityPlayerIndex]);
+                    priorityMon.ability.activateOnSwitch(battleKey, priorityPlayerIndex, priorityMonIndex);
                 }
-                Mon memory otherMon = battle.teams[otherPlayerIndex][state.activeMonIndex[otherPlayerIndex]];
+                uint256 otherMonIndex = _unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex);
+                Mon memory otherMon = battle.teams[otherPlayerIndex][otherMonIndex];
                 if (address(otherMon.ability) != address(0)) {
-                    otherMon.ability
-                        .activateOnSwitch(battleKey, otherPlayerIndex, state.activeMonIndex[otherPlayerIndex]);
+                    otherMon.ability.activateOnSwitch(battleKey, otherPlayerIndex, otherMonIndex);
                 }
             }
 
@@ -678,11 +678,13 @@ contract Engine is IEngine, MappingAllocator {
             // Always set default switch to be 2 (allow both players to make a move)
             playerSwitchForTurnFlag = 2;
 
-            isPriorityPlayerActiveMonKnockedOut =
-            state.monStates[priorityPlayerIndex][state.activeMonIndex[priorityPlayerIndex]].isKnockedOut;
+            isPriorityPlayerActiveMonKnockedOut = state.monStates[priorityPlayerIndex][
+                _unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex)
+            ].isKnockedOut;
 
             isNonPriorityPlayerActiveMonKnockedOut =
-            state.monStates[otherPlayerIndex][state.activeMonIndex[otherPlayerIndex]].isKnockedOut;
+                state.monStates[otherPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex)]
+                    .isKnockedOut;
 
             // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
             if (isPriorityPlayerActiveMonKnockedOut && !isNonPriorityPlayerActiveMonKnockedOut) {
@@ -703,7 +705,8 @@ contract Engine is IEngine, MappingAllocator {
         // (could break this up even more, but that's for a later version / PR)
 
         BattleState storage state = battleStates[battleKey];
-        MonState storage currentMonState = state.monStates[playerIndex][state.activeMonIndex[playerIndex]];
+        uint256 currentActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
+        MonState storage currentMonState = state.monStates[playerIndex][currentActiveMonIndex];
 
         // Emit event first, then run effects
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
@@ -719,7 +722,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
-        state.activeMonIndex[playerIndex] = monToSwitchIndex;
+        state.activeMonIndex = _setActiveMonIndex(state.activeMonIndex, playerIndex, monToSwitchIndex);
 
         // Run onMonSwitchIn hook for local effects
         _runEffects(battleKey, state.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
@@ -746,7 +749,8 @@ contract Engine is IEngine, MappingAllocator {
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
         // Handle shouldSkipTurn flag first and toggle it off if set
-        MonState storage currentMonState = state.monStates[playerIndex][state.activeMonIndex[playerIndex]];
+        uint256 activeMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
+        MonState storage currentMonState = state.monStates[playerIndex][activeMonIndex];
         if (currentMonState.shouldSkipTurn) {
             currentMonState.shouldSkipTurn = false;
             return playerSwitchForTurnFlag;
@@ -765,9 +769,7 @@ contract Engine is IEngine, MappingAllocator {
             _handleSwitch(battleKey, playerIndex, abi.decode(move.extraData, (uint256)), address(0));
         } else if (move.moveIndex == NO_OP_MOVE_INDEX) {
             // Emit event and do nothing (e.g. just recover stamina)
-            emit MonMove(
-                battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost
-            );
+            emit MonMove(battleKey, playerIndex, activeMonIndex, move.moveIndex, move.extraData, staminaCost);
         }
         // Execute the move and then set updated state, active mons, and effects/data
         else {
@@ -779,16 +781,14 @@ contract Engine is IEngine, MappingAllocator {
                 return playerSwitchForTurnFlag;
             }
 
-            IMoveSet moveSet = data.teams[playerIndex][state.activeMonIndex[playerIndex]].moves[move.moveIndex];
+            IMoveSet moveSet = data.teams[playerIndex][activeMonIndex].moves[move.moveIndex];
 
             // Update the mon state directly to account for the stamina cost of the move
-            staminaCost = int32(moveSet.stamina(battleKey, playerIndex, state.activeMonIndex[playerIndex]));
-            state.monStates[playerIndex][state.activeMonIndex[playerIndex]].staminaDelta -= staminaCost;
+            staminaCost = int32(moveSet.stamina(battleKey, playerIndex, activeMonIndex));
+            state.monStates[playerIndex][activeMonIndex].staminaDelta -= staminaCost;
 
             // Emit event and then run the move
-            emit MonMove(
-                battleKey, playerIndex, state.activeMonIndex[playerIndex], move.moveIndex, move.extraData, staminaCost
-            );
+            emit MonMove(battleKey, playerIndex, activeMonIndex, move.moveIndex, move.extraData, staminaCost);
 
             // Run the move (no longer checking for a return value)
             moveSet.move(battleKey, playerIndex, move.extraData, rng);
@@ -823,13 +823,13 @@ contract Engine is IEngine, MappingAllocator {
             effects = state.globalEffects;
             extraData = state.extraDataForGlobalEffects;
         } else {
-            monIndex = state.activeMonIndex[effectIndex];
+            monIndex = _unpackActiveMonIndex(state.activeMonIndex, effectIndex);
             effects = state.monStates[effectIndex][monIndex].targetedEffects;
             extraData = state.monStates[effectIndex][monIndex].extraDataForTargetedEffects;
         }
         // Grab the active mon (global effect won't know which player index to get, so we set it here)
         if (playerIndex != 2) {
-            monIndex = state.activeMonIndex[playerIndex];
+            monIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
         }
         uint256 i;
         while (i < effects.length) {
@@ -895,7 +895,8 @@ contract Engine is IEngine, MappingAllocator {
         }
         // If non-global effect, check if we should still run if mon is KOed
         if (effectIndex != 2) {
-            bool isMonKOed = state.monStates[playerIndex][state.activeMonIndex[playerIndex]].isKnockedOut;
+            bool isMonKOed =
+                state.monStates[playerIndex][_unpackActiveMonIndex(state.activeMonIndex, playerIndex)].isKnockedOut;
             if (isMonKOed && condition == EffectRunCondition.SkipIfGameOverOrMonKO) {
                 return playerSwitchForTurnFlag;
             }
@@ -917,8 +918,8 @@ contract Engine is IEngine, MappingAllocator {
         BattleState storage state = battleStates[battleKey];
         RevealedMove memory p0Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
         RevealedMove memory p1Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
-        uint256 p0ActiveMonIndex = state.activeMonIndex[0];
-        uint256 p1ActiveMonIndex = state.activeMonIndex[1];
+        uint256 p0ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 0);
+        uint256 p1ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 1);
         uint256 p0Priority;
         uint256 p1Priority;
 
@@ -971,6 +972,29 @@ contract Engine is IEngine, MappingAllocator {
             source = msg.sender;
         }
         return source;
+    }
+
+    /**
+     * - Helper functions for packing/unpacking activeMonIndex
+     */
+    function _packActiveMonIndices(uint8 player0Index, uint8 player1Index) internal pure returns (uint16) {
+        return uint16(player0Index) | (uint16(player1Index) << 8);
+    }
+
+    function _unpackActiveMonIndex(uint16 packed, uint256 playerIndex) internal pure returns (uint256) {
+        if (playerIndex == 0) {
+            return uint256(uint8(packed));
+        } else {
+            return uint256(uint8(packed >> 8));
+        }
+    }
+
+    function _setActiveMonIndex(uint16 packed, uint256 playerIndex, uint256 monIndex) internal pure returns (uint16) {
+        if (playerIndex == 0) {
+            return (packed & 0xFF00) | uint16(uint8(monIndex));
+        } else {
+            return (packed & 0x00FF) | (uint16(uint8(monIndex)) << 8);
+        }
     }
 
     /**
@@ -1088,7 +1112,11 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getActiveMonIndexForBattleState(bytes32 battleKey) external view returns (uint256[] memory) {
-        return battleStates[battleKey].activeMonIndex;
+        uint16 packed = battleStates[battleKey].activeMonIndex;
+        uint256[] memory result = new uint256[](2);
+        result[0] = _unpackActiveMonIndex(packed, 0);
+        result[1] = _unpackActiveMonIndex(packed, 1);
+        return result;
     }
 
     function getPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {

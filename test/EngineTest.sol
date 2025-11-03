@@ -542,7 +542,7 @@ contract EngineTest is Test, BattleHelper {
         // Assert that mon index for Alice is 1
         // Assert that the mon state for Alice has -5 applied to the switched in mon
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.activeMonIndex[0], 1);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
         assertEq(state.monStates[0][1].hpDelta, -5);
     }
 
@@ -597,7 +597,7 @@ contract EngineTest is Test, BattleHelper {
         // Assert that mon index for Alice is 1
         // Assert that the mon state for Alice has -5 applied to the previous mon
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.activeMonIndex[0], 1);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
         assertEq(state.monStates[0][0].hpDelta, -5);
     }
 
@@ -1510,7 +1510,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Verify that Bob's mon is now index 1
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.activeMonIndex[1], 1);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
 
         // Verify that Alice's mon took damage
         assertEq(state.monStates[0][0].hpDelta, -5);
@@ -1591,7 +1591,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that Alice's mon is now index 1
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.activeMonIndex[0], 1);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
 
         // Assert that Alice's new mon took damage
         assertEq(state.monStates[0][1].hpDelta, -5);
@@ -1688,7 +1688,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Check that the active mon index for Alice is still 0 (no switch happened)
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.activeMonIndex[0], 0);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 0);
     }
 
     function test_forceSwitchMoveIgnoresInvalidSwitchTargetNonPriorityPlayerAfterAttacking() public {
@@ -1781,7 +1781,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Check that the active mon index for Alice is still 0 (no switch happened)
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.activeMonIndex[0], 0);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 0);
     }
 
     // environmental effect kills mon after switch in from player move and forces switch
@@ -3053,7 +3053,7 @@ contract EngineTest is Test, BattleHelper {
         // Switch for turn flag should be 0, Bob's active mon index should now be 0
         BattleState memory state = engine.getBattleState(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
-        assertEq(state.activeMonIndex[1], 0);
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 0);
     }
 
     function test_editEffect() public {
