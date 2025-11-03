@@ -69,7 +69,7 @@ struct BattleState {
     uint128 p0MonsKOedBitmap;
     uint128 p1MonsKOedBitmap;
     uint256 rng;
-    uint256[] activeMonIndex;
+    uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
