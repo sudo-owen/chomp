@@ -135,7 +135,7 @@ contract GachaTest is Test, BattleHelper {
 
         // Assert Alice won
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE);
+        assertEq(engine.getWinner(battleKey), ALICE);
 
         // Verify points are correct
         assertEq(gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_PER_WIN());

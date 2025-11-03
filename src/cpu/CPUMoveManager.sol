@@ -29,7 +29,7 @@ contract CPUMoveManager is IMoveManager {
         }
 
         BattleState memory battleState = ENGINE.getBattleState(battleKey);
-        if (battleState.winner != address(0)) {
+        if (battleState.winnerIndex != 2) {
             return;
         }
 

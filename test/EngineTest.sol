@@ -193,7 +193,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Alice wins
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE);
+        assertEq(engine.getWinner(battleKey), ALICE);
 
         // Assert that the staminaDelta was set correctly
         assertEq(state.monStates[0][0].staminaDelta, -1);
@@ -268,7 +268,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Bob wins as he has faster priority on a slower mon
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
 
         // Assert that the staminaDelta was set correctly for Bob's mon
         assertEq(state.monStates[1][0].staminaDelta, -1);
@@ -376,7 +376,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Bob wins as he has faster priority on a slower mon
         state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
 
         // Assert that the staminaDelta was set correctly for Bob's mon
         // (we used two attacks of 1 stamina, so -2)
@@ -406,7 +406,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Bob wins
         state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
     }
 
     function test_fasterPriorityKOsForcesSwitchCorrectlyFailsOnInvalidSwitchNoCommit() public {
@@ -428,7 +428,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Bob wins
         state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
     }
 
     function test_nonKOSubsequentMoves() public {
@@ -482,9 +482,9 @@ contract EngineTest is Test, BattleHelper {
         uint256 finalRNG = state.rng;
         uint256 winnerIndex = finalRNG % 2;
         if (winnerIndex == 0) {
-            assertEq(state.winner, ALICE);
+            assertEq(engine.getWinner(battleKey), ALICE);
         } else {
-            assertEq(state.winner, BOB);
+            assertEq(engine.getWinner(battleKey), BOB);
         }
 
         // Assert that the staminaDelta was set correctly (2 moves spent) for the winning mon
@@ -965,7 +965,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Bob wins
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
     }
 
     function test_effectAppliedByAttackCanKOAndForceSwitch() public {
@@ -1179,7 +1179,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert Alice wins
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE);
+        assertEq(engine.getWinner(battleKey), ALICE);
     }
 
     function test_moveKOAndEffectKOLeadToDualSwapOtherMoveRevertsForAlice() public {
@@ -1431,7 +1431,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert no winner, and no damage dealt
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, address(0));
+        assertEq(engine.getWinner(battleKey), address(0));
         assertEq(state.monStates[1][0].hpDelta, 0);
     }
 
@@ -2073,7 +2073,7 @@ contract EngineTest is Test, BattleHelper {
         // After this, Alice's mon should be dead and Bob should be the winner
         // Verify Bob is the winner
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
     }
 
     // ability triggers effect leading to death on self after being switched in from self move
@@ -2609,7 +2609,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Check that ALICE wins (Bob didn't commit for round 2)
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE);
+        assertEq(engine.getWinner(battleKey), ALICE);
 
         // // Bob should not be able to commit to the ended battle
         vm.startPrank(BOB);
@@ -2896,7 +2896,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that Bob wins bc Alice didn't commit to start
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
     }
 
     function test_timeoutSucceedsRevealPlayerNoSwitchFlag() public {
@@ -2917,7 +2917,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that Alice wins because Bob didn't reveal
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE);
+        assertEq(engine.getWinner(battleKey), ALICE);
     }
 
     function test_timeoutSucceedsCommitPlayerWitholdsRevealNoSwitchFlag() public {
@@ -2942,7 +2942,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that Bob wins because Alice didn't reveal
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, BOB);
+        assertEq(engine.getWinner(battleKey), BOB);
     }
 
     function test_timeoutScceedsRevealPlayerSwitchFlag() public {
@@ -3017,7 +3017,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that Alice wins because Bob didn't reveal
         BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.winner, ALICE);
+        assertEq(engine.getWinner(battleKey), ALICE);
     }
 
     function test_secondBattleDifferentBattleKey() public {

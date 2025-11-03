@@ -40,11 +40,10 @@ contract BattleHistory is IEngineHook {
     /// @notice Called when a battle ends - updates battle statistics
     function onBattleEnd(bytes32 battleKey) external {
         (, BattleData memory battleData) = engine.getBattle(battleKey);
-        BattleState memory battleState = engine.getBattleState(battleKey);
 
         address p0 = battleData.p0;
         address p1 = battleData.p1;
-        address winner = battleState.winner;
+        address winner = engine.getWinner(battleKey);
 
         // Update total battles for both players
         _numBattles[p0]++;
