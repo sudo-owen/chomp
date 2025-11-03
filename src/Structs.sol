@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {Type} from "./Enums.sol";
+import {Type, MonStateIndexName, StatBoostType, StatBoostFlag} from "./Enums.sol";
 import {IEngineHook} from "./IEngineHook.sol";
 import {IMoveManager} from "./IMoveManager.sol";
 import {IRuleset} from "./IRuleset.sol";
@@ -64,11 +64,11 @@ struct BattleConfig {
 struct BattleState {
     address winner;
     uint64 turnId;
+    uint8 prevPlayerSwitchForTurnFlag;
     uint8 playerSwitchForTurnFlag;
     uint128 p0MonsKOedBitmap;
     uint128 p1MonsKOedBitmap;
     uint256 rng;
-    uint256[] playerSwitchForTurnFlagHistory;
     uint256[] activeMonIndex;
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
@@ -107,6 +107,7 @@ struct MonState {
     bytes[] extraDataForTargetedEffects;
 }
 
+// Used for Commit manager
 struct MoveCommitment {
     bytes32 moveHash;
     uint256 turnId;
@@ -116,4 +117,16 @@ struct RevealedMove {
     uint256 moveIndex;
     bytes32 salt;
     bytes extraData;
+}
+
+struct StatBoostToApply {
+    MonStateIndexName stat;
+    uint8 boostPercent;
+    StatBoostType boostType;
+}
+
+struct StatBoostUpdate {
+    MonStateIndexName stat;
+    uint32 oldStat;
+    uint32 newStat;
 }

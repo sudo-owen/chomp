@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 import {IEngine} from "../../IEngine.sol";
 import {IAbility} from "../../abilities/IAbility.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
@@ -10,7 +11,7 @@ import {IEffect} from "../../effects/IEffect.sol";
 import {StatBoosts} from "../../effects/StatBoosts.sol";
 
 contract Interweaving is IAbility, BasicEffect {
-    int32 constant DECREASE_PERCENTAGE = 10;
+    uint8 constant DECREASE_PERCENTAGE = 10;
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOST;
 
@@ -28,14 +29,13 @@ contract Interweaving is IAbility, BasicEffect {
         uint256 otherPlayerIndex = (playerIndex + 1) % 2;
         uint256 otherPlayerActiveMonIndex =
             ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[otherPlayerIndex];
-        STAT_BOOST.addStatBoost(
-            otherPlayerIndex,
-            otherPlayerActiveMonIndex,
-            uint256(MonStateIndexName.Attack),
-            DECREASE_PERCENTAGE,
-            StatBoostType.Divide,
-            StatBoostFlag.Temp
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.Attack,
+            boostPercent: DECREASE_PERCENTAGE,
+            boostType: StatBoostType.Divide
+        });
+        STAT_BOOST.addStatBoosts(otherPlayerIndex, otherPlayerActiveMonIndex, statBoosts, StatBoostFlag.Temp);
 
         // Check if the effect has already been set for this mon
         bytes32 monEffectId = keccak256(abi.encode(playerIndex, monIndex, name()));
@@ -63,14 +63,13 @@ contract Interweaving is IAbility, BasicEffect {
         uint256 otherPlayerIndex = (targetIndex + 1) % 2;
         uint256 otherPlayerActiveMonIndex =
             ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[otherPlayerIndex];
-        STAT_BOOST.addStatBoost(
-            otherPlayerIndex,
-            otherPlayerActiveMonIndex,
-            uint256(MonStateIndexName.SpecialAttack),
-            DECREASE_PERCENTAGE,
-            StatBoostType.Divide,
-            StatBoostFlag.Temp
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.SpecialAttack,
+            boostPercent: DECREASE_PERCENTAGE,
+            boostType: StatBoostType.Divide
+        });
+        STAT_BOOST.addStatBoosts(otherPlayerIndex, otherPlayerActiveMonIndex, statBoosts, StatBoostFlag.Temp);
         return ("", false);
     }
 }

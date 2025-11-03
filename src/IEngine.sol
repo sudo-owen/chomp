@@ -19,6 +19,7 @@ interface IEngine {
         external;
     function addEffect(uint256 targetIndex, uint256 monIndex, IEffect effect, bytes memory extraData) external;
     function removeEffect(uint256 targetIndex, uint256 monIndex, uint256 effectIndex) external;
+    function editEffect(uint256 targetIndex, uint256 monIndex, uint256 effectIndex, bytes memory newExtraData) external;
     function setGlobalKV(bytes32 key, bytes32 value) external;
     function dealDamage(uint256 playerIndex, uint256 monIndex, int32 damage) external;
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external;
@@ -38,6 +39,10 @@ interface IEngine {
         uint256 monIndex,
         MonStateIndexName stateVarIndex
     ) external view returns (uint32);
+    function getMonStatsForBattle(bytes32 battleKey, uint256 playerIndex, uint256 monIndex)
+        external
+        view
+        returns (MonStats memory);
     function getMonStateForBattle(
         bytes32 battleKey,
         uint256 playerIndex,
@@ -62,5 +67,5 @@ interface IEngine {
     function getMonKOCount(bytes32 battleKey, uint256 playerIndex) external view returns (uint256);
     function getWinner(bytes32 battleKey) external view returns (address);
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
-    function getPlayerSwitchForTurnFlagHistory(bytes32 battleKey) external view returns (uint256[] memory);
+    function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256);
 }

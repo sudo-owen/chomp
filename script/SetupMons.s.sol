@@ -265,7 +265,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        ActusReus actusreus = new ActusReus(IEngine(vm.envAddress("ENGINE")));
+        ActusReus actusreus = new ActusReus(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Actus Reus",
             contractAddress: address(actusreus)

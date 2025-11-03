@@ -4,13 +4,14 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
 import {StatBoosts} from "../../effects/StatBoosts.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract TripleThink is IMoveSet {
-    int32 public constant SP_ATTACK_BUFF_PERCENT = 75;
+    uint8 public constant SP_ATTACK_BUFF_PERCENT = 75;
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;
@@ -26,14 +27,14 @@ contract TripleThink is IMoveSet {
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         // Apply the buff
-        STAT_BOOSTS.addStatBoost(
-            attackerPlayerIndex,
-            ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex],
-            uint256(MonStateIndexName.SpecialAttack),
-            SP_ATTACK_BUFF_PERCENT,
-            StatBoostType.Multiply,
-            StatBoostFlag.Temp
-        );
+        uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.SpecialAttack,
+            boostPercent: SP_ATTACK_BUFF_PERCENT,
+            boostType: StatBoostType.Multiply
+        });
+        STAT_BOOSTS.addStatBoosts(attackerPlayerIndex, activeMonIndex, statBoosts, StatBoostFlag.Temp);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

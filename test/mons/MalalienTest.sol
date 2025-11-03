@@ -48,9 +48,9 @@ contract MalalienTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
-        actusReus = new ActusReus(IEngine(address(engine)));
-        attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         statBoosts = new StatBoosts(engine);
+        actusReus = new ActusReus(IEngine(address(engine)), statBoosts);
+        attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
     }
 
@@ -143,9 +143,15 @@ contract MalalienTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1, "Bob's mon should be KO'd");
 
         // Verify that Alice's mon has an indictment charge
-        assertEq(
-            actusReus.getIndictmentFlag(battleKey, 0, 0), bytes32("1"), "Alice's mon should have an indictment charge"
-        );
+        (IEffect[] memory effects, bytes[] memory extraData) = engine.getEffects(battleKey, 0, 0);
+        bool indictmentFound = false;
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i]) == address(actusReus) && abi.decode(extraData[i], (uint256)) == 1) {
+                indictmentFound = true;
+                break;
+            }
+        }
+        assertTrue(indictmentFound, "Alice's mon should have an indictment charge");
 
         // Bob switches to mon index 1
         vm.startPrank(BOB);
@@ -165,7 +171,7 @@ contract MalalienTest is Test, BattleHelper {
         int32 speedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
 
         // Calculate expected speed debuff
-        int32 expectedSpeedDebuff = -1 * originalSpeed / actusReus.SPEED_DEBUFF_DENOM();
+        int32 expectedSpeedDebuff = -1 * originalSpeed * (100 - int32(int8(actusReus.SPEED_DEBUFF_PERCENT()))) / 100;
 
         // Verify the speed debuff was applied correctly
         assertEq(speedDelta, expectedSpeedDebuff, "Bob's mon should have a speed debuff");
@@ -211,11 +217,11 @@ contract MalalienTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, abi.encode(0), abi.encode(0));
 
         // SpecialAttack delta for both is 100
-        int32 aliceSpAtk = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
-        int32 bobSpAtk = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
+        int32 aliceSpAtkBoost = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
+        int32 bobSpAtkBoost = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
 
-        assertEq(aliceSpAtk, tripleThink.SP_ATTACK_BUFF_PERCENT(), "Buff applied for Alice");
-        assertEq(bobSpAtk, tripleThink.SP_ATTACK_BUFF_PERCENT(), "Buff applied for Bob");
+        assertEq(aliceSpAtkBoost, int32(int8(tripleThink.SP_ATTACK_BUFF_PERCENT())), "Buff applied for Alice");
+        assertEq(bobSpAtkBoost, int32(int8(tripleThink.SP_ATTACK_BUFF_PERCENT())), "Buff applied for Bob");
 
         // Alice uses it again, Bob swaps out
         _commitRevealExecuteForAliceAndBob(
@@ -223,14 +229,14 @@ contract MalalienTest is Test, BattleHelper {
         );
 
         // Alice should be at 1.75 * 1.75 = 1.225 + 1.75 + 0.0875 = 2.0625, Bob should be at 0
-        aliceSpAtk = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
-        bobSpAtk = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
+        aliceSpAtkBoost = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack);
+        bobSpAtkBoost = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
 
         // The boost is the amount we need to get the total amount to the right multiplier
         // (so we subtract 100 because that's the base stat)
-        int32 newAmount = (((100 + tripleThink.SP_ATTACK_BUFF_PERCENT()) ** 2) / 100) - 100;
+        int32 newAmount = (((100 + int32(int8(tripleThink.SP_ATTACK_BUFF_PERCENT()))) ** 2) / 100) - 100;
 
-        assertEq(aliceSpAtk, newAmount, "Buff applied again for Alice");
-        assertEq(bobSpAtk, 0, "Bob buff wore off");
+        assertEq(aliceSpAtkBoost, newAmount, "Buff applied again for Alice");
+        assertEq(bobSpAtkBoost, 0, "Bob buff wore off");
     }
 }

@@ -69,8 +69,7 @@ enum StatBoostType {
 
 enum StatBoostFlag {
     Temp,
-    Perm,
-    Existence
+    Perm
 }
 
 enum EngineEventType {

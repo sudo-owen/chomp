@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../Enums.sol";
+import {StatBoostToApply} from "../../Structs.sol";
 import {IEngine} from "../../IEngine.sol";
 
 import {StatBoosts} from "../StatBoosts.sol";
@@ -11,7 +12,7 @@ import {StatusEffectLib} from "./StatusEffectLib.sol";
 contract BurnStatus is StatusEffect {
     uint256 public constant MAX_BURN_DEGREE = 3;
 
-    int32 public constant ATTACK_PERCENT = 50;
+    uint8 public constant ATTACK_PERCENT = 50;
 
     int32 public constant DEG1_DAMAGE_DENOM = 16;
     int32 public constant DEG2_DAMAGE_DENOM = 8;
@@ -80,14 +81,13 @@ contract BurnStatus is StatusEffect {
         _increaseBurnDegree(targetIndex, monIndex);
 
         // Reduce attack by 1/ATTACK_DENOM of base attack stat
-        STAT_BOOSTS.addStatBoost(
-            targetIndex,
-            monIndex,
-            uint256(MonStateIndexName.Attack),
-            ATTACK_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Perm
-        );
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName.Attack,
+            boostPercent: ATTACK_PERCENT,
+            boostType: StatBoostType.Divide
+        });
+        STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
 
         return ("", false);
     }
@@ -97,14 +97,7 @@ contract BurnStatus is StatusEffect {
         super.onRemove("", targetIndex, monIndex);
 
         // Reset the attack reduction
-        STAT_BOOSTS.removeStatBoost(
-            targetIndex,
-            monIndex,
-            uint256(MonStateIndexName.Attack),
-            ATTACK_PERCENT,
-            StatBoostType.Divide,
-            StatBoostFlag.Perm
-        );
+        STAT_BOOSTS.removeStatBoosts(targetIndex, monIndex, StatBoostFlag.Perm);
 
         // Reset the burn degree
         ENGINE.setGlobalKV(getKeyForMonIndex(targetIndex, monIndex), bytes32(0));

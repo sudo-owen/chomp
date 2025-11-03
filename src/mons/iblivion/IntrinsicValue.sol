@@ -59,8 +59,8 @@ contract IntrinsicValue is IAbility, BasicEffect {
         statIndexNames[3] = uint256(MonStateIndexName.SpecialDefense);
         statIndexNames[4] = uint256(MonStateIndexName.Speed);
         for (uint256 i = 0; i < statIndexNames.length; i++) {
-            bool reset = STAT_BOOST.clearTempBoost(targetIndex, monIndex, statIndexNames[i]);
-            statsReset = statsReset || reset;
+            // bool reset = STAT_BOOST.clearTempBoost(targetIndex, monIndex, statIndexNames[i]);
+            // statsReset = statsReset || reset;
         }
         if (statsReset) {
             // Increase baselight level if we reset any stats

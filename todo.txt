@@ -1,11 +1,13 @@
 # TODO
 
+- Fix stat boosts
+    - add engine method to get all stats for one mon
+- Combine the active mon index value
+- Look into Actus Reus bug
+
 1) add description to moves in the editor, new tab, add cleaner info [ ]
-2) debuff xmon and aurox a bit [x]
-3) add aurox tests
 4) add xmon moveset
 5) add xmon tests
-6) finish up the remaining mons, fix their tests
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES

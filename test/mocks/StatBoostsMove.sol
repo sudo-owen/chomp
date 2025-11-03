@@ -37,7 +37,13 @@ contract StatBoostsMove is IMoveSet {
             boostAmount = -boostAmount;
         }
 
-        STAT_BOOSTS.addStatBoost(playerIndex, monIndex, statIndex, boostAmount, boostType, StatBoostFlag.Temp);
+        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+        statBoosts[0] = StatBoostToApply({
+            stat: MonStateIndexName(statIndex),
+            boostPercent: uint8(uint32(boostAmount)),
+            boostType: boostType
+        });
+        STAT_BOOSTS.addStatBoosts(playerIndex, monIndex, statBoosts, StatBoostFlag.Temp);
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {

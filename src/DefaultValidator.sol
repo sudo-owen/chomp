@@ -228,15 +228,11 @@ contract DefaultValidator is IValidator {
         uint256 otherPlayerIndex = (playerIndexToCheck + 1) % 2;
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
         ICommitManager commitManager = ICommitManager(address(ENGINE.getMoveManager(battleKey)));
-        uint256[] memory switchForTurnFlagHistory = ENGINE.getPlayerSwitchForTurnFlagHistory(battleKey);
-        uint256 prevPlayerSwitchForTurnFlag;
-        if (switchForTurnFlagHistory.length > 0) {
-            prevPlayerSwitchForTurnFlag = switchForTurnFlagHistory[switchForTurnFlagHistory.length - 1];
-        }
+        uint256 prevPlayerSwitchForTurnFlag = ENGINE.getPrevPlayerSwitchForTurnFlagForBattleState(battleKey);
         address[] memory players = ENGINE.getPlayersForBattle(battleKey);
         uint256 lastTurnTimestamp;
-        // If the last turn was a single player turn, we get the timestamp from their last move
-        if (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1) {
+        // If the last turn was a single player turn, and it's not the first turn (as the prev flag is always zero), we get the timestamp from their last move
+        if (turnId != 0 && (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1)) {
             lastTurnTimestamp =
                 commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
         }
