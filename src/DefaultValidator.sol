@@ -177,28 +177,6 @@ contract DefaultValidator is IValidator {
         return true;
     }
 
-    // Validates that the game is over, returns address(0) if no winner, otherwise returns the winner
-    function validateGameOver(bytes32 battleKey, uint256 priorityPlayerIndex) external view returns (address) {
-        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
-
-        // A game is over if all of a player's mons are knocked out
-        uint256[2] memory playerIndex = [uint256(0), uint256(1)];
-        if (priorityPlayerIndex == 1) {
-            playerIndex = [uint256(1), uint256(0)];
-        }
-        for (uint256 i; i < playerIndex.length; ++i) {
-            uint256 monsKOedBitmapValue = ENGINE.getMonKOCount(battleKey, playerIndex[i]);
-            if (monsKOedBitmapValue == BITMAP_VALUE_FOR_MONS_PER_TEAM) {
-                if (playerIndex[i] == 0) {
-                    return players[1];
-                } else {
-                    return players[0];
-                }
-            }
-        }
-        return address(0);
-    }
-
     /*
         Check switch for turn flag:
 

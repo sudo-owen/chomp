@@ -454,22 +454,6 @@ contract Engine is IEngine, MappingAllocator {
             monState.specialDefenceDelta += valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
             monState.isKnockedOut = (valueToAdd % 2) == 1;
-            // Update the bitmap for the KO flag
-            if (valueToAdd % 2 == 1) {
-                // Set it to be KOed
-                if (playerIndex == 0) {
-                    state.p0MonsKOedBitmap |= uint128(1) << uint128(monIndex);
-                } else {
-                    state.p1MonsKOedBitmap |= uint128(1) << uint128(monIndex);
-                }
-            } else {
-                // Set it to be not KOed
-                if (playerIndex == 0) {
-                    state.p0MonsKOedBitmap &= ~(uint128(1) << uint128(monIndex));
-                } else {
-                    state.p1MonsKOedBitmap &= ~(uint128(1) << uint128(monIndex));
-                }
-            }
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
             monState.shouldSkipTurn = (valueToAdd % 2) == 1;
         }
@@ -601,11 +585,6 @@ contract Engine is IEngine, MappingAllocator {
         uint32 baseHp = battleData[battleKey].teams[playerIndex][monIndex].stats.hp;
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
-            if (playerIndex == 0) {
-                battleStates[battleKey].p0MonsKOedBitmap |= uint128(1) << uint128(monIndex);
-            } else {
-                battleStates[battleKey].p1MonsKOedBitmap |= uint128(1) << uint128(monIndex);
-            }
         }
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCaller(), currentStep);
         _runEffects(
@@ -668,18 +647,42 @@ contract Engine is IEngine, MappingAllocator {
             bool isGameOver
         )
     {
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleState storage state = battleStates[battleKey];
+        BattleData storage data = battleData[battleKey];
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
-        address gameResult = config.validator.validateGameOver(battleKey, priorityPlayerIndex);
-        if (gameResult != address(0)) {
-            // Set the winner on the state (events and hooks will be called at the end)
-            if (state.winnerIndex == 2) {
-                BattleData storage data = battleData[battleKey];
-                state.winnerIndex = (gameResult == data.p0) ? 0 : 1;
-            }
+        uint8 existingWinnerIndex = state.winnerIndex;
+
+        // First check if we already calculated a winner
+        if (existingWinnerIndex != 2) {
             isGameOver = true;
-        } else {
+            return (playerSwitchForTurnFlag, isPriorityPlayerActiveMonKnockedOut, isNonPriorityPlayerActiveMonKnockedOut, isGameOver);
+        }
+
+        // Otherwise, we check the teams
+        // A game is over if all of a player's mons are knocked out
+        uint256 newWinnerIndex = 2;
+        uint256[2] memory playerIndices = [uint256(0), uint256(1)];
+        for (uint256 i = 0; i < 2; i++) {
+            uint256 monsKOed = 0;
+            uint256 playerIndex = playerIndices[i];
+            for (uint256 j = 0; j < data.teams[playerIndex].length; j++) {
+                if (state.monStates[playerIndex][j].isKnockedOut) {
+                    monsKOed++;
+                }
+            }
+            if (monsKOed == data.teams[playerIndex].length) {
+                newWinnerIndex = uint8((playerIndex + 1) % 2); // winner is the other player
+                break;
+            }
+        }
+        // If we found a winner, set it on the state and return
+        if (newWinnerIndex != 2) {
+            state.winnerIndex = uint8(newWinnerIndex);
+            isGameOver = true;
+            return (playerSwitchForTurnFlag, isPriorityPlayerActiveMonKnockedOut, isNonPriorityPlayerActiveMonKnockedOut, isGameOver);
+        }
+        // Otherwise if it isn't a game over, we check for KOs and set the player switch for turn flag
+        else {
             // Always set default switch to be 2 (allow both players to make a move)
             playerSwitchForTurnFlag = 2;
 
@@ -1145,14 +1148,6 @@ contract Engine is IEngine, MappingAllocator {
                 state.monStates[targetIndex][monIndex].targetedEffects,
                 state.monStates[targetIndex][monIndex].extraDataForTargetedEffects
             );
-        }
-    }
-
-    function getMonKOCount(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
-        if (playerIndex == 0) {
-            return battleStates[battleKey].p0MonsKOedBitmap;
-        } else {
-            return battleStates[battleKey].p1MonsKOedBitmap;
         }
     }
 

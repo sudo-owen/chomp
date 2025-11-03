@@ -964,7 +964,6 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
         // Assert Bob wins
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
     }
 
@@ -1178,7 +1177,6 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
         // Assert Alice wins
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE);
     }
 
@@ -1687,7 +1685,6 @@ contract EngineTest is Test, BattleHelper {
         engine.execute(battleKey);
 
         // Check that the active mon index for Alice is still 0 (no switch happened)
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 0);
     }
 
@@ -1780,7 +1777,6 @@ contract EngineTest is Test, BattleHelper {
         engine.execute(battleKey);
 
         // Check that the active mon index for Alice is still 0 (no switch happened)
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 0);
     }
 
@@ -2072,7 +2068,6 @@ contract EngineTest is Test, BattleHelper {
 
         // After this, Alice's mon should be dead and Bob should be the winner
         // Verify Bob is the winner
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
     }
 
@@ -2608,7 +2603,6 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Check that ALICE wins (Bob didn't commit for round 2)
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE);
 
         // // Bob should not be able to commit to the ended battle
@@ -2895,7 +2889,6 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Assert that Bob wins bc Alice didn't commit to start
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
     }
 
@@ -2916,7 +2909,6 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Assert that Alice wins because Bob didn't reveal
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE);
     }
 
@@ -2941,7 +2933,6 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Assert that Bob wins because Alice didn't reveal
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
     }
 
@@ -3016,7 +3007,6 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Assert that Alice wins because Bob didn't reveal
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE);
     }
 

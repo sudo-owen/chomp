@@ -66,8 +66,6 @@ struct BattleState {
     uint64 turnId;
     uint8 prevPlayerSwitchForTurnFlag;
     uint8 playerSwitchForTurnFlag;
-    uint128 p0MonsKOedBitmap;
-    uint128 p1MonsKOedBitmap;
     uint256 rng;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     IEffect[] globalEffects;
