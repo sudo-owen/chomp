@@ -45,6 +45,7 @@ contract ActusReus is IAbility, BasicEffect {
     function onAfterMove(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
+        view
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
         // Check if opposing mon is KOed

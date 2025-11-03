@@ -130,11 +130,7 @@ contract SofabbiTest is Test, BattleHelper {
         // Verify that the CarrotHarvest effect is still only applied once
         // (should still have only one targeted effect)
         assertEq(state.monStates[0][0].targetedEffects.length, 1);
-
-        // Verify the global KV store has the effect registered
-        bytes32 monId = keccak256(abi.encode(0, 0, "Carrot Harvest"));
-        bytes32 value = engine.getGlobalKV(battleKey, monId);
-        assertEq(uint256(value), 1);
+        assertEq(address(state.monStates[0][0].targetedEffects[0]), address(carrotHarvest));
     }
 
     function test_carrotHarvestTriggersAtEndOfRoundWhenRNGReturnsTrue() public {

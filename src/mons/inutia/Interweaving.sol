@@ -38,17 +38,15 @@ contract Interweaving is IAbility, BasicEffect {
         STAT_BOOST.addStatBoosts(otherPlayerIndex, otherPlayerActiveMonIndex, statBoosts, StatBoostFlag.Temp);
 
         // Check if the effect has already been set for this mon
-        bytes32 monEffectId = keccak256(abi.encode(playerIndex, monIndex, name()));
-        if (ENGINE.getGlobalKV(battleKey, monEffectId) != bytes32(0)) {
-            return;
+        (IEffect[] memory effects,) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i]) == address(this)) {
+                return;
+            }
         }
         // Otherwise, add this effect to the mon when it switches in
         // This way we can trigger on switch out
-        else {
-            uint256 value = 1;
-            ENGINE.setGlobalKV(monEffectId, bytes32(value));
-            ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
-        }
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {

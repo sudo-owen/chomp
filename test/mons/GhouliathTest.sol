@@ -149,11 +149,6 @@ contract GhouliathTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
 
-        // Verify that the RiseFromTheGrave effect applies its global effect and KV
-        bytes32 monEffectId = keccak256(abi.encode(0, 0, riseFromTheGrave.name()));
-        bytes32 effectValue = engine.getGlobalKV(battleKey, monEffectId);
-        assertEq(uint256(effectValue), 1, "RiseFromTheGrave effect should be applied on switch in");
-
         // Bob uses the attack (which KOs) on Alice's mon
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
 

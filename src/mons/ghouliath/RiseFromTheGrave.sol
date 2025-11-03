@@ -26,7 +26,7 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
     }
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
-        // Check if the effect has already been set for this mon
+        // Check if the effect has already been set for this mon (can only be set once)
         bytes32 monEffectId = keccak256(abi.encode(playerIndex, monIndex, name()));
         if (ENGINE.getGlobalKV(battleKey, monEffectId) != bytes32(0)) {
             return;
