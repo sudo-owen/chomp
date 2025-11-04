@@ -458,6 +458,16 @@ contract Engine is IEngine, MappingAllocator {
             monState.shouldSkipTurn = (valueToAdd % 2) == 1;
         }
 
+        // Trigger OnUpdateMonState lifecycle hook
+        _runEffects(
+            battleKey,
+            battleStates[battleKey].rng,
+            playerIndex,
+            playerIndex,
+            EffectStep.OnUpdateMonState,
+            abi.encode(playerIndex, monIndex, stateVarIndex, valueToAdd)
+        );
+
         // Grab state update source if it's set and use it, otherwise default to caller
         emit MonStateUpdate(
             battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, _getUpstreamCaller(), currentStep
@@ -869,6 +879,12 @@ contract Engine is IEngine, MappingAllocator {
                 } else if (round == EffectStep.AfterMove) {
                     (updatedExtraData, removeAfterRun) =
                         effects[i].onAfterMove(rng, extraData[i], playerIndex, monIndex);
+                } else if (round == EffectStep.OnUpdateMonState) {
+                    (uint256 statePlayerIndex, uint256 stateMonIndex, MonStateIndexName stateVarIndex, int32 valueToAdd) =
+                        abi.decode(extraEffectsData, (uint256, uint256, MonStateIndexName, int32));
+                    (updatedExtraData, removeAfterRun) = effects[i].onUpdateMonState(
+                        rng, extraData[i], statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd
+                    );
                 }
 
                 // If we remove the effect after doing it, then we clear and update the array/extra data

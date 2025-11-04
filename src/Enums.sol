@@ -33,7 +33,8 @@ enum EffectStep {
     OnMonSwitchIn,
     OnMonSwitchOut,
     AfterDamage,
-    AfterMove
+    AfterMove,
+    OnUpdateMonState
 }
 
 enum MoveClass {

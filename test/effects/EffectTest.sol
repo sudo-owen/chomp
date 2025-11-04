@@ -37,6 +37,11 @@ import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 
+// Import mocks for OnUpdateMonState test
+import {OnUpdateMonStateHealEffect} from "../mocks/OnUpdateMonStateHealEffect.sol";
+import {EffectAbility} from "../mocks/EffectAbility.sol";
+import {ReduceSpAtkMove} from "../mocks/ReduceSpAtkMove.sol";
+
 contract EffectTest is Test, BattleHelper {
     DefaultCommitManager commitManager;
     Engine engine;
@@ -798,5 +803,94 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
         assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -2);
         assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), -2);
+    }
+
+    function test_onUpdateMonStateHook() public {
+        // Import the mock effect and move
+        OnUpdateMonStateHealEffect healEffect = new OnUpdateMonStateHealEffect(engine);
+        EffectAbility healAbility = new EffectAbility(engine, healEffect);
+        ReduceSpAtkMove reduceSpAtkMove = new ReduceSpAtkMove(engine);
+
+        // Create a mon with the ReduceSpAtkMove for Alice
+        IMoveSet[] memory aliceMoves = new IMoveSet[](1);
+        aliceMoves[0] = reduceSpAtkMove;
+        Mon memory aliceMon = Mon({
+            stats: MonStats({
+                hp: 20,
+                stamina: 10,
+                speed: 5,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 10,
+                type1: Type.Mind,
+                type2: Type.None
+            }),
+            moves: aliceMoves,
+            ability: IAbility(address(0))
+        });
+
+        // Create a mon with the heal effect ability for Bob
+        // This mon should heal when its SpecialAttack is reduced
+        IMoveSet[] memory bobMoves = new IMoveSet[](1);
+        bobMoves[0] = IMoveSet(address(0)); // Bob won't attack
+        Mon memory bobMon = Mon({
+            stats: MonStats({
+                hp: 20,
+                stamina: 10,
+                speed: 3,
+                attack: 10,
+                defense: 10,
+                specialAttack: 10,
+                specialDefense: 10,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: bobMoves,
+            ability: healAbility // Bob has the heal effect
+        });
+
+        Mon[] memory aliceTeam = new Mon[](1);
+        aliceTeam[0] = aliceMon;
+        Mon[] memory bobTeam = new Mon[](1);
+        bobTeam[0] = bobMon;
+
+        // Register teams
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startBattle(oneMonOneMoveValidator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+
+        // First move: both switch in their mons
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Verify Bob's mon has the heal effect applied (from ability on switch in)
+        BattleState memory state = engine.getBattleState(battleKey);
+        assertEq(state.monStates[1][0].targetedEffects.length, 1, "Bob should have 1 effect");
+
+        // Get Bob's initial HP (should be 0 delta since no damage dealt yet)
+        int32 bobHpBefore = state.monStates[1][0].hpDelta;
+        assertEq(bobHpBefore, 0, "Bob should have 0 HP delta initially");
+
+        // Get Bob's initial SpATK (should be 0 delta)
+        int32 bobSpAtkBefore = state.monStates[1][0].specialAttackDelta;
+        assertEq(bobSpAtkBefore, 0, "Bob should have 0 SpATK delta initially");
+
+        // Alice uses ReduceSpAtkMove to reduce Bob's SpecialAttack
+        // Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+
+        // Get Bob's state after the move
+        state = engine.getBattleState(battleKey);
+        int32 bobHpAfter = state.monStates[1][0].hpDelta;
+        int32 bobSpAtkAfter = state.monStates[1][0].specialAttackDelta;
+
+        // Verify that Bob's SpecialAttack was reduced by 1
+        assertEq(bobSpAtkAfter, -1, "Bob's SpATK should be reduced by 1");
+
+        // Verify that the OnUpdateMonState effect triggered and healed Bob by 5 HP
+        assertEq(bobHpAfter, 5, "Bob should be healed by 5 HP when SpATK is reduced");
     }
 }
