@@ -19,6 +19,9 @@ output.txt
 ts.txt
 script/jk.s.sol
 
+# Ignore pycache
+processing/__pycache__/**
+
 # Everything in drool
 drool/*
 

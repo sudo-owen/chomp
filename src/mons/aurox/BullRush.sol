@@ -22,7 +22,7 @@ contract BullRush is StandardAttack {
             ATTACK_PARAMS({
                 NAME: "Bull Rush",
                 BASE_POWER: 80,
-                STAMINA_COST: 3,
+                STAMINA_COST: 2,
                 ACCURACY: 100,
                 MOVE_TYPE: Type.Metal,
                 MOVE_CLASS: MoveClass.Physical,

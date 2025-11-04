@@ -13,7 +13,6 @@ import sys
 import subprocess
 from pathlib import Path
 
-
 def run_move_check() -> bool:
     """
     Run moveCheck.py and return whether changes should be made to Solidity files.

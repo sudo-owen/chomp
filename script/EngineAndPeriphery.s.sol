@@ -115,7 +115,7 @@ contract EngineAndPeriphery is Script {
 
         DefaultValidator validator =
             new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: NUM_MONS, MOVES_PER_MON: NUM_MOVES, TIMEOUT_DURATION: TIMEOUT_DURATION}));
-        deployedContracts.push(DeployData({name: "FAST VALIDATOR", contractAddress: address(validator)}));
+        deployedContracts.push(DeployData({name: "DEFAULT VALIDATOR", contractAddress: address(validator)}));
 
         StatBoosts statBoosts = new StatBoosts(engine);
         deployedContracts.push(DeployData({name: "STAT BOOSTS", contractAddress: address(statBoosts)}));

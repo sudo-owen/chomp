@@ -129,7 +129,7 @@ class MoveValidator:
                     priority=self._parse_int_or_question(row['Priority']),
                     move_type=row['Type'],
                     move_class=row['Class'],
-                    description=row['Description'],
+                    description=row['DevDescription'], # Change to UserDescription later
                     extra_data=row['ExtraData']
                 )
                 normalized_name = self.normalize_move_name(move_data.name)
@@ -424,10 +424,6 @@ class MoveValidator:
         if not moves_with_issues:
             return
 
-        print("\n" + "="*80)
-        print("Report")
-        print("="*80)
-
         for result in moves_with_issues:
             if result['errors']:
                 print(f"\n📁 File: {result['contract_file']} | ❌ Errors")
@@ -605,8 +601,6 @@ class MoveValidator:
         """Update all contract files with CSV values where there are mismatches"""
         print("\n" + "="*80)
         print("UPDATING CONTRACTS")
-        print("="*80)
-
         updated_count = 0
         no_changes_count = 0
 
@@ -623,8 +617,6 @@ class MoveValidator:
             else:
                 print(f"    ⚠️  No changes made (may require manual update)")
                 no_changes_count += 1
-
-        print(f"\n" + "="*80)
         print(f"Updated {updated_count} files")
         if no_changes_count > 0:
             print(f"{no_changes_count} files had no changes (complex logic may require manual update)")

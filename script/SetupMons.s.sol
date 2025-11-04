@@ -13,6 +13,11 @@ import {IEngine} from "../src/IEngine.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
 import {Storm} from "../src/effects/weather/Storm.sol";
+import {BullRush} from "../src/mons/aurox/BullRush.sol";
+import {GildedRecovery} from "../src/mons/aurox/GildedRecovery.sol";
+import {IronWall} from "../src/mons/aurox/IronWall.sol";
+import {UpOnly} from "../src/mons/aurox/UpOnly.sol";
+import {VolatilePunch} from "../src/mons/aurox/VolatilePunch.sol";
 import {HeatBeacon} from "../src/mons/embursa/HeatBeacon.sol";
 import {HoneyBribe} from "../src/mons/embursa/HoneyBribe.sol";
 import {Q5} from "../src/mons/embursa/Q5.sol";
@@ -72,7 +77,7 @@ contract SetupMons is Script {
         DefaultMonRegistry registry = DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY"));
 
         // Deploy all mons and collect deployment data
-        DeployData[][] memory allDeployData = new DeployData[][](9);
+        DeployData[][] memory allDeployData = new DeployData[][](11);
 
         allDeployData[0] = deployGhouliath(registry);
         allDeployData[1] = deployInutia(registry);
@@ -83,6 +88,8 @@ contract SetupMons is Script {
         allDeployData[6] = deployPengym(registry);
         allDeployData[7] = deployEmbursa(registry);
         allDeployData[8] = deployVolthare(registry);
+        allDeployData[9] = deployAurox(registry);
+        allDeployData[10] = deployXmon(registry);
 
         // Calculate total length for flattened array
         uint256 totalLength = 0;
@@ -211,7 +218,7 @@ contract SetupMons is Script {
         MonStats memory stats = MonStats({
             hp: 351,
             stamina: 5,
-            speed: 259,
+            speed: 229,
             attack: 171,
             defense: 189,
             specialAttack: 175,
@@ -467,7 +474,7 @@ contract SetupMons is Script {
         MonStats memory stats = MonStats({
             hp: 333,
             stamina: 5,
-            speed: 205,
+            speed: 175,
             attack: 180,
             defense: 201,
             specialAttack: 120,
@@ -597,8 +604,8 @@ contract SetupMons is Script {
             stamina: 5,
             speed: 111,
             attack: 141,
-            defense: 230,
-            specialAttack: 180,
+            defense: 220,
+            specialAttack: 190,
             specialDefense: 161,
             type1: Type.Fire,
             type2: Type.None
@@ -677,6 +684,94 @@ contract SetupMons is Script {
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
         registry.createMon(8, stats, moves, abilities, keys, values);
+
+        return deployedContracts;
+    }
+
+    function deployAurox(DefaultMonRegistry registry) internal returns (DeployData[] memory) {
+        DeployData[] memory deployedContracts = new DeployData[](5);
+        uint256 contractIndex = 0;
+
+        VolatilePunch volatilepunch = new VolatilePunch(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("BURN_STATUS")), IEffect(vm.envAddress("FROSTBITE_STATUS")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Volatile Punch",
+            contractAddress: address(volatilepunch)
+        });
+        contractIndex++;
+
+        GildedRecovery gildedrecovery = new GildedRecovery(IEngine(vm.envAddress("ENGINE")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Gilded Recovery",
+            contractAddress: address(gildedrecovery)
+        });
+        contractIndex++;
+
+        IronWall ironwall = new IronWall(IEngine(vm.envAddress("ENGINE")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Iron Wall",
+            contractAddress: address(ironwall)
+        });
+        contractIndex++;
+
+        BullRush bullrush = new BullRush(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Bull Rush",
+            contractAddress: address(bullrush)
+        });
+        contractIndex++;
+
+        UpOnly uponly = new UpOnly(IEngine(vm.envAddress("ENGINE")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Up Only",
+            contractAddress: address(uponly)
+        });
+        contractIndex++;
+
+        MonStats memory stats = MonStats({
+            hp: 400,
+            stamina: 5,
+            speed: 100,
+            attack: 150,
+            defense: 230,
+            specialAttack: 100,
+            specialDefense: 220,
+            type1: Type.Metal,
+            type2: Type.None
+        });
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = IMoveSet(address(volatilepunch));
+        moves[1] = IMoveSet(address(gildedrecovery));
+        moves[2] = IMoveSet(address(ironwall));
+        moves[3] = IMoveSet(address(bullrush));
+        IAbility[] memory abilities = new IAbility[](1);
+        abilities[0] = IAbility(address(uponly));
+        bytes32[] memory keys = new bytes32[](0);
+        bytes32[] memory values = new bytes32[](0);
+        registry.createMon(9, stats, moves, abilities, keys, values);
+
+        return deployedContracts;
+    }
+
+    function deployXmon(DefaultMonRegistry registry) internal returns (DeployData[] memory) {
+        DeployData[] memory deployedContracts = new DeployData[](0);
+        uint256 contractIndex = 0;
+
+        MonStats memory stats = MonStats({
+            hp: 311,
+            stamina: 5,
+            speed: 285,
+            attack: 123,
+            defense: 179,
+            specialAttack: 222,
+            specialDefense: 185,
+            type1: Type.Cosmic,
+            type2: Type.None
+        });
+        IMoveSet[] memory moves = new IMoveSet[](0);
+        IAbility[] memory abilities = new IAbility[](0);
+        bytes32[] memory keys = new bytes32[](0);
+        bytes32[] memory values = new bytes32[](0);
+        registry.createMon(10, stats, moves, abilities, keys, values);
 
         return deployedContracts;
     }

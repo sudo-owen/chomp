@@ -82,7 +82,7 @@ def read_moves_data(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
                 "priority": int(row["Priority"]) if row["Priority"].isdigit() else '?',
                 "type": row["Type"],
                 "class": row["Class"],
-                "description": row["Description"],
+                "description": row["DevDescription"], # Change to UserDescription later
                 "extraDataNeeded": row["ExtraData"] == "Yes",
             }
             moves_by_mon[mon_name].append(move_data)

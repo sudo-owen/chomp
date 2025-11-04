@@ -25,9 +25,13 @@ contract SetupCPU is Script {
         monIndices[3] = 8; // Volthare
 
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices);
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("PLAYER_CPU"), monIndices);
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("OKAY_CPU"), monIndices);
+        string[] memory cpuPlayers = new string[](3);
+        cpuPlayers[0] = "RANDOM_CPU";
+        cpuPlayers[1] = "PLAYER_CPU";
+        cpuPlayers[2] = "OKAY_CPU";
+        for (uint256 i; i < cpuPlayers.length; i++) {
+            gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
+        }
 
         // Create alternative team
         monIndices[0] = 1; // Inutia
@@ -35,9 +39,19 @@ contract SetupCPU is Script {
         monIndices[2] = 4; // Gorillax
         monIndices[3] = 5; // Sofabbi
 
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("RANDOM_CPU"), monIndices);
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("PLAYER_CPU"), monIndices);
-        gachaTeamRegistry.createTeamForUser(vm.envAddress("OKAY_CPU"), monIndices);
+        for (uint256 i; i < cpuPlayers.length; i++) {
+            gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
+        }
+
+        // Create team of Embursa, Aurox, Ghouliath, and Gorillax
+        monIndices[0] = 7; // Embursa
+        monIndices[1] = 9; // Aurox
+        monIndices[2] = 0; // Ghouliath
+        monIndices[3] = 4; // Gorillax
+
+        for (uint256 i; i < cpuPlayers.length; i++) {
+            gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
+        }
 
         vm.stopBroadcast();
 
