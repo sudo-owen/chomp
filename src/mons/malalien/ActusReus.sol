@@ -42,7 +42,7 @@ contract ActusReus is IAbility, BasicEffect {
         return (step == EffectStep.AfterMove || step == EffectStep.AfterDamage);
     }
 
-    function onAfterMove(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onAfterMove(uint256, bytes memory extraData, uint256 targetIndex, uint256)
         external
         override
         view

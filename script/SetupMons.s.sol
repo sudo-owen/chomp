@@ -89,7 +89,7 @@ contract SetupMons is Script {
         allDeployData[7] = deployEmbursa(registry);
         allDeployData[8] = deployVolthare(registry);
         allDeployData[9] = deployAurox(registry);
-        allDeployData[10] = deployXmon(registry);
+        // allDeployData[10] = deployXmon(registry);
 
         // Calculate total length for flattened array
         uint256 totalLength = 0;
