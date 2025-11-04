@@ -69,6 +69,16 @@ abstract contract BasicEffect is IEffect {
         return (extraData, false);
     }
 
+    // NOTE: CURRENTLY ONLY RUN LOCALLY ON MONS (global effects do not have this hook)
+    // WARNING: Avoid chaining this effect to prevent recursive calls
+    function onUpdateMonState(uint256, bytes memory extraData, uint256, uint256, MonStateIndexName, int32)
+        external
+        virtual
+        returns (bytes memory updatedExtraData, bool removeAfterRun)
+    {
+        return (extraData, false);
+    }
+
     // Lifecycle hooks when being applied or removed
     function onApply(uint256, bytes memory, uint256, uint256)
         external

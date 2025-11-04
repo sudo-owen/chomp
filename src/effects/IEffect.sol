@@ -39,6 +39,18 @@ interface IEffect {
         external
         returns (bytes memory updatedExtraData, bool removeAfterRun);
 
+    // NOTE: CURRENTLY ONLY RUN LOCALLY ON MONS (global effects do not have this hook)
+    // WARNING: Avoid chaining this effect to prevent recursive calls
+    // (e.g., an effect that mutates state triggering another effect that mutates state)
+    function onUpdateMonState(
+        uint256 rng,
+        bytes memory extraData,
+        uint256 playerIndex,
+        uint256 monIndex,
+        MonStateIndexName stateVarIndex,
+        int32 valueToAdd
+    ) external returns (bytes memory updatedExtraData, bool removeAfterRun);
+
     // Lifecycle hooks when being applied or removed
     function onApply(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
