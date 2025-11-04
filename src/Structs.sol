@@ -63,14 +63,15 @@ struct BattleConfig {
 // Stored by the Engine for a battle, tracks mutable battle data
 struct BattleState {
     uint8 winnerIndex; // 2 = uninitialized (no winner), 0 = p0 winner, 1 = p1 winner
-    uint64 turnId;
     uint8 prevPlayerSwitchForTurnFlag;
     uint8 playerSwitchForTurnFlag;
-    uint256 rng;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
+    uint64 turnId;
+    uint256 rng;
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
+    MoveDecision[][] playerMoves;
 }
 
 struct MonStats {
@@ -105,10 +106,21 @@ struct MonState {
     bytes[] extraDataForTargetedEffects;
 }
 
+struct MoveDecision {
+    uint128 moveIndex;
+    bool isRealTurn; // This indicates a non-decision, e.g. a turn where the player made no decision (i.e. only the other player moved)
+    bytes extraData;
+}
+
 // Used for Commit manager
-struct MoveCommitment {
+struct PlayerDecisionData {
+    uint16 numMovesRevealed;
+    uint16 lastCommitmentTurnId;
+    uint96 lastMoveTimestamp;
+    uint128 revealedMoveIndex;
     bytes32 moveHash;
-    uint256 turnId;
+    bytes32 salt;
+    bytes extraData;
 }
 
 struct RevealedMove {
@@ -117,6 +129,7 @@ struct RevealedMove {
     bytes extraData;
 }
 
+// Used for StatBoosts
 struct StatBoostToApply {
     MonStateIndexName stat;
     uint8 boostPercent;

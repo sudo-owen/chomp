@@ -85,7 +85,7 @@ contract DefaultCommitManagerTest is Test, BattleHelper {
 
         // Alice commits
         vm.startPrank(ALICE);
-        uint256 moveIndex = SWITCH_MOVE_INDEX;
+        uint128 moveIndex = SWITCH_MOVE_INDEX;
         bytes32 moveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), abi.encode(0)));
         commitManager.commitMove(battleKey, moveHash);
 

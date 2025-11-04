@@ -12,9 +12,7 @@ import {IMoveManager} from "./IMoveManager.sol";
 contract DefaultCommitManager is ICommitManager, IMoveManager {
     IEngine private immutable ENGINE;
 
-    mapping(bytes32 battleKey => mapping(address player => MoveCommitment)) private commitments;
-    mapping(bytes32 battleKey => RevealedMove[][]) private moveHistory;
-    mapping(bytes32 battleKey => mapping(address player => uint256)) private lastMoveTimestamp;
+    mapping(bytes32 battleKey => mapping(uint256 playerIndex => PlayerDecisionData)) private playerData;
 
     error NotP0OrP1();
     error AlreadyCommited();
@@ -50,6 +48,7 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
 
         address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
         address caller = msg.sender;
+        uint256 playerIndex = (caller == p0AndP1[0]) ? 0 : 1;
 
         // Only battle participants can commit
         if (caller != p0AndP1[0] && caller != p0AndP1[1]) {
@@ -68,10 +67,10 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         // otherwise, just check if the turn id (which we overwrite each turn) is in sync
         // (if we already committed this turn, then the turn id should match)
         if (turnId == 0) {
-            if (commitments[battleKey][caller].moveHash != bytes32(0)) {
+            if (playerData[battleKey][playerIndex].moveHash != bytes32(0)) {
                 revert AlreadyCommited();
             }
-        } else if (commitments[battleKey][caller].turnId == turnId) {
+        } else if (playerData[battleKey][playerIndex].lastCommitmentTurnId == turnId) {
             revert AlreadyCommited();
         }
 
@@ -90,19 +89,16 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         }
 
         // 7) Store the commitment
-        commitments[battleKey][caller] = MoveCommitment({moveHash: moveHash, turnId: turnId});
-        lastMoveTimestamp[battleKey][caller] = block.timestamp;
-
-        // 8) Initialize move history if it's the first commit
-        if (moveHistory[battleKey].length == 0) {
-            moveHistory[battleKey].push();
-            moveHistory[battleKey].push();
-        }
+        playerData[battleKey][playerIndex].lastCommitmentTurnId = uint16(turnId);
+        playerData[battleKey][playerIndex].moveHash = moveHash;
+        playerData[battleKey][playerIndex].lastMoveTimestamp = uint96(block.timestamp);
 
         emit MoveCommit(battleKey, caller);
     }
 
-    function revealMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes calldata extraData, bool autoExecute)
+    event Foo(uint a, uint b);
+
+    function revealMove(bytes32 battleKey, uint128 moveIndex, bytes32 salt, bytes calldata extraData, bool autoExecute)
         external
     {
         // Can only commit moves to battles with nonzero timestamp and address(0) winner
@@ -159,13 +155,13 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
             if (playerSwitchForTurnFlag == 2) {
                 // If it's not the zeroth turn, make sure that player cannot reveal until other player has committed
                 if (turnId != 0) {
-                    if (commitments[battleKey][otherPlayer].turnId != turnId) {
+                    if (playerData[battleKey][otherPlayerIndex].lastCommitmentTurnId != turnId) {
                         revert RevealBeforeOtherCommit();
                     }
                 }
                 // If it is the zeroth turn, do the same check, but check moveHash instead of turnId (which would be zero)
                 else {
-                    if (commitments[battleKey][otherPlayer].moveHash == bytes32(0)) {
+                    if (playerData[battleKey][otherPlayerIndex].moveHash == bytes32(0)) {
                         revert RevealBeforeOtherCommit();
                     }
                 }
@@ -175,30 +171,26 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         // 3) Otherwise (we need to both commit + reveal), so we need to check:
         // - the preimage checks out
         // - reveal happens after a commit
-        // - the other player has already *revealed*
+        // - the other player has already revealed
         else {
             // - validate preimage
-            MoveCommitment storage commitment = commitments[battleKey][msg.sender];
-            if (keccak256(abi.encodePacked(moveIndex, salt, extraData)) != commitment.moveHash) {
+            if (keccak256(abi.encodePacked(moveIndex, salt, extraData)) != playerData[battleKey][currentPlayerIndex].moveHash) {
                 revert WrongPreimage();
             }
 
             // - ensure reveal happens after caller commits
-            if (commitment.turnId != turnId) {
+            if (playerData[battleKey][currentPlayerIndex].lastCommitmentTurnId != turnId) {
                 revert RevealBeforeSelfCommit();
             }
 
-            // - check that other player has already revealed (on turn zero, we just check for move history length)
-            RevealedMove[] storage otherPlayerMoveHistory = moveHistory[battleKey][otherPlayerIndex];
-            if (otherPlayerMoveHistory.length < turnId || otherPlayerMoveHistory.length == 0) {
+            // - check that other player has already revealed (i.e. a nonzero last move timestamp)
+            if (playerData[battleKey][otherPlayerIndex].numMovesRevealed < turnId || playerData[battleKey][otherPlayerIndex].lastMoveTimestamp == 0) {
                 revert NotYetRevealed();
             }
         }
 
-        // 4) Regardless, we still need to check (for all players that) there was no prior reveal
-        // (prevents double revealing)
-        RevealedMove[] storage playerMoveHistory = moveHistory[battleKey][currentPlayerIndex];
-        if (playerMoveHistory.length > turnId) {
+        // 4) Regardless, we still need to check there was no prior reveal (prevents double revealing)
+        if (playerData[battleKey][currentPlayerIndex].numMovesRevealed > turnId) {
             revert AlreadyRevealed();
         }
 
@@ -211,13 +203,17 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
 
         // 6) Store revealed move and extra data for the current player
         // Update their last move timestamp
-        playerMoveHistory.push(RevealedMove({moveIndex: moveIndex, salt: salt, extraData: extraData}));
-        lastMoveTimestamp[battleKey][msg.sender] = block.timestamp;
+        playerData[battleKey][currentPlayerIndex].revealedMoveIndex = uint128(moveIndex);
+        playerData[battleKey][currentPlayerIndex].extraData = extraData;
+        playerData[battleKey][currentPlayerIndex].lastMoveTimestamp = uint96(block.timestamp);
+        playerData[battleKey][currentPlayerIndex].salt = salt;
+        playerData[battleKey][currentPlayerIndex].numMovesRevealed += 1;
 
         // 7) Store empty move for other player if it's a turn where only a single player has to make a move
         if (playerSwitchForTurnFlag == 0 || playerSwitchForTurnFlag == 1) {
-            RevealedMove[] storage otherPlayerMoveHistory = moveHistory[battleKey][otherPlayerIndex];
-            otherPlayerMoveHistory.push(RevealedMove({moveIndex: NO_OP_MOVE_INDEX, salt: "", extraData: ""}));
+            // TODO: add this later to mutate the engine directly
+            playerData[battleKey][otherPlayerIndex].lastMoveTimestamp = uint96(block.timestamp);
+            playerData[battleKey][otherPlayerIndex].numMovesRevealed += 1;
         }
 
         // 8) Emit move reveal event before game engine execution
@@ -234,8 +230,13 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         }
     }
 
-    function getCommitment(bytes32 battleKey, address player) external view returns (MoveCommitment memory) {
-        return commitments[battleKey][player];
+    function getCommitment(bytes32 battleKey, address player) external view returns (bytes32 moveHash, uint256 turnId) {
+        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
+        uint256 playerIndex = (player == p0AndP1[0]) ? 0 : 1;
+        return (
+            playerData[battleKey][playerIndex].moveHash,
+            playerData[battleKey][playerIndex].lastCommitmentTurnId
+        );
     }
 
     function getMoveForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
@@ -243,14 +244,20 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         view
         returns (RevealedMove memory)
     {
-        return moveHistory[battleKey][playerIndex][turn];
+        return RevealedMove({
+            moveIndex: playerData[battleKey][playerIndex].revealedMoveIndex,
+            salt: "",
+            extraData: playerData[battleKey][playerIndex].extraData
+        });
     }
 
     function getMoveCountForBattleState(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
-        return moveHistory[battleKey][playerIndex].length;
+        return playerData[battleKey][playerIndex].numMovesRevealed;
     }
 
     function getLastMoveTimestampForPlayer(bytes32 battleKey, address player) external view returns (uint256) {
-        return lastMoveTimestamp[battleKey][player];
+        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
+        uint256 playerIndex = (player == p0AndP1[0]) ? 0 : 1;
+        return playerData[battleKey][playerIndex].lastMoveTimestamp;
     }
 }

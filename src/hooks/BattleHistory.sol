@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IEngineHook} from "../IEngineHook.sol";
 import {IEngine} from "../IEngine.sol";
-import {BattleData, BattleState} from "../Structs.sol";
+import {BattleData} from "../Structs.sol";
 import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 
 /// @title BattleHistory

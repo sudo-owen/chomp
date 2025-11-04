@@ -417,6 +417,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Attempt to forcibly advance the game state
+        // Game should revert because moves have not been set
         vm.expectRevert();
         engine.execute(battleKey);
 
@@ -863,7 +864,7 @@ contract EngineTest is Test, BattleHelper {
         );
 
         // Commit move index 0 for Bob
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         vm.startPrank(BOB);
         bytes32 bobMoveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), ""));
         commitManager.commitMove(battleKey, bobMoveHash);
@@ -959,7 +960,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Both player pick move index 0, which for Bob afflicts the instant death condition on the
         // opposing mon (Alice's) and knocks it out
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         bytes memory extraData = "";
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
@@ -1039,7 +1040,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Both player pick move index 0, which for Bob afflicts the instant death condition on the
         // opposing mon (Alice's) and knocks it out
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         bytes memory extraData = "";
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
@@ -1172,7 +1173,7 @@ contract EngineTest is Test, BattleHelper {
         // Both player pick move index 0, which for Bob afflicts the instant death condition on the
         // opposing mon (Alice's)
         // But Alice's mon should KO Bob's before the end of round takes place
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         bytes memory extraData = "";
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
@@ -1253,14 +1254,14 @@ contract EngineTest is Test, BattleHelper {
         // Both player pick move index 0, which for Bob afflicts the instant death condition on the
         // opposing mon (Alice's) and knocks it out
         // But Bob moves first (higher priority), so he gets the instant death affliction
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         bytes memory extraData = "";
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
         // Now if Alice tries to pick a non-switch move, the engine should revert
         vm.startPrank(ALICE);
         bytes32 salt = "";
-        uint256 aliceMoveIndex = 0;
+        uint128 aliceMoveIndex = 0;
         bytes32 aliceMoveHash = keccak256(abi.encodePacked(aliceMoveIndex, salt, extraData));
         commitManager.commitMove(battleKey, aliceMoveHash);
 
@@ -1347,7 +1348,7 @@ contract EngineTest is Test, BattleHelper {
         // Both player pick move index 0, which for Bob afflicts the instant death condition on the
         // opposing mon (Alice's) and knocks it out
         // But Bob moves first (higher priority), so he gets the instant death affliction
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         bytes memory extraData = "";
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
@@ -1423,7 +1424,7 @@ contract EngineTest is Test, BattleHelper {
         // Bob goes for a fast skip turn effect
         // Alice tries to go fast for a lethal effect
         // Bob should win priority and inflict skip turn effect
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         bytes memory extraData = "";
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
@@ -1668,7 +1669,7 @@ contract EngineTest is Test, BattleHelper {
         // Let Bob commit and reveal to attack (move index 0)
         bytes memory extraData = "";
         bytes32 salt = "";
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         vm.startPrank(BOB);
         commitManager.commitMove(battleKey, keccak256(abi.encodePacked(moveIndex, salt, extraData)));
 
@@ -1761,7 +1762,7 @@ contract EngineTest is Test, BattleHelper {
         // Let Bob commit and reveal to attack (move index 0)
         bytes memory extraData = "";
         bytes32 salt = "";
-        uint256 moveIndex = 0;
+        uint128 moveIndex = 0;
         vm.startPrank(BOB);
         commitManager.commitMove(battleKey, keccak256(abi.encodePacked(moveIndex, salt, extraData)));
 
@@ -2365,7 +2366,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Bob commits to NO_OP
         vm.startPrank(BOB);
-        uint256 moveIndex = NO_OP_MOVE_INDEX;
+        uint128 moveIndex = NO_OP_MOVE_INDEX;
         bytes32 bobMoveHash = keccak256(abi.encodePacked(moveIndex, bytes32(""), ""));
         commitManager.commitMove(battleKey, bobMoveHash);
 
@@ -2651,8 +2652,8 @@ contract EngineTest is Test, BattleHelper {
 
     function _commitRevealExecuteForAliceAndBob(
         bytes32 battleKey,
-        uint256 aliceMoveIndex,
-        uint256 bobMoveIndex,
+        uint128 aliceMoveIndex,
+        uint128 bobMoveIndex,
         bytes memory aliceExtraData,
         bytes memory bobExtraData
     ) internal {

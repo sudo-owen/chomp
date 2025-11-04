@@ -182,7 +182,7 @@ contract DefaultValidator is IValidator {
 
         // 0 or 1:
         - if it's not us, then we skip
-        - if it is us, then we need to check the timestamp from last turn, and we either timeout or don't [x]
+        - if it is us, then we need to check the timestamp from last turn, and we either timeout or don't
 
         // 2:
         - we are committing + revealing:
@@ -235,10 +235,10 @@ contract DefaultValidator is IValidator {
         else if (currentPlayerSwitchForTurnFlag == 2) {
             // We are committing + revealing:
             if (turnId % 2 == playerIndexToCheck) {
-                MoveCommitment memory playerCommitment =
+                (bytes32 playerMoveHash, uint256 playerTurnId) =
                     commitManager.getCommitment(battleKey, players[playerIndexToCheck]);
                 // If we have already committed:
-                if (playerCommitment.turnId == turnId && playerCommitment.moveHash != bytes32(0)) {
+                if (playerTurnId == turnId && playerMoveHash != bytes32(0)) {
                     // Check if other player has already revealed
                     uint256 numMovesOtherPlayerRevealed =
                         commitManager.getMoveCountForBattleState(battleKey, otherPlayerIndex);
@@ -260,10 +260,10 @@ contract DefaultValidator is IValidator {
             }
             // We are revealing:
             else {
-                MoveCommitment memory otherPlayerCommitment =
+                (bytes32 otherPlayerMoveHash, uint256 otherPlayerTurnId) =
                     commitManager.getCommitment(battleKey, players[otherPlayerIndex]);
                 // If other player has already committed:
-                if (otherPlayerCommitment.turnId == turnId && otherPlayerCommitment.moveHash != bytes32(0)) {
+                if (otherPlayerTurnId == turnId && otherPlayerMoveHash != bytes32(0)) {
                     uint256 otherPlayerTimestamp =
                         commitManager.getLastMoveTimestampForPlayer(battleKey, players[otherPlayerIndex]);
                     if (block.timestamp >= otherPlayerTimestamp + TIMEOUT_DURATION) {

@@ -24,8 +24,8 @@ abstract contract BattleHelper is Test {
         Engine engine,
         DefaultCommitManager commitManager,
         bytes32 battleKey,
-        uint256 aliceMoveIndex,
-        uint256 bobMoveIndex,
+        uint128 aliceMoveIndex,
+        uint128 bobMoveIndex,
         bytes memory aliceExtraData,
         bytes memory bobExtraData
     ) internal {

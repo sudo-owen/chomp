@@ -15,14 +15,13 @@ import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 contract Engine is IEngine, MappingAllocator {
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
     mapping(bytes32 => uint256) public pairHashNonces; // imposes a global ordering across all matches
-    mapping(address player => mapping(address maker => bool)) public isMatchmakerFor;
+    mapping(address player => mapping(address maker => bool)) public isMatchmakerFor; // tracks approvals for matchmakers
 
     mapping(bytes32 => BattleData) private battleData; // These are immutable after a battle begins
-    mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle
+    mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle, we reuse these storage slots for subsequent battles
     mapping(bytes32 battleKey => BattleState) private battleStates;
     mapping(bytes32 battleKey => mapping(bytes32 => bytes32)) private globalKV;
     uint256 private transient currentStep; // Used to bubble up step data for events
-    int32 private transient damageDealt; // Used to provide access to onAfterDamage hook for effects
     address private transient upstreamCaller; // Used to bubble up caller data for events
 
     // Errors
@@ -458,6 +457,11 @@ contract Engine is IEngine, MappingAllocator {
             monState.shouldSkipTurn = (valueToAdd % 2) == 1;
         }
 
+        // Grab state update source if it's set and use it, otherwise default to caller
+        emit MonStateUpdate(
+            battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, _getUpstreamCaller(), currentStep
+        );
+
         // Trigger OnUpdateMonState lifecycle hook
         _runEffects(
             battleKey,
@@ -466,11 +470,6 @@ contract Engine is IEngine, MappingAllocator {
             playerIndex,
             EffectStep.OnUpdateMonState,
             abi.encode(playerIndex, monIndex, stateVarIndex, valueToAdd)
-        );
-
-        // Grab state update source if it's set and use it, otherwise default to caller
-        emit MonStateUpdate(
-            battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, _getUpstreamCaller(), currentStep
         );
     }
 
@@ -618,10 +617,15 @@ contract Engine is IEngine, MappingAllocator {
             (uint256 playerSwitchForTurnFlag,,, bool isGameOver) = _checkForGameOverOrKO(battleKey, playerIndex);
             if (isGameOver) return;
 
+            // Check for game over and/or KOs for the other player
+            uint256 otherPlayerIndex = (playerIndex + 1) % 2;
+            (playerSwitchForTurnFlag,,, isGameOver) = _checkForGameOverOrKO(battleKey, otherPlayerIndex);
+            if (isGameOver) return;
+
             // Set the player switch for turn flag
             battleStates[battleKey].playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
 
-            // TODO: consider also checking game over / setting flag for other player
+            // TODO: 
             // Also upstreaming more updates from `_handleSwitch` and change it to also add `_handleEffects`
         }
         // If the switch is invalid, we simply do nothing and continue execution
@@ -636,9 +640,6 @@ contract Engine is IEngine, MappingAllocator {
         upstreamCaller = caller;
     }
 
-    /**
-     * - Internal helper functions
-     */
     function computeBattleKey(address p0, address p1) public view returns (bytes32 battleKey, bytes32 pairHash) {
         pairHash = keccak256(abi.encode(p0, p1));
         if (uint256(uint160(p0)) > uint256(uint160(p1))) {
@@ -668,8 +669,8 @@ contract Engine is IEngine, MappingAllocator {
             return (playerSwitchForTurnFlag, isPriorityPlayerActiveMonKnockedOut, isNonPriorityPlayerActiveMonKnockedOut, isGameOver);
         }
 
-        // Otherwise, we check the teams
-        // A game is over if all of a player's mons are knocked out
+        // Otherwise, we check the teams of both players
+        // A game is over if all of a player's mons are KOed
         uint256 newWinnerIndex = 2;
         uint256[2] memory playerIndices = [uint256(0), uint256(1)];
         for (uint256 i = 0; i < 2; i++) {
@@ -748,9 +749,9 @@ contract Engine is IEngine, MappingAllocator {
         // Run onMonSwitchIn hook for global effects
         _runEffects(battleKey, state.rng, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
-        // Run ability for the newly switched in mon (as long as it's not turn 0, execute() has a special case to run activateOnSwitch after both moves are handled)
+        // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
         Mon memory mon = battleData[battleKey].teams[playerIndex][monToSwitchIndex];
-        if (address(mon.ability) != address(0) && state.turnId != 0) {
+        if (address(mon.ability) != address(0) && state.turnId != 0 && !state.monStates[playerIndex][monToSwitchIndex].isKnockedOut) {
             mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
         }
     }
@@ -822,7 +823,7 @@ contract Engine is IEngine, MappingAllocator {
 
     /**
      * effect index: the index to grab the relevant effect array
-     *    player index: the player to pass into the effects args
+     * player index: the player to pass into the effects args
      */
     function _runEffects(
         bytes32 battleKey,

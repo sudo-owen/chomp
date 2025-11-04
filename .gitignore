@@ -12,6 +12,7 @@ log.txt
 
 # Dotenv file
 .env
+.DS_Store
 
 # Setup
 input.txt

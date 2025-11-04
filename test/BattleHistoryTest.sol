@@ -162,8 +162,8 @@ contract BattleHistoryTest is Test, BattleHelper {
         bytes32 battleKey,
         address p0,
         address p1,
-        uint256 p0MoveIndex,
-        uint256 p1MoveIndex,
+        uint128 p0MoveIndex,
+        uint128 p1MoveIndex,
         bytes memory p0ExtraData,
         bytes memory p1ExtraData
     ) internal {
@@ -226,7 +226,6 @@ contract BattleHistoryTest is Test, BattleHelper {
         assertEq(battleHistory.getNumBattles(BOB), 1, "Bob should have 1 battle after completion");
 
         // Verify winner
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE, "Alice should be the winner");
     }
 
