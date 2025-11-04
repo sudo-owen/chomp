@@ -30,7 +30,7 @@ contract ReduceSpAtkMove is IMoveSet {
         uint256 opposingPlayerIndex = (attackerPlayerIndex + 1) % 2;
 
         // Get the opposing player's active mon index
-        uint256 opposingMonIndex = ENGINE.getActiveMonIndex(ENGINE.battleKeyForWrite(), opposingPlayerIndex);
+        uint256 opposingMonIndex = ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[opposingPlayerIndex];
 
         // Reduce the opposing mon's SpecialAttack by 1
         ENGINE.updateMonState(opposingPlayerIndex, opposingMonIndex, MonStateIndexName.SpecialAttack, -1);
