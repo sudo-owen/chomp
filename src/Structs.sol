@@ -109,6 +109,7 @@ struct MonState {
 struct MoveDecision {
     uint128 moveIndex;
     bool isRealTurn; // This indicates a non-decision, e.g. a turn where the player made no decision (i.e. only the other player moved)
+    bytes32 salt;
     bytes extraData;
 }
 

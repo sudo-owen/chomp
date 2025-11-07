@@ -172,6 +172,10 @@ contract Engine is IEngine, MappingAllocator {
         // Initialize winnerIndex to 2 (uninitialized/no winner)
         battleStates[battleKey].winnerIndex = 2;
 
+        // Initialize storage for moves
+        battleStates[battleKey].playerMoves.push();
+        battleStates[battleKey].playerMoves.push();
+
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
             battle.engineHooks[i].onBattleStart(battleKey);
         }
@@ -248,8 +252,8 @@ contract Engine is IEngine, MappingAllocator {
         else {
             // Validate both moves have been revealed for the current turn
             // (accessing the values will revert if they haven't been set)
-            RevealedMove memory p0Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 0, turnId);
-            RevealedMove memory p1Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 1, turnId);
+            MoveDecision memory p0Move = battleStates[battleKey].playerMoves[0][turnId];
+            MoveDecision memory p1Move = battleStates[battleKey].playerMoves[1][turnId];
 
             // Update the rng to the newest value
             uint256 rng = config.rngOracle.getRNG(p0Move.salt, p1Move.salt);
@@ -390,9 +394,15 @@ contract Engine is IEngine, MappingAllocator {
             battle.engineHooks[i].onRoundEnd(battleKey);
         }
 
-        // Progress turn index and finally set the player switch for turn flag on the state
+
+        // End of turn cleanup:
+        // - Progress turn index 
+        // - Set the player switch for turn flag on state
+        // - Set up storage for moves next turn
         state.turnId += 1;
         state.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
+        state.playerMoves[0].push();
+        state.playerMoves[1].push();
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
         emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
@@ -459,7 +469,7 @@ contract Engine is IEngine, MappingAllocator {
 
         // Grab state update source if it's set and use it, otherwise default to caller
         emit MonStateUpdate(
-            battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, _getUpstreamCaller(), currentStep
+            battleKey, playerIndex, monIndex, uint256(stateVarIndex), valueToAdd, _getUpstreamCallerAndResetValue(), currentStep
         );
 
         // Trigger OnUpdateMonState lifecycle hook
@@ -490,7 +500,7 @@ contract Engine is IEngine, MappingAllocator {
                 monIndex,
                 address(effect),
                 extraData,
-                _getUpstreamCaller(),
+                _getUpstreamCallerAndResetValue(),
                 uint256(EffectStep.OnApply)
             );
 
@@ -537,7 +547,7 @@ contract Engine is IEngine, MappingAllocator {
             monIndex,
             address(effects[effectIndex]),
             newExtraData,
-            _getUpstreamCaller(),
+            _getUpstreamCallerAndResetValue(),
             currentStep
         );
     }
@@ -572,7 +582,7 @@ contract Engine is IEngine, MappingAllocator {
         effects.pop();
         extraData[indexToRemove] = extraData[numEffects - 1];
         extraData.pop();
-        emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCaller(), currentStep);
+        emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
     }
 
     function setGlobalKV(bytes32 key, bytes32 value) external {
@@ -595,7 +605,7 @@ contract Engine is IEngine, MappingAllocator {
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
         }
-        emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCaller(), currentStep);
+        emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCallerAndResetValue(), currentStep);
         _runEffects(
             battleKey, battleStates[battleKey].rng, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage)
         );
@@ -631,9 +641,24 @@ contract Engine is IEngine, MappingAllocator {
         // If the switch is invalid, we simply do nothing and continue execution
     }
 
+    function setMove(bytes32 battleKey, uint256 playerIndex, uint128 moveIndex, bytes32 salt, bytes memory extraData) external {
+        bool isMoveManager = msg.sender == address(battleConfig[_getStorageKey(battleKey)].moveManager);
+        bool isForCurrentBattle = battleKeyForWrite == battleKey;
+        if (!isMoveManager && !isForCurrentBattle) {
+            revert NoWriteAllowed();
+        }
+        uint64 turnId = battleStates[battleKey].turnId;
+        battleStates[battleKey].playerMoves[playerIndex][turnId] = MoveDecision({
+            moveIndex: moveIndex,
+            isRealTurn: true,
+            salt: salt,
+            extraData: extraData
+        });
+    }
+
     function emitEngineEvent(EngineEventType eventType, bytes memory eventData) external {
         bytes32 battleKey = battleKeyForWrite;
-        emit EngineEvent(battleKey, eventType, eventData, _getUpstreamCaller(), currentStep);
+        emit EngineEvent(battleKey, eventType, eventData, _getUpstreamCallerAndResetValue(), currentStep);
     }
 
     function setUpstreamCaller(address caller) external {
@@ -763,7 +788,7 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleData storage data = battleData[battleKey];
         BattleState storage state = battleStates[battleKey];
-        RevealedMove memory move = config.moveManager.getMoveForBattleStateForTurn(battleKey, playerIndex, state.turnId);
+        MoveDecision memory move = state.playerMoves[playerIndex][state.turnId];
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
@@ -938,11 +963,10 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleData storage data = battleData[battleKey];
         BattleState storage state = battleStates[battleKey];
-        RevealedMove memory p0Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 0, state.turnId);
-        RevealedMove memory p1Move = config.moveManager.getMoveForBattleStateForTurn(battleKey, 1, state.turnId);
+        MoveDecision memory p0Move = state.playerMoves[0][state.turnId];
+        MoveDecision memory p1Move = state.playerMoves[1][state.turnId];
         uint256 p0ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 0);
         uint256 p1ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 1);
         uint256 p0Priority;
@@ -991,7 +1015,7 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
-    function _getUpstreamCaller() internal view returns (address) {
+    function _getUpstreamCallerAndResetValue() internal view returns (address) {
         address source = upstreamCaller;
         if (source == address(0)) {
             source = msg.sender;
