@@ -118,14 +118,11 @@ struct PlayerDecisionData {
     uint16 numMovesRevealed;
     uint16 lastCommitmentTurnId;
     uint96 lastMoveTimestamp;
-    uint128 revealedMoveIndex;
     bytes32 moveHash;
-    bytes32 salt;
-    bytes extraData;
 }
 
 struct RevealedMove {
-    uint256 moveIndex;
+    uint128 moveIndex;
     bytes32 salt;
     bytes extraData;
 }

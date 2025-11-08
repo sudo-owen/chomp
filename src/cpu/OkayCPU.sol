@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {IEngine} from "../IEngine.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
 import {CPU} from "./CPU.sol";
-import {RevealedMove} from "../Structs.sol";
+import {MoveDecision, RevealedMove} from "../Structs.sol";
 import {ITypeCalculator} from "../types/ITypeCalculator.sol";
 import {MonStateIndexName, Type, MoveClass} from "../Enums.sol";
 import {IMoveSet} from "../moves/IMoveSet.sol";
@@ -30,7 +30,7 @@ contract OkayCPU is CPU {
     function selectMove(bytes32 battleKey, uint256 playerIndex)
         external
         override
-        returns (uint256 moveIndex, bytes memory extraData)
+        returns (uint128 moveIndex, bytes memory extraData)
     {
         (RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) = calculateValidMoves(battleKey, playerIndex);
 
@@ -52,9 +52,8 @@ contract OkayCPU is CPU {
             }
         }
         uint256 opponentIndex = (playerIndex + 1) % 2;
-        RevealedMove memory opponentMove = ENGINE.getMoveManager(battleKey)
-            .getMoveForBattleStateForTurn(battleKey, opponentIndex, ENGINE.getTurnIdForBattleState(battleKey));
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        MoveDecision memory opponentMove = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, opponentIndex, turnId);
 
         // If it's the first turn, try and find a mon who has a type advantage to the opponent's type1
         if (turnId == 0) {
@@ -109,9 +108,9 @@ contract OkayCPU is CPU {
                     MoveClass[] memory moveClasses = new MoveClass[](2);
                     moveClasses[0] = MoveClass.Physical;
                     moveClasses[1] = MoveClass.Special;
-                    uint256[] memory physicalOrSpecialMoves = _filterMoves(battleKey, playerIndex, moves, moveClasses);
+                    uint128[] memory physicalOrSpecialMoves = _filterMoves(battleKey, playerIndex, moves, moveClasses);
                     if (physicalOrSpecialMoves.length > 0) {
-                        uint256[] memory typeAdvantagedMoves = _getTypeAdvantageAttacks(battleKey, opponentIndex, opponentType1, opponentType2, moves, physicalOrSpecialMoves);
+                        uint128[] memory typeAdvantagedMoves = _getTypeAdvantageAttacks(battleKey, opponentIndex, opponentType1, opponentType2, moves, physicalOrSpecialMoves);
                         if (typeAdvantagedMoves.length > 0) {
                             uint256 rngIndex = _getRNG(battleKey) % typeAdvantagedMoves.length;
                             emit AttackSelect(battleKey, moves[typeAdvantagedMoves[rngIndex]].moveIndex);
@@ -123,7 +122,7 @@ contract OkayCPU is CPU {
                     MoveClass[] memory moveClasses = new MoveClass[](2);
                     moveClasses[0] = MoveClass.Self;
                     moveClasses[1] = MoveClass.Other;
-                    uint256[] memory selfOrOtherMoves = _filterMoves(battleKey, playerIndex, moves, moveClasses);
+                    uint128[] memory selfOrOtherMoves = _filterMoves(battleKey, playerIndex, moves, moveClasses);
                     if (selfOrOtherMoves.length > 0) {
                         uint256 rngIndex = _getRNG(battleKey) % selfOrOtherMoves.length;
                         emit SelfOrOtherSelect(battleKey, moves[selfOrOtherMoves[rngIndex]].moveIndex);
@@ -140,7 +139,7 @@ contract OkayCPU is CPU {
     }
 
     // Biased towards moves versus swapping or resting
-    function _smartRandomSelect(bytes32 battleKey, RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) internal returns (uint256, bytes memory) {
+    function _smartRandomSelect(bytes32 battleKey, RevealedMove[] memory noOp, RevealedMove[] memory moves, RevealedMove[] memory switches) internal returns (uint128, bytes memory) {
         uint256 rngIndex = _getRNG(battleKey);
         uint256 adjustedTotalMovesDenom = moves.length + 1;
         if (rngIndex % adjustedTotalMovesDenom == 0) {
@@ -162,29 +161,29 @@ contract OkayCPU is CPU {
         return (noOp[0].moveIndex, noOp[0].extraData);
     }
 
-    function _filterMoves(bytes32 battleKey, uint256 playerIndex, RevealedMove[] memory moves, MoveClass[] memory moveClasses) internal view returns (uint256[] memory) {
-        uint256[] memory validIndices = new uint256[](moves.length);
+    function _filterMoves(bytes32 battleKey, uint256 playerIndex, RevealedMove[] memory moves, MoveClass[] memory moveClasses) internal view returns (uint128[] memory) {
+        uint128[] memory validIndices = new uint128[](moves.length);
         uint256 validCount = 0;
         for (uint256 i = 0; i < moves.length; i++) {
             MoveClass currentMoveClass = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], moves[i].moveIndex).moveClass(battleKey);
             for (uint256 j = 0; j < moveClasses.length; j++) {
                 if (currentMoveClass == moveClasses[j]) {
-                    validIndices[validCount] = i;
+                    validIndices[validCount] = uint128(i);
                     validCount++;
                     break;
                 }
             }
         }
         // Copy the valid indices into a new array with only the valid ones
-        uint256[] memory validIndicesCopy = new uint256[](validCount);
+        uint128[] memory validIndicesCopy = new uint128[](validCount);
         for (uint256 i = 0; i < validCount; i++) {
             validIndicesCopy[i] = validIndices[i];
         }
         return validIndicesCopy;
     }
 
-    function _getTypeAdvantageAttacks(bytes32 battleKey, uint256 defenderPlayerIndex, Type defenderType1, Type defenderType2, RevealedMove[] memory attacks, uint256[] memory validAttackIndices) internal view returns (uint256[] memory) {
-        uint256[] memory validIndices = new uint256[](validAttackIndices.length);
+    function _getTypeAdvantageAttacks(bytes32 battleKey, uint256 defenderPlayerIndex, Type defenderType1, Type defenderType2, RevealedMove[] memory attacks, uint128[] memory validAttackIndices) internal view returns (uint128[] memory) {
+        uint128[] memory validIndices = new uint128[](validAttackIndices.length);
         uint256 validCount = 0;
         for (uint256 i = 0; i < validAttackIndices.length; i++) {
             IMoveSet currentMoveSet = ENGINE.getMoveForMonForBattle(battleKey, defenderPlayerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex], attacks[validAttackIndices[i]].moveIndex);
@@ -199,7 +198,7 @@ contract OkayCPU is CPU {
             }
         }
         // Copy the valid indices into a new array with only the valid ones
-        uint256[] memory validIndicesCopy = new uint256[](validCount);
+        uint128[] memory validIndicesCopy = new uint128[](validCount);
         for (uint256 i = 0; i < validCount; i++) {
             validIndicesCopy[i] = validIndices[i];
         }

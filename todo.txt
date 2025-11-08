@@ -4,12 +4,11 @@
 - this is failing bc before we inherently relied on an index error when fetching a non-existent move
 - make this explicit!
 
+CPU:
+- Change all RevealedMove instances to be non-deprecated structs
+
 Engine:
-- add method for commit managers to signal to the engine what the active move should be
-suggested pattern is:
-function setMoveForPlayer(battle key, player index, move index, extraData)
-- can only be called for the given battle key for write, or by the move manager for that battle (even if battle key for write is 0)
-- cleans up the anti-pattern of querying the move manager for the move, centralizes data into the engine
+- Remove MoveManager + interface, make it just an address (requires refactoring a lot)
 
 CommitManager:
 - standardize on *either* using the player index, *or* the player address, but not this weird hybrid

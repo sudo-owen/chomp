@@ -41,7 +41,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
     function selectMove(bytes32 battleKey, uint256 playerIndex)
         external
         virtual
-        returns (uint256 moveIndex, bytes memory extraData);
+        returns (uint128 moveIndex, bytes memory extraData);
 
     /**
      *  - If it's a switch needed turn, returns only valid switches
@@ -93,13 +93,13 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                     return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
                 }
             }
-            uint256[] memory validMoveIndices;
+            uint128[] memory validMoveIndices;
             bytes[] memory validMoveExtraData;
             uint256 validMoveCount;
             // Check for valid moves
             {
                 uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
-                validMoveIndices = new uint256[](NUM_MOVES);
+                validMoveIndices = new uint128[](NUM_MOVES);
                 validMoveExtraData = new bytes[](NUM_MOVES);
                 for (uint256 i = 0; i < NUM_MOVES; i++) {
                     IMoveSet move =
@@ -116,7 +116,7 @@ abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
                         validMoveExtraData[validMoveCount] = extraDataToUse;
                     }
                     if (config.validator.validatePlayerMove(battleKey, i, playerIndex, extraDataToUse)) {
-                        validMoveIndices[validMoveCount++] = i;
+                        validMoveIndices[validMoveCount++] = uint128(i);
                     }
                 }
             }

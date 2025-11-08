@@ -5,10 +5,9 @@ pragma solidity ^0.8.0;
 import {NO_OP_MOVE_INDEX} from "../../Constants.sol";
 import {EffectStep, MonStateIndexName} from "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
-import "../../Structs.sol";
+import {IEffect, MoveDecision} from "../../Structs.sol";
 import {IAbility} from "../../abilities/IAbility.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
-import {IEffect} from "../../effects/IEffect.sol";
 
 contract SplitThePot is IAbility, BasicEffect {
     int32 public constant HEAL_DENOM = 16;
@@ -44,9 +43,9 @@ contract SplitThePot is IAbility, BasicEffect {
     {
         // If the move index was a no-op, heal all non-KO'ed mons
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        RevealedMove memory move = ENGINE.getMoveManager(battleKey)
-            .getMoveForBattleStateForTurn(battleKey, targetIndex, ENGINE.getTurnIdForBattleState(battleKey));
-        if (move.moveIndex == NO_OP_MOVE_INDEX) {
+        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        if (moveDecision.moveIndex == NO_OP_MOVE_INDEX) {
             uint256 teamSize = ENGINE.getTeamSize(battleKey, targetIndex);
             for (uint256 i; i < teamSize; i++) {
                 bool isKOed =

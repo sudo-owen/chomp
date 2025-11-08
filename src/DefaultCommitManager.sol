@@ -202,11 +202,9 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         }
 
         // 6) Store revealed move and extra data for the current player
-        // Update their last move timestamp
-        playerData[battleKey][currentPlayerIndex].revealedMoveIndex = uint128(moveIndex);
-        playerData[battleKey][currentPlayerIndex].extraData = extraData;
+        // Update their last move timestamp and num moves revealed
+        ENGINE.setMove(battleKey, currentPlayerIndex, moveIndex, salt, extraData);
         playerData[battleKey][currentPlayerIndex].lastMoveTimestamp = uint96(block.timestamp);
-        playerData[battleKey][currentPlayerIndex].salt = salt;
         playerData[battleKey][currentPlayerIndex].numMovesRevealed += 1;
 
         // 7) Store empty move for other player if it's a turn where only a single player has to make a move
@@ -244,10 +242,11 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         view
         returns (RevealedMove memory)
     {
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, playerIndex, turn);
         return RevealedMove({
-            moveIndex: playerData[battleKey][playerIndex].revealedMoveIndex,
-            salt: "",
-            extraData: playerData[battleKey][playerIndex].extraData
+            moveIndex: moveDecision.moveIndex,
+            salt: moveDecision.salt,
+            extraData: moveDecision.extraData
         });
     }
 

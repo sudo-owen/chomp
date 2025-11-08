@@ -23,7 +23,7 @@ contract CPUMoveManager is IMoveManager {
         DEFAULT_CPU = _DEFAULT_CPU;
     }
 
-    function selectMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes calldata extraData) external {
+    function selectMove(bytes32 battleKey, uint128 moveIndex, bytes32 salt, bytes calldata extraData) external {
         if (msg.sender != ENGINE.getPlayersForBattle(battleKey)[0]) {
             revert NotP0();
         }
@@ -57,17 +57,17 @@ contract CPUMoveManager is IMoveManager {
         ENGINE.execute(battleKey);
     }
 
-    function _addPlayerMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes calldata extraData) private {
-        moveHistory[battleKey][0].push(RevealedMove({moveIndex: moveIndex, salt: salt, extraData: extraData}));
+    function _addPlayerMove(bytes32 battleKey, uint128 moveIndex, bytes32 salt, bytes calldata extraData) private {
+        ENGINE.setMove(battleKey, 0, moveIndex, salt, extraData);
     }
 
-    function _addCPUMove(bytes32 battleKey, uint256 moveIndex, bytes32 salt, bytes memory extraData) private {
-        moveHistory[battleKey][1].push(RevealedMove({moveIndex: moveIndex, salt: salt, extraData: extraData}));
+    function _addCPUMove(bytes32 battleKey, uint128 moveIndex, bytes32 salt, bytes memory extraData) private {
+        ENGINE.setMove(battleKey, 1, moveIndex, salt, extraData);
     }
 
     function _addCPUMoveFromAI(bytes32 battleKey) private {
         ICPU cpu = _getCPUForPlayer(msg.sender);
-        (uint256 cpuMoveIndex, bytes memory cpuExtraData) = cpu.selectMove(battleKey, 1);
+        (uint128 cpuMoveIndex, bytes memory cpuExtraData) = cpu.selectMove(battleKey, 1);
         bytes32 cpuSalt = keccak256(abi.encode(battleKey, msg.sender, block.timestamp));
         _addCPUMove(battleKey, cpuMoveIndex, cpuSalt, cpuExtraData);
     }

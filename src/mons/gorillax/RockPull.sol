@@ -6,7 +6,7 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import "../../Structs.sol";
+import {MoveDecision} from "../../Structs.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
@@ -28,10 +28,10 @@ contract RockPull is IMoveSet {
     }
 
     function _didOtherPlayerChooseSwitch(bytes32 battleKey, uint256 attackerPlayerIndex) internal view returns (bool) {
-        // Check RevealedMove for other player
+        // Check MoveDecision for other player
         uint256 otherPlayerIndex = (attackerPlayerIndex + 1) % 2;
-        RevealedMove memory otherPlayerMove = ENGINE.getMoveManager(battleKey)
-            .getMoveForBattleStateForTurn(battleKey, otherPlayerIndex, ENGINE.getTurnIdForBattleState(battleKey));
+        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        MoveDecision memory otherPlayerMove = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, otherPlayerIndex, turnId);
         return otherPlayerMove.moveIndex == SWITCH_MOVE_INDEX;
     }
 

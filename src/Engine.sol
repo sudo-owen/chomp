@@ -175,6 +175,8 @@ contract Engine is IEngine, MappingAllocator {
         // Initialize storage for moves
         battleStates[battleKey].playerMoves.push();
         battleStates[battleKey].playerMoves.push();
+        battleStates[battleKey].playerMoves[0].push();
+        battleStates[battleKey].playerMoves[1].push();
 
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
             battle.engineHooks[i].onBattleStart(battleKey);
@@ -1102,6 +1104,15 @@ contract Engine is IEngine, MappingAllocator {
         returns (IMoveSet)
     {
         return battleData[battleKey].teams[playerIndex][monIndex].moves[moveIndex];
+    }
+
+    function getMoveDecisionForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
+        external
+        view
+        returns (MoveDecision memory)
+    {
+        MoveDecision memory moveDecision = battleStates[battleKey].playerMoves[playerIndex][turn];
+        return moveDecision;
     }
 
     function getPlayersForBattle(bytes32 battleKey) external view returns (address[] memory) {
