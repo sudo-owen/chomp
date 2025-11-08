@@ -127,7 +127,7 @@ contract MalalienTest is Test, BattleHelper {
         );
 
         // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
 
         // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -206,7 +206,7 @@ contract MalalienTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, team);
 
         // Start battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
 
         // Alice and Bob both send in mon index 0
         _commitRevealExecuteForAliceAndBob(

@@ -5,17 +5,15 @@ import "../Constants.sol";
 import "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
-import {IMoveManager} from "../IMoveManager.sol";
 import {ICPU} from "./ICPU.sol";
 
-contract CPUMoveManager is IMoveManager {
+contract CPUMoveManager {
     IEngine private immutable ENGINE;
     ICPU private immutable DEFAULT_CPU;
 
     error NotP0();
     error NotEngine();
 
-    mapping(bytes32 battleKey => RevealedMove[][]) private moveHistory;
     mapping(address player => ICPU cpu) public cpuForPlayer;
 
     constructor(IEngine engine, ICPU _DEFAULT_CPU) {
@@ -31,12 +29,6 @@ contract CPUMoveManager is IMoveManager {
         BattleState memory battleState = ENGINE.getBattleState(battleKey);
         if (battleState.winnerIndex != 2) {
             return;
-        }
-
-        // Init moveHistory for the battle if it's the first turn
-        if (battleState.turnId == 0) {
-            moveHistory[battleKey].push();
-            moveHistory[battleKey].push();
         }
 
         // Determine move configuration based on turn flag
@@ -81,15 +73,7 @@ contract CPUMoveManager is IMoveManager {
         cpuForPlayer[player] = cpu;
     }
 
-    function getMoveForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
-        external
-        view
-        returns (RevealedMove memory)
-    {
-        return moveHistory[battleKey][playerIndex][turn];
-    }
-
-    function getMoveCountForBattleState(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
-        return moveHistory[battleKey][playerIndex].length;
+    function getMoveCountForBattleState(bytes32, uint256) external view returns (uint256) {
+        return 0; // TODO: fix later
     }
 }

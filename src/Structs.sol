@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Type, MonStateIndexName, StatBoostType} from "./Enums.sol";
 import {IEngineHook} from "./IEngineHook.sol";
-import {IMoveManager} from "./IMoveManager.sol";
 import {IRuleset} from "./IRuleset.sol";
 import {IValidator} from "./IValidator.sol";
 import {IAbility} from "./abilities/IAbility.sol";
@@ -24,9 +23,9 @@ struct ProposedBattle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IEngineHook[] engineHooks;
-    IMoveManager moveManager;
+    address moveManager;
     IMatchmaker matchmaker;
+    IEngineHook[] engineHooks;
 }
 
 // Used by Engine to initialize a battle's parameters
@@ -39,7 +38,7 @@ struct Battle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IMoveManager moveManager;
+    address moveManager;
     IMatchmaker matchmaker;
     IEngineHook[] engineHooks;
 }
@@ -57,7 +56,7 @@ struct BattleData {
 struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
-    IMoveManager moveManager;
+    address moveManager;
 }
 
 // Stored by the Engine for a battle, tracks mutable battle data

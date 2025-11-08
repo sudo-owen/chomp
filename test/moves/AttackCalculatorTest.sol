@@ -90,7 +90,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         // Start battle
-        battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, commitManager);
+        battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
         return battleKey;
     }
 

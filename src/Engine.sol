@@ -8,7 +8,6 @@ import "./Structs.sol";
 import "./moves/IMoveSet.sol";
 
 import {IEngine} from "./IEngine.sol";
-import {IMoveManager} from "./IMoveManager.sol";
 import {MappingAllocator} from "./lib/MappingAllocator.sol";
 import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 
@@ -403,8 +402,6 @@ contract Engine is IEngine, MappingAllocator {
         // - Set up storage for moves next turn
         state.turnId += 1;
         state.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
-        state.playerMoves[0].push();
-        state.playerMoves[1].push();
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
         emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
@@ -649,7 +646,15 @@ contract Engine is IEngine, MappingAllocator {
         if (!isMoveManager && !isForCurrentBattle) {
             revert NoWriteAllowed();
         }
-        uint64 turnId = battleStates[battleKey].turnId;
+        BattleState storage state = battleStates[battleKey];
+        uint64 turnId = state.turnId;
+
+        // If there isn't enough space, add to the moves array
+        if (state.playerMoves[0].length < (turnId + 1)) {
+            state.playerMoves[0].push();
+            state.playerMoves[1].push();
+        }
+
         battleStates[battleKey].playerMoves[playerIndex][turnId] = MoveDecision({
             moveIndex: moveIndex,
             isRealTurn: true,
@@ -1219,7 +1224,7 @@ contract Engine is IEngine, MappingAllocator {
         return battleStates[battleKey].prevPlayerSwitchForTurnFlag;
     }
 
-    function getMoveManager(bytes32 battleKey) external view returns (IMoveManager) {
+    function getMoveManager(bytes32 battleKey) external view returns (address) {
         return battleConfig[_getStorageKey(battleKey)].moveManager;
     }
 }

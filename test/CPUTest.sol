@@ -198,7 +198,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: cpuMoveManager,
+            moveManager: address(cpuMoveManager),
             matchmaker: cpu
         });
 
@@ -319,7 +319,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: playerCPUMoveManager,
+            moveManager: address(playerCPUMoveManager),
             matchmaker: playerCPU
         });
 
@@ -361,7 +361,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: playerCPUMoveManager,
+            moveManager: address(playerCPUMoveManager),
             matchmaker: playerCPU
         });
 
@@ -455,7 +455,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: okayMoveManager,
+            moveManager: address(okayMoveManager),
             matchmaker: okayCPU
         });
 
@@ -507,7 +507,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: okayMoveManager,
+            moveManager: address(okayMoveManager),
             matchmaker: okayCPU
         });
 
@@ -560,7 +560,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: okayMoveManager,
+            moveManager: address(okayMoveManager),
             matchmaker: okayCPU
         });
 
@@ -623,7 +623,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: okayMoveManager,
+            moveManager: address(okayMoveManager),
             matchmaker: okayCPU
         });
 
@@ -681,7 +681,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: okayMoveManager,
+            moveManager: address(okayMoveManager),
             matchmaker: okayCPU
         });
 
@@ -739,7 +739,7 @@ contract CPUTest is Test {
             ruleset: IRuleset(address(0)),
             teamRegistry: teamRegistry,
             engineHooks: new IEngineHook[](0),
-            moveManager: okayMoveManager,
+            moveManager: address(okayMoveManager),
             matchmaker: okayCPU
         });
 

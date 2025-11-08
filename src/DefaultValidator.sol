@@ -205,7 +205,9 @@ contract DefaultValidator is IValidator {
     function validateTimeout(bytes32 battleKey, uint256 playerIndexToCheck) external view returns (address loser) {
         uint256 otherPlayerIndex = (playerIndexToCheck + 1) % 2;
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        ICommitManager commitManager = ICommitManager(address(ENGINE.getMoveManager(battleKey)));
+        
+        ICommitManager commitManager = ICommitManager(ENGINE.getMoveManager(battleKey));
+
         uint256 prevPlayerSwitchForTurnFlag = ENGINE.getPrevPlayerSwitchForTurnFlagForBattleState(battleKey);
         address[] memory players = ENGINE.getPlayersForBattle(battleKey);
         uint256 lastTurnTimestamp;

@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "./Enums.sol";
 
-import "./IMoveManager.sol";
 import "./IValidator.sol";
 import "./Structs.sol";
 import "./moves/IMoveSet.sol";
@@ -31,7 +30,7 @@ interface IEngine {
     // Getters
     function computeBattleKey(address p0, address p1) external view returns (bytes32 battleKey, bytes32 pairHash);
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256);
-    function getMoveManager(bytes32 battleKey) external view returns (IMoveManager);
+    function getMoveManager(bytes32 battleKey) external view returns (address);
     function getBattle(bytes32 battleKey) external view returns (BattleConfig memory, BattleData memory);
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory);
     function getMonValueForBattle(

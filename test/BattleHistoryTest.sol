@@ -137,7 +137,7 @@ contract BattleHistoryTest is Test, BattleHelper {
             rngOracle: defaultOracle,
             ruleset: IRuleset(address(0)),
             engineHooks: hooks,
-            moveManager: commitManager,
+            moveManager: address(commitManager),
             matchmaker: matchmaker
         });
 

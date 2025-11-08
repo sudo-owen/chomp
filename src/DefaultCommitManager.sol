@@ -7,9 +7,8 @@ import "./Structs.sol";
 
 import {ICommitManager} from "./ICommitManager.sol";
 import {IEngine} from "./IEngine.sol";
-import {IMoveManager} from "./IMoveManager.sol";
 
-contract DefaultCommitManager is ICommitManager, IMoveManager {
+contract DefaultCommitManager is ICommitManager {
     IEngine private immutable ENGINE;
 
     mapping(bytes32 battleKey => mapping(uint256 playerIndex => PlayerDecisionData)) private playerData;
@@ -121,7 +120,6 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
         } else {
             currentPlayerIndex = 1;
         }
-        address otherPlayer = p0AndP1[otherPlayerIndex];
 
         address winner = ENGINE.getWinner(battleKey);
         if (winner != address(0)) {
@@ -235,19 +233,6 @@ contract DefaultCommitManager is ICommitManager, IMoveManager {
             playerData[battleKey][playerIndex].moveHash,
             playerData[battleKey][playerIndex].lastCommitmentTurnId
         );
-    }
-
-    function getMoveForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
-        external
-        view
-        returns (RevealedMove memory)
-    {
-        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, playerIndex, turn);
-        return RevealedMove({
-            moveIndex: moveDecision.moveIndex,
-            salt: moveDecision.salt,
-            extraData: moveDecision.extraData
-        });
     }
 
     function getMoveCountForBattleState(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
