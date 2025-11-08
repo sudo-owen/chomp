@@ -7,7 +7,6 @@ import "../../src/Structs.sol";
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
 import {IEngineHook} from "../../src/IEngineHook.sol";
-import {IMoveManager} from "../../src/IMoveManager.sol";
 import {IValidator} from "../../src/IValidator.sol";
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {IRandomnessOracle} from "../../src/rng/IRandomnessOracle.sol";
@@ -24,8 +23,8 @@ abstract contract BattleHelper is Test {
         Engine engine,
         DefaultCommitManager commitManager,
         bytes32 battleKey,
-        uint256 aliceMoveIndex,
-        uint256 bobMoveIndex,
+        uint128 aliceMoveIndex,
+        uint128 bobMoveIndex,
         bytes memory aliceExtraData,
         bytes memory bobExtraData
     ) internal {
@@ -57,7 +56,7 @@ abstract contract BattleHelper is Test {
         IRandomnessOracle rngOracle,
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker,
-        IMoveManager moveManager
+        address moveManager
     ) internal returns (bytes32) {
         return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, new IEngineHook[](0), moveManager);
     }
@@ -69,7 +68,7 @@ abstract contract BattleHelper is Test {
         ITeamRegistry defaultRegistry,
         DefaultMatchmaker matchmaker,
         IEngineHook[] memory engineHooks,
-        IMoveManager moveManager
+        address moveManager
     ) internal returns (bytes32) {
         return _startBattle(validator, engine, rngOracle, defaultRegistry, matchmaker, engineHooks, IRuleset(address(0)), moveManager);
     }
@@ -82,7 +81,7 @@ abstract contract BattleHelper is Test {
         DefaultMatchmaker matchmaker,
         IEngineHook[] memory engineHooks,
         IRuleset ruleset,
-        IMoveManager moveManager
+        address moveManager
     ) internal returns (bytes32) {
         // Both players authorize the matchmaker
         vm.startPrank(ALICE);

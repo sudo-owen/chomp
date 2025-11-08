@@ -3,10 +3,9 @@ pragma solidity ^0.8.0;
 
 import "../Constants.sol";
 import "../Enums.sol";
-import "../Structs.sol";
+import {MoveDecision} from "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
-import {IMoveManager} from "../IMoveManager.sol";
 import {BasicEffect} from "./BasicEffect.sol";
 
 contract StaminaRegen is BasicEffect {
@@ -54,11 +53,10 @@ contract StaminaRegen is BasicEffect {
         override
         returns (bytes memory, bool)
     {
-        IMoveManager moveManager = ENGINE.getMoveManager(ENGINE.battleKeyForWrite());
-        RevealedMove memory move = moveManager.getMoveForBattleStateForTurn(
-            ENGINE.battleKeyForWrite(), targetIndex, ENGINE.getTurnIdForBattleState(ENGINE.battleKeyForWrite())
-        );
-        if (move.moveIndex == NO_OP_MOVE_INDEX) {
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        if (moveDecision.moveIndex == NO_OP_MOVE_INDEX) {
             _regenStamina(targetIndex, monIndex);
         }
         return ("", false);

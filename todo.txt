@@ -1,9 +1,21 @@
 # TODO
 
-- Fix stat boosts
-    - add engine method to get all stats for one mon
-- Combine the active mon index value
-- Look into Actus Reus bug
+-test_fasterPriorityKOsForcesSwitchCorrectlyFailsOnInvalidSwitchNoCommit
+- this is failing bc before we inherently relied on an index error when fetching a non-existent move
+- make this explicit!
+
+CPU:
+- Change all RevealedMove instances to be non-deprecated structs
+
+Engine:
+- Remove MoveManager + interface, make it just an address (requires refactoring a lot)
+
+CommitManager:
+- standardize on *either* using the player index, *or* the player address, but not this weird hybrid
+- player index should be cleaner so probably prefer that
+
+Effects:
+- Calling onAfterMove should give the move index and extraData as arguments (encoded) directly vs needing to query the Engine or CommitManager
 
 1) add description to moves in the editor, new tab, add cleaner info [ ]
 4) add xmon moveset
@@ -16,7 +28,6 @@ LATER FEATURES
 - should fix this, but am afraid of tests needing to be rewritten.
 
 1) allow modifying any battle value (e.g. power/stamina/accuracy etc) on some sort of stack, fully generalize it
-2) Allow restricting/enforcement of move selection
 3) Add a OnBeforeDamage hook to the Engine, add tests for it as well, allow editing of damage on the stack, also put the damage source on the stack
 4) right now, _handleSwitch runs a bunch of effects before handling control flow back. in some future edge cases this will mess things up, just don't worry about it for now. we'll need more fine grained control later on though.
 

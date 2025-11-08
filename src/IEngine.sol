@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "./Enums.sol";
 
-import "./IMoveManager.sol";
 import "./IValidator.sol";
 import "./Structs.sol";
 import "./moves/IMoveSet.sol";
@@ -23,6 +22,7 @@ interface IEngine {
     function setGlobalKV(bytes32 key, bytes32 value) external;
     function dealDamage(uint256 playerIndex, uint256 monIndex, int32 damage) external;
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external;
+    function setMove(bytes32 battleKey, uint256 playerIndex, uint128 moveIndex, bytes32 salt, bytes memory extraData) external;
     function execute(bytes32 battleKey) external;
     function emitEngineEvent(EngineEventType eventType, bytes memory extraData) external;
     function setUpstreamCaller(address caller) external;
@@ -30,7 +30,7 @@ interface IEngine {
     // Getters
     function computeBattleKey(address p0, address p1) external view returns (bytes32 battleKey, bytes32 pairHash);
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) external view returns (uint256);
-    function getMoveManager(bytes32 battleKey) external view returns (IMoveManager);
+    function getMoveManager(bytes32 battleKey) external view returns (address);
     function getBattle(bytes32 battleKey) external view returns (BattleConfig memory, BattleData memory);
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory);
     function getMonValueForBattle(
@@ -53,6 +53,10 @@ interface IEngine {
         external
         view
         returns (IMoveSet);
+    function getMoveDecisionForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
+        external
+        view
+        returns (MoveDecision memory);
     function getPlayersForBattle(bytes32 battleKey) external view returns (address[] memory);
     function getTeamSize(bytes32 battleKey, uint256 playerIndex) external view returns (uint256);
     function getTurnIdForBattleState(bytes32 battleKey) external view returns (uint256);

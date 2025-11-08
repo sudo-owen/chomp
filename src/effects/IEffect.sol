@@ -5,13 +5,12 @@ import "../Enums.sol";
 import "../Structs.sol";
 
 interface IEffect {
-    // Self explanatory
     function name() external returns (string memory);
 
     // Whether to run the effect at a specific step
     function shouldRunAtStep(EffectStep r) external returns (bool);
 
-    // Whether or not to add the effect if the step condition is met
+    // Whether or not to add the effect if some condition is met
     function shouldApply(bytes memory extraData, uint256 targetIndex, uint256 monIndex) external returns (bool);
 
     // Lifecycle hooks during normal battle flow

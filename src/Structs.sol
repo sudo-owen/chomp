@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Type, MonStateIndexName, StatBoostType} from "./Enums.sol";
 import {IEngineHook} from "./IEngineHook.sol";
-import {IMoveManager} from "./IMoveManager.sol";
 import {IRuleset} from "./IRuleset.sol";
 import {IValidator} from "./IValidator.sol";
 import {IAbility} from "./abilities/IAbility.sol";
@@ -24,9 +23,9 @@ struct ProposedBattle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IEngineHook[] engineHooks;
-    IMoveManager moveManager;
+    address moveManager;
     IMatchmaker matchmaker;
+    IEngineHook[] engineHooks;
 }
 
 // Used by Engine to initialize a battle's parameters
@@ -39,7 +38,7 @@ struct Battle {
     IValidator validator;
     IRandomnessOracle rngOracle;
     IRuleset ruleset;
-    IMoveManager moveManager;
+    address moveManager;
     IMatchmaker matchmaker;
     IEngineHook[] engineHooks;
 }
@@ -57,20 +56,21 @@ struct BattleData {
 struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
-    IMoveManager moveManager;
+    address moveManager;
 }
 
 // Stored by the Engine for a battle, tracks mutable battle data
 struct BattleState {
     uint8 winnerIndex; // 2 = uninitialized (no winner), 0 = p0 winner, 1 = p1 winner
-    uint64 turnId;
     uint8 prevPlayerSwitchForTurnFlag;
     uint8 playerSwitchForTurnFlag;
-    uint256 rng;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
+    uint64 turnId;
+    uint256 rng;
     IEffect[] globalEffects;
     bytes[] extraDataForGlobalEffects;
     MonState[][] monStates;
+    MoveDecision[][] playerMoves;
 }
 
 struct MonStats {
@@ -105,18 +105,28 @@ struct MonState {
     bytes[] extraDataForTargetedEffects;
 }
 
-// Used for Commit manager
-struct MoveCommitment {
-    bytes32 moveHash;
-    uint256 turnId;
-}
-
-struct RevealedMove {
-    uint256 moveIndex;
+struct MoveDecision {
+    uint128 moveIndex;
+    bool isRealTurn; // This indicates a non-decision, e.g. a turn where the player made no decision (i.e. only the other player moved)
     bytes32 salt;
     bytes extraData;
 }
 
+// Used for Commit manager
+struct PlayerDecisionData {
+    uint16 numMovesRevealed;
+    uint16 lastCommitmentTurnId;
+    uint96 lastMoveTimestamp;
+    bytes32 moveHash;
+}
+
+struct RevealedMove {
+    uint128 moveIndex;
+    bytes32 salt;
+    bytes extraData;
+}
+
+// Used for StatBoosts
 struct StatBoostToApply {
     MonStateIndexName stat;
     uint8 boostPercent;
