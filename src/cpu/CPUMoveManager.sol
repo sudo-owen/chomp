@@ -73,7 +73,7 @@ contract CPUMoveManager {
         cpuForPlayer[player] = cpu;
     }
 
-    function getMoveCountForBattleState(bytes32, uint256) external view returns (uint256) {
+    function getMoveCountForBattleState(bytes32, address) external view returns (uint256) {
         return 0; // TODO: fix later
     }
 }

@@ -243,7 +243,7 @@ contract DefaultValidator is IValidator {
                 if (playerTurnId == turnId && playerMoveHash != bytes32(0)) {
                     // Check if other player has already revealed
                     uint256 numMovesOtherPlayerRevealed =
-                        commitManager.getMoveCountForBattleState(battleKey, otherPlayerIndex);
+                        commitManager.getMoveCountForBattleState(battleKey, players[otherPlayerIndex]);
                     uint256 otherPlayerTimestamp =
                         commitManager.getLastMoveTimestampForPlayer(battleKey, players[otherPlayerIndex]);
                     // If so, then check for timeout (no need to check if this player revealed, we assume reveal() auto-executes)

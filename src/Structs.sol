@@ -56,7 +56,7 @@ struct BattleData {
 struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
-    address moveManager;
+    address moveManager; // Privileged role that can set moves for players outside of execute() call
 }
 
 // Stored by the Engine for a battle, tracks mutable battle data
