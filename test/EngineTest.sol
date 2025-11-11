@@ -479,18 +479,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Both Alice and Bob's mons have the same speed, so the final priority player is rng % 2
-        (BattleConfig memory config, ) = engine.getBattle(battleKey);
         BattleState memory state = engine.getBattleState(battleKey);
-        uint256 finalRNG = config.rng;
-        uint256 winnerIndex = finalRNG % 2;
-        if (winnerIndex == 0) {
-            assertEq(engine.getWinner(battleKey), ALICE);
-        } else {
-            assertEq(engine.getWinner(battleKey), BOB);
-        }
 
         // Assert that the staminaDelta was set correctly (2 moves spent) for the winning mon
-        assertEq(state.monStates[winnerIndex][0].staminaDelta, -2);
+        assertEq(state.monStates[state.winnerIndex][0].staminaDelta, -2);
     }
 
     function test_switchPriorityIsFasterThanMove() public {
