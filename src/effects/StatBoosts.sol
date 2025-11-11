@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {EffectStep, MonStateIndexName, StatBoostFlag, StatBoostType} from "../Enums.sol";
-import {MonStats, StatBoostToApply, StatBoostUpdate} from "../Structs.sol";
+import {EffectInstance, MonStats, StatBoostToApply, StatBoostUpdate} from "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
 import {BasicEffect} from "./BasicEffect.sol";
@@ -153,11 +153,10 @@ contract StatBoosts is BasicEffect {
         view
         returns (bool found, uint256 effectIndex, bytes memory extraData)
     {
-        (IEffect[] memory effects, bytes[] memory extraDatas) =
-            ENGINE.getEffects(ENGINE.battleKeyForWrite(), targetIndex, monIndex);
+        EffectInstance[] memory effects = ENGINE.getEffects(ENGINE.battleKeyForWrite(), targetIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i]) == address(this)) {
-                return (true, i, extraDatas[i]);
+            if (address(effects[i].effect) == address(this)) {
+                return (true, i, effects[i].data);
             }
         }
         return (false, 0, "");

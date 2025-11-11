@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "../../Enums.sol";
-import {StatBoostToApply} from "../../Structs.sol";
+import {EffectInstance, StatBoostToApply} from "../../Structs.sol";
 import {IEngine} from "../../IEngine.sol";
 import {IAbility} from "../../abilities/IAbility.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
@@ -38,9 +38,9 @@ contract Interweaving is IAbility, BasicEffect {
         STAT_BOOST.addStatBoosts(otherPlayerIndex, otherPlayerActiveMonIndex, statBoosts, StatBoostFlag.Temp);
 
         // Check if the effect has already been set for this mon
-        (IEffect[] memory effects,) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i]) == address(this)) {
+            if (address(effects[i].effect) == address(this)) {
                 return;
             }
         }

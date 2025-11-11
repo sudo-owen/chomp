@@ -67,7 +67,7 @@ interface IEngine {
     function getEffects(bytes32 battleKey, uint256 targetIndex, uint256 monIndex)
         external
         view
-        returns (IEffect[] memory, bytes[] memory);
+        returns (EffectInstance[] memory);
     function getWinner(bytes32 battleKey) external view returns (address);
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
     function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256);

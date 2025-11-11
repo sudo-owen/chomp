@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import {EffectInstance} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
 import {IEffect} from "../../effects/IEffect.sol";
@@ -29,10 +30,10 @@ contract DeepFreeze is IMoveSet {
     }
 
     function _frostbiteExists(bytes32 battleKey, uint256 targetIndex, uint256 monIndex) internal view returns (int32) {
-        (IEffect[] memory effects,) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, targetIndex, monIndex);
         uint256 numEffects = effects.length;
         for (uint256 i; i < numEffects;) {
-            if (address(effects[i]) == address(FROSTBITE)) {
+            if (address(effects[i].effect) == address(FROSTBITE)) {
                 return int32(int256(i));
             }
             unchecked {

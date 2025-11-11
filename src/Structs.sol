@@ -45,9 +45,9 @@ struct Battle {
 
 // Stored by the Engine, tracks immutable battle data
 struct BattleData {
-    address p0;
     address p1;
     uint96 startTimestamp;
+    address p0;
     IEngineHook[] engineHooks;
     Mon[][] teams;
 }
@@ -58,6 +58,10 @@ struct BattleConfig {
     IRandomnessOracle rngOracle;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
 }
+struct EffectInstance {
+    IEffect effect;
+    bytes data;
+}
 
 // Stored by the Engine for a battle, tracks mutable battle data
 struct BattleState {
@@ -67,8 +71,7 @@ struct BattleState {
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     uint64 turnId;
     uint256 rng;
-    IEffect[] globalEffects;
-    bytes[] extraDataForGlobalEffects;
+    EffectInstance[] globalEffects;
     MonState[][] monStates;
     MoveDecision[][] playerMoves;
 }
@@ -101,8 +104,7 @@ struct MonState {
     int32 specialDefenceDelta;
     bool isKnockedOut; // Is either 0 or 1
     bool shouldSkipTurn; // Used for effects to skip turn, or when moves become invalid (outside of user control)
-    IEffect[] targetedEffects;
-    bytes[] extraDataForTargetedEffects;
+    EffectInstance[] targetedEffects;
 }
 
 struct MoveDecision {

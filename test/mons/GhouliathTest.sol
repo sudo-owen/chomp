@@ -157,9 +157,11 @@ contract GhouliathTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1);
 
         // Verify the effect is added to the global effects list
-        (IEffect[] memory effects,) = engine.getEffects(battleKey, 2, 0);
+        EffectInstance[] memory effects = engine.getEffects(battleKey, 2, 0);
         assertEq(
-            address(effects[0]), address(riseFromTheGrave), "RiseFromTheGrave effect should be added to global effects"
+            address(effects[0].effect),
+            address(riseFromTheGrave),
+            "RiseFromTheGrave effect should be added to global effects"
         );
 
         // Alice swaps in mon index 1
@@ -346,8 +348,8 @@ contract GhouliathTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Verify that both mons have the PanicStatus effect applied
-        (IEffect[] memory aliceEffects,) = engine.getEffects(battleKey, 0, 0);
-        (IEffect[] memory bobEffects,) = engine.getEffects(battleKey, 1, 0);
+        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
+        EffectInstance[] memory bobEffects = engine.getEffects(battleKey, 1, 0);
 
         // Check that both mons have at least one effect
         assertGt(aliceEffects.length, 0, "Alice's mon should have at least one effect");
@@ -358,14 +360,14 @@ contract GhouliathTest is Test, BattleHelper {
         bool bobHasPanic = false;
 
         for (uint256 i = 0; i < aliceEffects.length; i++) {
-            if (keccak256(abi.encodePacked(aliceEffects[i].name())) == keccak256(abi.encodePacked("Panic"))) {
+            if (keccak256(abi.encodePacked(aliceEffects[i].effect.name())) == keccak256(abi.encodePacked("Panic"))) {
                 aliceHasPanic = true;
                 break;
             }
         }
 
         for (uint256 i = 0; i < bobEffects.length; i++) {
-            if (keccak256(abi.encodePacked(bobEffects[i].name())) == keccak256(abi.encodePacked("Panic"))) {
+            if (keccak256(abi.encodePacked(bobEffects[i].effect.name())) == keccak256(abi.encodePacked("Panic"))) {
                 bobHasPanic = true;
                 break;
             }

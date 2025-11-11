@@ -150,10 +150,10 @@ contract StatBoostsTest is Test, BattleHelper {
         assertEq(boostedStat, initialStat + 10, "Stat should be boosted by 10%");
 
         // Verify the effect was added to Alice's mon
-        (IEffect[] memory effects,) = engine.getEffects(battleKey, 0, 0);
+        EffectInstance[] memory effects = engine.getEffects(battleKey, 0, 0);
         bool foundEffect = false;
         for (uint256 i = 0; i < effects.length; i++) {
-            if (keccak256(abi.encodePacked(effects[i].name())) == keccak256(abi.encodePacked("Stat Boost"))) {
+            if (keccak256(abi.encodePacked(effects[i].effect.name())) == keccak256(abi.encodePacked("Stat Boost"))) {
                 foundEffect = true;
                 break;
             }
@@ -179,7 +179,7 @@ contract StatBoostsTest is Test, BattleHelper {
         assertEq(furtherBoostedStat, initialStat + 21, "Stat should be boosted by 21% total");
 
         // Verify no duplicate effect was added
-        (effects,) = engine.getEffects(battleKey, 0, 0);
+        effects = engine.getEffects(battleKey, 0, 0);
         assertEq(effects.length, effectCount, "No duplicate effect should be added");
 
         // Switch out the mon
@@ -196,10 +196,10 @@ contract StatBoostsTest is Test, BattleHelper {
         );
 
         // Verify the effect was removed
-        (effects,) = engine.getEffects(battleKey, 0, 1);
+        effects = engine.getEffects(battleKey, 0, 1);
         foundEffect = false;
         for (uint256 i = 0; i < effects.length; i++) {
-            if (keccak256(abi.encodePacked(effects[i].name())) == keccak256(abi.encodePacked("Stat Boost"))) {
+            if (keccak256(abi.encodePacked(effects[i].effect.name())) == keccak256(abi.encodePacked("Stat Boost"))) {
                 foundEffect = true;
                 break;
             }
@@ -312,10 +312,13 @@ contract StatBoostsTest is Test, BattleHelper {
             assertEq(boostedStat, 2, "Stat should be boosted by +2");
 
             // Verify the effect was added
-            (IEffect[] memory statEffects,) = engine.getEffects(battleKey, 0, 0);
+            EffectInstance[] memory statEffects = engine.getEffects(battleKey, 0, 0);
             bool foundStatEffect = false;
             for (uint256 j = 0; j < statEffects.length; j++) {
-                if (keccak256(abi.encodePacked(statEffects[j].name())) == keccak256(abi.encodePacked("Stat Boost"))) {
+                if (
+                    keccak256(abi.encodePacked(statEffects[j].effect.name()))
+                        == keccak256(abi.encodePacked("Stat Boost"))
+                ) {
                     foundStatEffect = true;
                     break;
                 }
@@ -335,10 +338,10 @@ contract StatBoostsTest is Test, BattleHelper {
         );
 
         // Verify all effects were removed
-        (IEffect[] memory effects,) = engine.getEffects(battleKey, 0, 1);
+        EffectInstance[] memory effects = engine.getEffects(battleKey, 0, 1);
         for (uint256 i = 0; i < effects.length; i++) {
             assertFalse(
-                keccak256(abi.encodePacked(effects[i].name())) == keccak256(abi.encodePacked("Stat Boost")),
+                keccak256(abi.encodePacked(effects[i].effect.name())) == keccak256(abi.encodePacked("Stat Boost")),
                 "No Stat Boost effects should remain after switching out"
             );
         }
