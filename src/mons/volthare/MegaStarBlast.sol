@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import {EffectInstance} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
 
@@ -35,9 +36,9 @@ contract MegaStarBlast is IMoveSet {
 
     function _checkForOverclock(bytes32 battleKey) internal view returns (int32) {
         // Check all global effects to see if Storm is active
-        (IEffect[] memory effects,) = ENGINE.getEffects(battleKey, 2, 2);
+        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, 2, 2);
         for (uint256 i; i < effects.length; i++) {
-            if (address(effects[i]) == address(STORM)) {
+            if (address(effects[i].effect) == address(STORM)) {
                 return int32(int256(i));
             }
         }

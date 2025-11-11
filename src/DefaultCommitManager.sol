@@ -235,7 +235,9 @@ contract DefaultCommitManager is ICommitManager {
         );
     }
 
-    function getMoveCountForBattleState(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
+    function getMoveCountForBattleState(bytes32 battleKey, address player) external view returns (uint256) {
+        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
+        uint256 playerIndex = (player == p0AndP1[0]) ? 0 : 1;
         return playerData[battleKey][playerIndex].numMovesRevealed;
     }
 

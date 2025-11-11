@@ -3069,12 +3069,12 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
 
         // Verify the dummy effect is applied to Alice's mon
-        (IEffect[] memory effects, bytes[] memory extraData) = engine.getEffects(battleKey, 1, 0);
+        EffectInstance[] memory effects = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1);
 
         // Alice uses the edit effect attack to change the extra data to 69 on Bob
         _commitRevealExecuteForAliceAndBob(battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(1, 0, 0), "");
-        (effects, extraData) = engine.getEffects(battleKey, 1, 0);
-        assertEq(extraData[0], abi.encode(69));
+        effects = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects[0].data, abi.encode(69));
     }
 }

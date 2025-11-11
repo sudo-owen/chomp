@@ -350,7 +350,7 @@ contract EffectTest is Test, BattleHelper {
         assertEq(state.monStates[1][0].hpDelta, 0);
 
         // Assert that the extraData for Alice's targeted effect is now 1 because 2 turn ends have passed
-        assertEq(state.monStates[0][0].extraDataForTargetedEffects[0], abi.encode(1));
+        assertEq(state.monStates[0][0].targetedEffects[0].data, abi.encode(1));
 
         // Set the oracle to report back 0 for the next turn (exit sleep early)
         mockOracle.setRNG(0);
@@ -720,7 +720,7 @@ contract EffectTest is Test, BattleHelper {
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
 
         // Bob's active mon should have the Zap effect
-        (IEffect[] memory effects, bytes[] memory extraData) = engine.getEffects(battleKey, 1, 1);
+        EffectInstance[] memory effects = engine.getEffects(battleKey, 1, 1);
         assertEq(effects.length, 1);
 
         // Alice does nothing, Bob attempts to switch to mon index 1
@@ -729,10 +729,8 @@ contract EffectTest is Test, BattleHelper {
         // Nothing happens because the Zap occurred
         // Check that Bob's active mon index is still 1 and the effect is removed
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
-        (effects, extraData) = engine.getEffects(battleKey, 1, 1);
+        effects = engine.getEffects(battleKey, 1, 1);
         assertEq(effects.length, 0);
-
-        assertEq(extraData.length, 0);
     }
 
     function test_staminaRegen() public {

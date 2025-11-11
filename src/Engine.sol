@@ -153,8 +153,9 @@ contract Engine is IEngine, MappingAllocator {
         if (address(battle.ruleset) != address(0)) {
             (IEffect[] memory effects, bytes[] memory data) = battle.ruleset.getInitialGlobalEffects();
             if (effects.length > 0) {
-                battleStates[battleKey].globalEffects = effects;
-                battleStates[battleKey].extraDataForGlobalEffects = data;
+                for (uint256 i = 0; i < effects.length; i++) {
+                    battleStates[battleKey].globalEffects.push(EffectInstance({effect: effects[i], data: data[i]}));
+                }
             }
         }
 
@@ -510,11 +511,11 @@ contract Engine is IEngine, MappingAllocator {
             }
             if (!removeAfterRun) {
                 if (targetIndex == 2) {
-                    state.globalEffects.push(effect);
-                    state.extraDataForGlobalEffects.push(extraDataToUse);
+                    state.globalEffects.push(EffectInstance({effect: effect, data: extraDataToUse}));
                 } else {
-                    state.monStates[targetIndex][monIndex].targetedEffects.push(effect);
-                    state.monStates[targetIndex][monIndex].extraDataForTargetedEffects.push(extraDataToUse);
+                    state.monStates[targetIndex][monIndex].targetedEffects.push(
+                        EffectInstance({effect: effect, data: extraDataToUse})
+                    );
                 }
             }
         }
@@ -529,22 +530,19 @@ contract Engine is IEngine, MappingAllocator {
         }
         BattleState storage state = battleStates[battleKey];
 
-        // Set the appropriate effects/extra data array from storage
-        IEffect[] storage effects;
-        bytes[] storage extraData;
+        // Set the appropriate effects array from storage
+        EffectInstance[] storage effects;
         if (targetIndex == 2) {
-            extraData = state.extraDataForGlobalEffects;
             effects = state.globalEffects;
         } else {
-            extraData = state.monStates[targetIndex][monIndex].extraDataForTargetedEffects;
             effects = state.monStates[targetIndex][monIndex].targetedEffects;
         }
-        extraData[effectIndex] = newExtraData;
+        effects[effectIndex].data = newExtraData;
         emit EffectEdit(
             battleKey,
             targetIndex,
             monIndex,
-            address(effects[effectIndex]),
+            address(effects[effectIndex].effect),
             newExtraData,
             _getUpstreamCallerAndResetValue(),
             currentStep
@@ -558,29 +556,24 @@ contract Engine is IEngine, MappingAllocator {
         }
         BattleState storage state = battleStates[battleKey];
 
-        // Set the appropriate effects/extra data array from storage
-        IEffect[] storage effects;
-        bytes[] storage extraData;
+        // Set the appropriate effects array from storage
+        EffectInstance[] storage effects;
         if (targetIndex == 2) {
             effects = state.globalEffects;
-            extraData = state.extraDataForGlobalEffects;
         } else {
             effects = state.monStates[targetIndex][monIndex].targetedEffects;
-            extraData = state.monStates[targetIndex][monIndex].extraDataForTargetedEffects;
         }
 
         // One last check to see if we should run the final lifecycle hook
-        IEffect effect = effects[indexToRemove];
+        IEffect effect = effects[indexToRemove].effect;
         if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
-            effect.onRemove(extraData[indexToRemove], targetIndex, monIndex);
+            effect.onRemove(effects[indexToRemove].data, targetIndex, monIndex);
         }
 
-        // Remove effects and extra data
+        // Remove effect instance
         uint256 numEffects = effects.length;
         effects[indexToRemove] = effects[numEffects - 1];
         effects.pop();
-        extraData[indexToRemove] = extraData[numEffects - 1];
-        extraData.pop();
         emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
     }
 
@@ -866,17 +859,14 @@ contract Engine is IEngine, MappingAllocator {
         bytes memory extraEffectsData
     ) internal {
         BattleState storage state = battleStates[battleKey];
-        IEffect[] storage effects;
-        bytes[] storage extraData;
+        EffectInstance[] storage effects;
         uint256 monIndex;
         // Switch between global or targeted effects array depending on the args
         if (effectIndex == 2) {
             effects = state.globalEffects;
-            extraData = state.extraDataForGlobalEffects;
         } else {
             monIndex = _unpackActiveMonIndex(state.activeMonIndex, effectIndex);
             effects = state.monStates[effectIndex][monIndex].targetedEffects;
-            extraData = state.monStates[effectIndex][monIndex].extraDataForTargetedEffects;
         }
         // Grab the active mon (global effect won't know which player index to get, so we set it here)
         if (playerIndex != 2) {
@@ -885,7 +875,7 @@ contract Engine is IEngine, MappingAllocator {
         uint256 i;
         while (i < effects.length) {
             bool currentStepUpdated;
-            if (effects[i].shouldRunAtStep(round)) {
+            if (effects[i].effect.shouldRunAtStep(round)) {
                 // Only update the current step if we need to run any effects, and only update it once per step
                 if (!currentStepUpdated) {
                     currentStep = uint256(round);
@@ -897,36 +887,38 @@ contract Engine is IEngine, MappingAllocator {
                 bool removeAfterRun;
                 if (round == EffectStep.RoundStart) {
                     (updatedExtraData, removeAfterRun) =
-                        effects[i].onRoundStart(rng, extraData[i], playerIndex, monIndex);
+                        effects[i].effect.onRoundStart(rng, effects[i].data, playerIndex, monIndex);
                 } else if (round == EffectStep.RoundEnd) {
-                    (updatedExtraData, removeAfterRun) = effects[i].onRoundEnd(rng, extraData[i], playerIndex, monIndex);
+                    (updatedExtraData, removeAfterRun) =
+                        effects[i].effect.onRoundEnd(rng, effects[i].data, playerIndex, monIndex);
                 } else if (round == EffectStep.OnMonSwitchIn) {
                     (updatedExtraData, removeAfterRun) =
-                        effects[i].onMonSwitchIn(rng, extraData[i], playerIndex, monIndex);
+                        effects[i].effect.onMonSwitchIn(rng, effects[i].data, playerIndex, monIndex);
                 } else if (round == EffectStep.OnMonSwitchOut) {
                     (updatedExtraData, removeAfterRun) =
-                        effects[i].onMonSwitchOut(rng, extraData[i], playerIndex, monIndex);
+                        effects[i].effect.onMonSwitchOut(rng, effects[i].data, playerIndex, monIndex);
                 } else if (round == EffectStep.AfterDamage) {
-                    (updatedExtraData, removeAfterRun) = effects[i]
-                    .onAfterDamage(rng, extraData[i], playerIndex, monIndex, abi.decode(extraEffectsData, (int32)));
+                    (updatedExtraData, removeAfterRun) = effects[i].effect.onAfterDamage(
+                        rng, effects[i].data, playerIndex, monIndex, abi.decode(extraEffectsData, (int32))
+                    );
                 } else if (round == EffectStep.AfterMove) {
                     (updatedExtraData, removeAfterRun) =
-                        effects[i].onAfterMove(rng, extraData[i], playerIndex, monIndex);
+                        effects[i].effect.onAfterMove(rng, effects[i].data, playerIndex, monIndex);
                 } else if (round == EffectStep.OnUpdateMonState) {
                     (uint256 statePlayerIndex, uint256 stateMonIndex, MonStateIndexName stateVarIndex, int32 valueToAdd) =
                         abi.decode(extraEffectsData, (uint256, uint256, MonStateIndexName, int32));
-                    (updatedExtraData, removeAfterRun) = effects[i].onUpdateMonState(
-                        rng, extraData[i], statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd
+                    (updatedExtraData, removeAfterRun) = effects[i].effect.onUpdateMonState(
+                        rng, effects[i].data, statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd
                     );
                 }
 
-                // If we remove the effect after doing it, then we clear and update the array/extra data
+                // If we remove the effect after doing it, then we clear and update the array
                 if (removeAfterRun) {
                     removeEffect(effectIndex, monIndex, i);
                 }
                 // Otherwise, we update the extra data if e.g. the effect needs to modify its own storage
                 else {
-                    extraData[i] = updatedExtraData;
+                    effects[i].data = updatedExtraData;
                     ++i;
                 }
             } else {
@@ -1195,16 +1187,13 @@ contract Engine is IEngine, MappingAllocator {
     function getEffects(bytes32 battleKey, uint256 targetIndex, uint256 monIndex)
         external
         view
-        returns (IEffect[] memory, bytes[] memory)
+        returns (EffectInstance[] memory)
     {
         BattleState storage state = battleStates[battleKey];
         if (targetIndex == 2) {
-            return (state.globalEffects, state.extraDataForGlobalEffects);
+            return state.globalEffects;
         } else {
-            return (
-                state.monStates[targetIndex][monIndex].targetedEffects,
-                state.monStates[targetIndex][monIndex].extraDataForTargetedEffects
-            );
+            return state.monStates[targetIndex][monIndex].targetedEffects;
         }
     }
 

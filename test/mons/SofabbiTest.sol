@@ -130,7 +130,7 @@ contract SofabbiTest is Test, BattleHelper {
         // Verify that the CarrotHarvest effect is still only applied once
         // (should still have only one targeted effect)
         assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(address(state.monStates[0][0].targetedEffects[0]), address(carrotHarvest));
+        assertEq(address(state.monStates[0][0].targetedEffects[0].effect), address(carrotHarvest));
     }
 
     function test_carrotHarvestTriggersAtEndOfRoundWhenRNGReturnsTrue() public {
