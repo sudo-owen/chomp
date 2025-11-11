@@ -57,7 +57,9 @@ struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
+    uint256 rng;
 }
+
 struct EffectInstance {
     IEffect effect;
     bytes data;
@@ -70,7 +72,6 @@ struct BattleState {
     uint8 playerSwitchForTurnFlag;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     uint64 turnId;
-    uint256 rng;
     EffectInstance[] globalEffects;
     MonState[][] monStates;
     MoveDecision[][] playerMoves;

@@ -119,11 +119,11 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Get the storage key for the battle config (reusable)
-        bytes32 battleConfigKey = _initializeStorageKey(battleKey);
+        bytes32 battleConfigKey  = _initializeStorageKey(battleKey);
 
         // Store the battle config
         battleConfig[battleConfigKey] =
-            BattleConfig({validator: battle.validator, rngOracle: battle.rngOracle, moveManager: battle.moveManager});
+            BattleConfig({validator: battle.validator, rngOracle: battle.rngOracle, moveManager: battle.moveManager, rng: battleConfig[battleConfigKey].rng});
 
         // Store the battle data
         battleData[battleKey] = BattleData({
@@ -216,14 +216,13 @@ contract Engine is IEngine, MappingAllocator {
         // If only a single player has a move to submit, then we don't trigger any effects
         // (Basically this only handles switching mons for now)
         if (state.playerSwitchForTurnFlag == 0 || state.playerSwitchForTurnFlag == 1) {
-            uint256 rngForSoloTurn = 0;
 
             // Get the player index that needs to switch for this turn
             uint256 playerIndex = state.playerSwitchForTurnFlag;
 
             // Run the move (trust that the validator only lets valid single player moves happen as a switch action)
             // Running the move will set the winner flag if valid
-            playerSwitchForTurnFlag = _handleMove(battleKey, rngForSoloTurn, playerIndex, playerSwitchForTurnFlag);
+            playerSwitchForTurnFlag = _handleMove(battleKey, playerIndex, playerSwitchForTurnFlag);
         }
         // Otherwise, we need to run priority calculations and update the game state for both players
         /*
@@ -259,7 +258,7 @@ contract Engine is IEngine, MappingAllocator {
 
             // Update the rng to the newest value
             uint256 rng = config.rngOracle.getRNG(p0Move.salt, p1Move.salt);
-            state.rng = rng;
+            config.rng = rng;
 
             // Calculate the priority and non-priority player indices
             priorityPlayerIndex = computePriorityPlayerIndex(battleKey, rng);
@@ -292,7 +291,7 @@ contract Engine is IEngine, MappingAllocator {
             );
 
             // Run priority player's move (NOTE: moves won't run if either mon is KOed)
-            playerSwitchForTurnFlag = _handleMove(battleKey, rng, priorityPlayerIndex, playerSwitchForTurnFlag);
+            playerSwitchForTurnFlag = _handleMove(battleKey, priorityPlayerIndex, playerSwitchForTurnFlag);
 
             // If priority mons is not KO'ed, then run the priority player's mon's afterMove hook(s)
             playerSwitchForTurnFlag = _handleEffects(
@@ -317,7 +316,7 @@ contract Engine is IEngine, MappingAllocator {
             );
 
             // Run the non priority player's move
-            playerSwitchForTurnFlag = _handleMove(battleKey, rng, otherPlayerIndex, playerSwitchForTurnFlag);
+            playerSwitchForTurnFlag = _handleMove(battleKey, otherPlayerIndex, playerSwitchForTurnFlag);
 
             // For turn 0 only: wait for both mons to be sent in, then handle the ability activateOnSwitch
             // Happens immediately after both mons are sent in, before any other effects
@@ -475,7 +474,7 @@ contract Engine is IEngine, MappingAllocator {
         // Trigger OnUpdateMonState lifecycle hook
         _runEffects(
             battleKey,
-            battleStates[battleKey].rng,
+            battleConfig[battleKey].rng,
             playerIndex,
             playerIndex,
             EffectStep.OnUpdateMonState,
@@ -507,7 +506,7 @@ contract Engine is IEngine, MappingAllocator {
             // Check if we have to run an onApply state update
             if (effect.shouldRunAtStep(EffectStep.OnApply)) {
                 // If so, we run the effect first, and get updated extraData if necessary
-                (extraDataToUse, removeAfterRun) = effect.onApply(state.rng, extraData, targetIndex, monIndex);
+                (extraDataToUse, removeAfterRun) = effect.onApply(battleConfig[battleKey].rng, extraData, targetIndex, monIndex);
             }
             if (!removeAfterRun) {
                 if (targetIndex == 2) {
@@ -599,7 +598,7 @@ contract Engine is IEngine, MappingAllocator {
         }
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCallerAndResetValue(), currentStep);
         _runEffects(
-            battleKey, battleStates[battleKey].rng, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage)
+            battleKey, battleConfig[battleKey].rng, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage)
         );
     }
 
@@ -749,6 +748,7 @@ contract Engine is IEngine, MappingAllocator {
         // (could break this up even more, but that's for a later version / PR)
 
         BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[battleKey];
         uint256 currentActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
         MonState storage currentMonState = state.monStates[playerIndex][currentActiveMonIndex];
 
@@ -759,20 +759,20 @@ contract Engine is IEngine, MappingAllocator {
         // Go through each effect to see if it should be cleared after a switch,
         // If so, remove the effect and the extra data
         if (!currentMonState.isKnockedOut) {
-            _runEffects(battleKey, state.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
+            _runEffects(battleKey, config.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
 
             // Then run the global on mon switch out hook as well
-            _runEffects(battleKey, state.rng, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
+            _runEffects(battleKey, config.rng, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
         }
 
         // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
         state.activeMonIndex = _setActiveMonIndex(state.activeMonIndex, playerIndex, monToSwitchIndex);
 
         // Run onMonSwitchIn hook for local effects
-        _runEffects(battleKey, state.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
+        _runEffects(battleKey, config.rng, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run onMonSwitchIn hook for global effects
-        _runEffects(battleKey, state.rng, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
+        _runEffects(battleKey, config.rng, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
         Mon memory mon = battleData[battleKey].teams[playerIndex][monToSwitchIndex];
@@ -781,7 +781,7 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
-    function _handleMove(bytes32 battleKey, uint256 rng, uint256 playerIndex, uint256 prevPlayerSwitchForTurnFlag)
+    function _handleMove(bytes32 battleKey, uint256 playerIndex, uint256 prevPlayerSwitchForTurnFlag)
         internal
         returns (uint256 playerSwitchForTurnFlag)
     {
@@ -835,7 +835,7 @@ contract Engine is IEngine, MappingAllocator {
             emit MonMove(battleKey, playerIndex, activeMonIndex, move.moveIndex, move.extraData, staminaCost);
 
             // Run the move (no longer checking for a return value)
-            moveSet.move(battleKey, playerIndex, move.extraData, rng);
+            moveSet.move(battleKey, playerIndex, move.extraData, config.rng);
         }
 
         // Set Game Over if true, and calculate and return switch for turn flag

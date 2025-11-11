@@ -1,18 +1,7 @@
 # TODO
 
--test_fasterPriorityKOsForcesSwitchCorrectlyFailsOnInvalidSwitchNoCommit
-- this is failing bc before we inherently relied on an index error when fetching a non-existent move
-- make this explicit!
-
-CPU:
-- Change all RevealedMove instances to be non-deprecated structs
-
-Engine:
-- Remove MoveManager + interface, make it just an address (requires refactoring a lot)
-
-CommitManager:
-- standardize on *either* using the player index, *or* the player address, but not this weird hybrid
-- player index should be cleaner so probably prefer that
+RevealedMove struct
+- remove, refactor all CPU stuff to use the new MoveDecision struct instead
 
 Effects:
 - Calling onAfterMove should give the move index and extraData as arguments (encoded) directly vs needing to query the Engine or CommitManager
