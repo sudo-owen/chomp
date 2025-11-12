@@ -1,21 +1,11 @@
 # TODO
 
--test_fasterPriorityKOsForcesSwitchCorrectlyFailsOnInvalidSwitchNoCommit
-- this is failing bc before we inherently relied on an index error when fetching a non-existent move
-- make this explicit!
+Battle Flow Overhaul:
+- Just 1 attack state, 2 defense stats
+- Add some other stat which also impacts battle (and is somewhat synergistic with attacks?)
 
-CPU:
-- Change all RevealedMove instances to be non-deprecated structs
-
-Engine:
-- Remove MoveManager + interface, make it just an address (requires refactoring a lot)
-
-CommitManager:
-- standardize on *either* using the player index, *or* the player address, but not this weird hybrid
-- player index should be cleaner so probably prefer that
-
-Effects:
-- Calling onAfterMove should give the move index and extraData as arguments (encoded) directly vs needing to query the Engine or CommitManager
+RevealedMove struct
+- remove, refactor all CPU stuff to use the new MoveDecision struct instead
 
 1) add description to moves in the editor, new tab, add cleaner info [ ]
 4) add xmon moveset
@@ -52,17 +42,11 @@ Ways to mitigate:
 - avoid dealing damage in the afterDamage hook itself
 - maintain manual mutex to prevent infinite recurse
 
-3) Ending a match before any moves are committed is valid
-- Bypasses the timeout for the default validator
-
 4) Malicious p0 can commit to a team that has an array of mons, but modify the mon moves prior to starting a battle (after p1 commits)
 
 Ways to mitigate:
 - Need to handle on the team registry angle probably
 - Atm, restricting it to the same array of mon indices reduces the attack surface somewhat
 - OR, just add the move indices to the integrity hash
-
-5) No way to prevent move selection if the move is switch/no-op
-Some effects / moves way wish to lock the user in. No easy way to handle this currently with the engine as-is.
 
 ---------------------------------------------------------------------------------------------

@@ -7,7 +7,6 @@ import "../../Enums.sol";
 import {EffectInstance} from "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IEffect} from "../../effects/IEffect.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {StatusEffectLib} from "../../effects/status/StatusEffectLib.sol";
 

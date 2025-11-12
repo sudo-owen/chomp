@@ -57,7 +57,10 @@ struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
+    bytes32 p0Salt;
+    bytes32 p1Salt;
 }
+
 struct EffectInstance {
     IEffect effect;
     bytes data;
@@ -70,7 +73,6 @@ struct BattleState {
     uint8 playerSwitchForTurnFlag;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     uint64 turnId;
-    uint256 rng;
     EffectInstance[] globalEffects;
     MonState[][] monStates;
     MoveDecision[][] playerMoves;
@@ -110,7 +112,6 @@ struct MonState {
 struct MoveDecision {
     uint128 moveIndex;
     bool isRealTurn; // This indicates a non-decision, e.g. a turn where the player made no decision (i.e. only the other player moved)
-    bytes32 salt;
     bytes extraData;
 }
 
