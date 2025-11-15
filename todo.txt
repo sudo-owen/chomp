@@ -1,9 +1,5 @@
 # TODO
 
-Battle Flow Overhaul:
-- Just 1 attack state, 2 defense stats
-- Add some other stat which also impacts battle (and is somewhat synergistic with attacks?)
-
 RevealedMove struct
 - remove, refactor all CPU stuff to use the new MoveDecision struct instead
 

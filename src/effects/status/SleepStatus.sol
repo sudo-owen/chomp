@@ -28,20 +28,16 @@ contract SleepStatus is StatusEffect {
         returns (bytes memory, bool)
     {
         bool wakeEarly = rng % 3 == 0;
-        if (wakeEarly) {
-            return (extraData, true);
-        } else {
-            _applySleep(rng, targetIndex, monIndex);
-        }
-        return (extraData, false);
+        return (extraData, wakeEarly);
     }
 
     // On apply, checks to apply the sleep flag, and then sets the extraData to be the duration
-    function onApply(uint256 rng, bytes memory, uint256 targetIndex, uint256 monIndex)
-        external
+    function onApply(uint256 rng, bytes memory data, uint256 targetIndex, uint256 monIndex)
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
+        super.onApply(rng, data, targetIndex, monIndex);
         _applySleep(rng, targetIndex, monIndex);
         return (abi.encode(DURATION), false);
     }
@@ -70,25 +66,11 @@ contract SleepStatus is StatusEffect {
     }
 
     // Whether or not to add the effect if the step condition is met
-    function shouldApply(bytes memory data, uint256 targetIndex, uint256 monIndex) public override returns (bool) {
+    function shouldApply(bytes memory data, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
         bool shouldApplyStatusInGeneral = super.shouldApply(data, targetIndex, monIndex);
-        if (!shouldApplyStatusInGeneral) {
-            return false;
-        } else {
-            // Get value from ENGINE KV
-            bytes32 globalSleepValueForPlayer =
-                ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex));
-
-            // Check if sleep already exists for the team
-            if (globalSleepValueForPlayer == bytes32(0)) {
-                // If not, set the flag and return true
-                ENGINE.setGlobalKV(_globalSleepKey(targetIndex), bytes32("1"));
-                return true;
-            } else {
-                // Otherwise return false (we can only have one instance of sleep)
-                return false;
-            }
-        }
+        bool playerHasZeroSleepers =
+                address(bytes20(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
+        return (shouldApplyStatusInGeneral && playerHasZeroSleepers);
     }
 
     // Remove sleep flag

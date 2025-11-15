@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../Enums.sol";
-import {StatBoostToApply} from "../../Structs.sol";
+import {StatBoostToApply, EffectInstance} from "../../Structs.sol";
 import {IEngine} from "../../IEngine.sol";
 
 import {StatBoosts} from "../StatBoosts.sol";
@@ -10,6 +10,7 @@ import {StatusEffect} from "./StatusEffect.sol";
 import {StatusEffectLib} from "./StatusEffectLib.sol";
 
 contract BurnStatus is StatusEffect {
+
     uint256 public constant MAX_BURN_DEGREE = 3;
 
     uint8 public constant ATTACK_PERCENT = 50;
@@ -35,61 +36,68 @@ contract BurnStatus is StatusEffect {
                     || r == EffectStep.OnRemove);
     }
 
-    function shouldApply(bytes memory, uint256 targetIndex, uint256 monIndex) public override returns (bool) {
+    function shouldApply(bytes memory, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
 
         // Get value from ENGINE KV
         bytes32 monStatusFlag = ENGINE.getGlobalKV(battleKey, keyForMon);
 
-        // Check if a status already exists for the mon
-        if (monStatusFlag == bytes32(0)) {
-            // If not, set the value to be the address of the status and return true
-            ENGINE.setGlobalKV(keyForMon, bytes32(uint256(uint160(address(this)))));
-            return true;
-        } else {
-            // Otherwise check if it is burn
-            if (monStatusFlag == bytes32(uint256(uint160(address(this))))) {
-                // If it is burn, add an additional stack
-                _increaseBurnDegree(targetIndex, monIndex);
-            }
-        }
-        return false;
+        // Check if a status already exists for the mon (or if it's already burned)
+        bool noStatus = monStatusFlag == bytes32(0);
+        bool hasBurnAlready = monStatusFlag == bytes32(uint256(uint160(address(this))));
+        return (noStatus || hasBurnAlready);
     }
 
     function getKeyForMonIndex(uint256 targetIndex, uint256 monIndex) public pure returns (bytes32) {
         return keccak256(abi.encode(targetIndex, monIndex, name()));
     }
 
-    function _getBurnDegree(uint256 playerIndex, uint256 monIndex) internal view returns (uint256) {
-        return uint256(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), getKeyForMonIndex(playerIndex, monIndex)));
-    }
-
-    function _increaseBurnDegree(uint256 playerIndex, uint256 monIndex) internal {
-        uint256 currentBurnDegree = _getBurnDegree(playerIndex, monIndex);
-        uint256 newBurnDegree = currentBurnDegree + 1;
-        if (newBurnDegree <= MAX_BURN_DEGREE) {
-            ENGINE.setGlobalKV(getKeyForMonIndex(playerIndex, monIndex), bytes32(newBurnDegree));
-        }
-    }
-
-    function onApply(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
-        external
+    function onApply(uint256 rng, bytes memory data, uint256 targetIndex, uint256 monIndex)
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
-    {
-        _increaseBurnDegree(targetIndex, monIndex);
-
-        // Reduce attack by 1/ATTACK_DENOM of base attack stat
-        StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
-        statBoosts[0] = StatBoostToApply({
-            stat: MonStateIndexName.Attack,
-            boostPercent: ATTACK_PERCENT,
-            boostType: StatBoostType.Divide
-        });
-        STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
-
-        return ("", false);
+    {   
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        bool hasBurnAlready;
+        {
+            bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
+            bytes32 monStatusFlag = ENGINE.getGlobalKV(battleKey, keyForMon);
+            hasBurnAlready = monStatusFlag == bytes32(uint256(uint160(address(this))));
+        }
+        
+        // Set burn flag
+        super.onApply(rng, "", targetIndex, monIndex);
+        
+        // Set stat debuff or increase burn degree
+        if (!hasBurnAlready) {
+            // Reduce attack by 1/ATTACK_DENOM of base attack stat
+            StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
+            statBoosts[0] = StatBoostToApply({
+                stat: MonStateIndexName.Attack,
+                boostPercent: ATTACK_PERCENT,
+                boostType: StatBoostType.Divide
+            });
+            STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
+        } else {
+            EffectInstance[] memory effects = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+            uint256 indexOfBurnEffect;
+            uint256 burnDegree;
+            bytes memory newExtraData;
+            for (uint256 i = 0; i < effects.length; i++) {
+                if (address(effects[i].effect) == address(this)) {
+                    indexOfBurnEffect = i;
+                    burnDegree = abi.decode(effects[i].data, (uint256));
+                    newExtraData = effects[i].data;
+                }
+            }
+            if (burnDegree < MAX_BURN_DEGREE) {
+                newExtraData = abi.encode(burnDegree + 1);
+            }
+            ENGINE.editEffect(targetIndex, monIndex, indexOfBurnEffect, newExtraData);
+        }
+        
+        return (abi.encode(1), hasBurnAlready);
     }
 
     function onRemove(bytes memory, uint256 targetIndex, uint256 monIndex) public override {
@@ -104,12 +112,12 @@ contract BurnStatus is StatusEffect {
     }
 
     // Deal damage over time
-    function onRoundEnd(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
         returns (bytes memory, bool)
     {
-        uint256 burnDegree = _getBurnDegree(targetIndex, monIndex);
+        uint256 burnDegree = abi.decode(extraData, (uint256));
         int32 damageDenom = DEG1_DAMAGE_DENOM;
         if (burnDegree == 2) {
             damageDenom = DEG2_DAMAGE_DENOM;
@@ -121,6 +129,6 @@ contract BurnStatus is StatusEffect {
             int32(ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp))
             / damageDenom;
         ENGINE.dealDamage(targetIndex, monIndex, damage);
-        return ("", false);
+        return (extraData, false);
     }
 }

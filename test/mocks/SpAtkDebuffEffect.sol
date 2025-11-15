@@ -26,7 +26,7 @@ contract SpAtkDebuffEffect is StatusEffect {
     }
 
     function onApply(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
-        external
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {

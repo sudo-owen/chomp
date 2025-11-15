@@ -9,10 +9,9 @@ import {BasicEffect} from "./BasicEffect.sol";
 import {IEffect} from "./IEffect.sol";
 
 /**
- *  Usage Notes:
- *  Any given caller can mutate multiple stats, but only in one direction and by one boost percent. (However, the same boost can stack)
- *  If you wish to mutate the same state but in **multiple different ways** (e.g. scale ATK up by 50%, and then later by 25%), you should
- *  use a different key for each boost type, and it's up to the caller to manage the keys and clean them up when needed
+ Usage Notes:
+ *  Any given caller can mutate multiple stats, but only in one direction and by one unique boost percent. (However, the same boost can stack)
+ *  If you wish to mutate the same state but in **multiple different ways** (e.g. scale ATK up by 50%, and then later by 25%), you should use a different **key** for each boost type, and it's up to the caller to manage the keys and clean them up when needed
  *
  *  Extra Data Layout:
  *  [ uint32 empty | uint32 scaledAtk | uint32 scaledDef | uint32 scaledSpAtk | uint32 scaledSpDef | uint32 scaledSpeed ] <-- uint256
@@ -56,8 +55,6 @@ contract StatBoosts is BasicEffect {
         return (r == EffectStep.OnMonSwitchOut);
     }
 
-    event Foo(uint256 a);
-
     // Removes all temporary boosts on mon switch out
     function onMonSwitchOut(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
@@ -71,8 +68,6 @@ contract StatBoosts is BasicEffect {
             // Recalculate the stat boosts without the temporary boosts
             (uint256 newBoostsSnapshot, StatBoostUpdate[] memory statBoostUpdates) =
                 _calculateUpdatedStatBoosts(targetIndex, monIndex, activeBoostsSnapshot, new uint256[](0), permBoosts);
-
-            emit Foo(statBoostUpdates.length);
 
             _applyStatBoostUpdates(targetIndex, monIndex, statBoostUpdates);
             bytes memory newExtraData = _encodeExtraData(newBoostsSnapshot, tempBoosts, permBoosts);

@@ -4,7 +4,7 @@
 
 Sleep:
 - Forces opponent to select NO_OP
-- Requires engine overhaul
+- Switch is still allowed
 
 Storm --> Rename to Overclock (your team becomes overclocked)
 
