@@ -21,11 +21,13 @@ contract ZapStatus is StatusEffect {
                 || r == EffectStep.OnRemove || r == EffectStep.OnMonSwitchIn);
     }
 
-    function onApply(uint256 rng, bytes memory, uint256 targetIndex, uint256 monIndex)
-        external
+    function onApply(uint256 rng, bytes memory data, uint256 targetIndex, uint256 monIndex)
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
+        super.onApply(rng, data, targetIndex, monIndex);
+
         // Get the battle key and compute priority player index
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         uint256 priorityPlayerIndex = ENGINE.computePriorityPlayerIndex(battleKey, rng);
@@ -76,12 +78,7 @@ contract ZapStatus is StatusEffect {
     {
         uint8 state = abi.decode(extraData, (uint8));
 
-        // Remove the effect if we've already set the skip flag and it's been processed
-        if (state == ALREADY_SKIPPED) {
-            return (extraData, true);
-        }
-
         // Otherwise keep the effect
-        return (extraData, false);
+        return (extraData, state == ALREADY_SKIPPED);
     }
 }

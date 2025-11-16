@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {EffectStep, MonStateIndexName} from "../../Enums.sol";
+import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../../Constants.sol";
+import {EffectStep} from "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
+import {MoveDecision} from "../../Structs.sol";
 
 import {StatusEffect} from "./StatusEffect.sol";
 
@@ -21,6 +23,28 @@ contract SleepStatus is StatusEffect {
                 || r == EffectStep.OnRemove;
     }
 
+    function _globalSleepKey(uint256 targetIndex) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(name(), targetIndex));
+    }
+
+    // Whether or not to add the effect if the step condition is met
+    function shouldApply(bytes memory data, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
+        bool shouldApplyStatusInGeneral = super.shouldApply(data, targetIndex, monIndex);
+        bool playerHasZeroSleepers =
+            address(bytes20(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
+        return (shouldApplyStatusInGeneral && playerHasZeroSleepers);
+    }
+
+    function _applySleep(uint256 targetIndex, uint256) internal {
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        // Get exiting move index
+        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        if (moveDecision.moveIndex != SWITCH_MOVE_INDEX) {
+            ENGINE.setMove(battleKey, targetIndex, NO_OP_MOVE_INDEX, "", "");
+        }
+    }
+
     // At the start of the turn, check to see if we should apply sleep or end early
     function onRoundStart(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
         external
@@ -28,27 +52,26 @@ contract SleepStatus is StatusEffect {
         returns (bytes memory, bool)
     {
         bool wakeEarly = rng % 3 == 0;
-        if (wakeEarly) {
-            return (extraData, true);
-        } else {
-            _applySleep(rng, targetIndex, monIndex);
+        if (!wakeEarly) {
+            _applySleep(targetIndex, monIndex);
         }
-        return (extraData, false);
+        return (extraData, wakeEarly);
     }
 
     // On apply, checks to apply the sleep flag, and then sets the extraData to be the duration
-    function onApply(uint256 rng, bytes memory, uint256 targetIndex, uint256 monIndex)
-        external
+    function onApply(uint256 rng, bytes memory data, uint256 targetIndex, uint256 monIndex)
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
-        _applySleep(rng, targetIndex, monIndex);
+        super.onApply(rng, data, targetIndex, monIndex);
+        // Check if opponent has yet to move and if so, also affect their move for this round
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        uint256 priorityPlayerIndex = ENGINE.computePriorityPlayerIndex(battleKey, rng);
+        if (targetIndex != priorityPlayerIndex) {
+            _applySleep(targetIndex, monIndex);
+        }
         return (abi.encode(DURATION), false);
-    }
-
-    // Sleep just skips the turn
-    function _applySleep(uint256, uint256 targetIndex, uint256 monIndex) internal {
-        ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
     }
 
     function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
@@ -65,42 +88,7 @@ contract SleepStatus is StatusEffect {
         }
     }
 
-    function _globalSleepKey(uint256 targetIndex) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(name(), targetIndex));
-    }
-
-    // Whether or not to add the effect if the step condition is met
-    function shouldApply(bytes memory data, uint256 targetIndex, uint256 monIndex) public override returns (bool) {
-        bool shouldApplyStatusInGeneral = super.shouldApply(data, targetIndex, monIndex);
-        if (!shouldApplyStatusInGeneral) {
-            return false;
-        } else {
-            // Get value from ENGINE KV
-            bytes32 globalSleepValueForPlayer =
-                ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex));
-
-            // Check if sleep already exists for the team
-            if (globalSleepValueForPlayer == bytes32(0)) {
-                // If not, set the flag and return true
-                ENGINE.setGlobalKV(_globalSleepKey(targetIndex), bytes32("1"));
-                return true;
-            } else {
-                // Otherwise return false (we can only have one instance of sleep)
-                return false;
-            }
-        }
-    }
-
-    // Remove sleep flag
-    function _removeSleep(uint256 targetIndex, uint256 monIndex) internal {
-        ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 0);
-    }
-
     function onRemove(bytes memory extraData, uint256 targetIndex, uint256 monIndex) public override {
-        // Remove any outstanding sleep flags (e.g. if turn X we got sleep, then turn X+1 we wake up, then we should remove the flag)
-        _removeSleep(targetIndex, monIndex);
-
-        // Call the super onRemove and then remove the extra flag sleep clause we set as well
         super.onRemove(extraData, targetIndex, monIndex);
         ENGINE.setGlobalKV(_globalSleepKey(targetIndex), bytes32(0));
     }

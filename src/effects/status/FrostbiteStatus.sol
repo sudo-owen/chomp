@@ -27,11 +27,14 @@ contract FrostbiteStatus is StatusEffect {
         return (r == EffectStep.OnApply || r == EffectStep.RoundEnd || r == EffectStep.OnRemove);
     }
 
-    function onApply(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
-        external
+    function onApply(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
+
+        super.onApply(rng, extraData, targetIndex, monIndex);
+
         // Reduce special attack by half
         StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
         statBoosts[0] = StatBoostToApply({
@@ -56,15 +59,11 @@ contract FrostbiteStatus is StatusEffect {
         public
         override
         returns (bytes memory, bool)
-    {
-        // Get the max health of the affected mon
+    {   
+        // Calculate damage to deal
         uint32 maxHealth =
             ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp);
-
-        // Calculate damage
         int32 damage = int32(maxHealth) / DAMAGE_DENOM;
-
-        // Deal the damage
         ENGINE.dealDamage(targetIndex, monIndex, damage);
 
         // Do not update data

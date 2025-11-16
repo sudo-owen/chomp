@@ -39,12 +39,12 @@ contract PanicStatus is StatusEffect {
     }
 
     // On apply, checks to apply the flag, and then sets the extraData to be the duration
-    function onApply(uint256, bytes memory, uint256, uint256)
-        external
-        pure
+    function onApply(uint256 rng, bytes memory data, uint256 monIndex, uint256 playerIndex)
+        public
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
+        super.onApply(rng, data, monIndex, playerIndex);
         return (abi.encode(DURATION), false);
     }
 

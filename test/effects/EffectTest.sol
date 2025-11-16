@@ -252,8 +252,8 @@ contract EffectTest is Test, BattleHelper {
         // Deploy an attack with sleep
         IMoveSet sleepAttack = standardAttackFactory.createAttack(
             ATTACK_PARAMS({
-                BASE_POWER: 1,
-                STAMINA_COST: 0, // Does 1 damage
+                BASE_POWER: 0,
+                STAMINA_COST: 1,
                 ACCURACY: 100,
                 PRIORITY: 1,
                 MOVE_TYPE: Type.Ice,
@@ -265,129 +265,60 @@ contract EffectTest is Test, BattleHelper {
                 EFFECT: sleepStatus
             })
         );
+
         IMoveSet[] memory moves = new IMoveSet[](1);
         moves[0] = sleepAttack;
-        Mon memory slowMon = Mon({
-            stats: MonStats({
-                hp: 10,
-                stamina: 2,
-                speed: 2,
-                attack: 1,
-                defense: 1,
-                specialAttack: 1,
-                specialDefense: 1,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(0))
-        });
-        Mon[] memory slowTeam = new Mon[](2);
-        slowTeam[0] = slowMon;
-        slowTeam[1] = slowMon;
-        Mon memory fastMon = Mon({
-            stats: MonStats({
-                hp: 10,
-                stamina: 2,
-                speed: 10,
-                attack: 1,
-                defense: 1,
-                specialAttack: 1,
-                specialDefense: 1,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(0))
-        });
-        Mon[] memory fastTeam = new Mon[](2);
-        fastTeam[0] = fastMon;
-        fastTeam[1] = fastMon;
 
-        // Register both teams
-        defaultRegistry.setTeam(ALICE, slowTeam);
-        defaultRegistry.setTeam(BOB, fastTeam);
+        Mon memory fastMon = _createMon();
+        fastMon.moves = moves;
+        fastMon.stats.speed = 2;
+        fastMon.stats.stamina = 3;
+        Mon memory slowMon = _createMon();
+        slowMon.moves = moves;
+        slowMon.stats.stamina = 3;
+        Mon[] memory team = new Mon[](2);
+        team[0] = fastMon;
+        team[1] = slowMon;
 
-        // Two Mon Validator
-        DefaultValidator twoMonValidator = new DefaultValidator(
-            engine, DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: 1, TIMEOUT_DURATION: TIMEOUT_DURATION})
         );
 
-        bytes32 battleKey = _startBattle(twoMonValidator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
 
-        // First move of the game has to be selecting their mons (both index 0)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
-        );
+        /*
+        - Alice sends in fast mon, Bob sends in slow mon
+        - Alice and Bob both use their move index 0
+        - Alice moves first, overwrites Bob's move
+        - Check that Alice has -1 stamina delta, Bob should have 0
+        - Do not exit sleep early
+        - Alice does NO_OP, Bob uses their move index 0
+        - Check that Alice has -1 stamina delta, Bob should have 0 (the move doesn't go off)
+        - Exit sleep early
+        - Alice does NO_OP, Bob uses their move index 0
+        - Check that Alice has -1 stamina delta, Bob should have -1 (the move goes off)
+        - Alice is asleep, Bob does nothing, Alice switches to mon index 1, should be successful
+        */
 
-        // Alice and Bob both select attacks, both of them are move index 0 (do sleep damage)
+        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
-
-        // Check that both Alice's mon has an effect length of 1 and Bob's mon has no targeted effects
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(state.monStates[1][0].targetedEffects.length, 0);
-
-        // Assert that Bob's mon dealt damage, and that Alice's mon did not (Bob outspeeds and inflicts sleep so the turn is skipped)
-        assertEq(state.monStates[0][0].hpDelta, -1);
-        assertEq(state.monStates[1][0].hpDelta, 0);
-
-        // Set the oracle to report back 1 for the next turn (we do not exit sleep early)
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 0);
         mockOracle.setRNG(1);
-
-        // Alice and Bob both select attacks, both of them are move index 0 (do sleep damage)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
-
-        // Get newest state
-        state = engine.getBattleState(battleKey);
-
-        // Check that both Alice's mon has an effect length of 1 and Bob's mon has no targeted effects (still)
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(state.monStates[1][0].targetedEffects.length, 0);
-
-        // Assert that Bob's mon dealt damage, and that Alice's mon did not because it is sleeping
-        assertEq(state.monStates[0][0].hpDelta, -2);
-        assertEq(state.monStates[1][0].hpDelta, 0);
-
-        // Assert that the extraData for Alice's targeted effect is now 1 because 2 turn ends have passed
-        assertEq(state.monStates[0][0].targetedEffects[0].data, abi.encode(1));
-
-        // Set the oracle to report back 0 for the next turn (exit sleep early)
-        mockOracle.setRNG(0);
-
-        // Alice attacks, Bob does a no-op
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
-
-        // Alice should wake up early and inflict sleep on Bob
-        state = engine.getBattleState(battleKey);
-
-        // Bob should now have the sleep condition and take 1 damage from the attack
-        assertEq(state.monStates[0][0].targetedEffects.length, 0);
-        assertEq(state.monStates[1][0].targetedEffects.length, 1);
-        assertEq(state.monStates[1][0].hpDelta, -1);
-
-        // Set the oracle to report back 0 for the next turn (exit sleep early for Bob)
-        mockOracle.setRNG(0);
-
-        // Bob tries again to inflict sleep, while Alice does NO_OP
-        // Bob should wake up, Alice should become asleep
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(state.monStates[1][0].targetedEffects.length, 0);
-
-        // Set oracle to report back 1 (no early sleep awake)
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 0);
+        mockOracle.setRNG(0);
+        // Bob wakes up, inflicts on Alice
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), -1);
+        // Alice is asleep, Bob does nothing, Alice switches to mon index 1, should be successful
         mockOracle.setRNG(1);
-
-        // Alice is asleep but tries to swap, swap should succeed, and the flag should be cleared
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(1), ""
-        );
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][1].shouldSkipTurn, false);
-
-        // But sleep effect should still persist
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(1), "");
+        assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
     }
 
     /**
