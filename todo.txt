@@ -1,8 +1,5 @@
 # TODO
 
-RevealedMove struct
-- remove, refactor all CPU stuff to use the new MoveDecision struct instead
-
 1) add description to moves in the editor, new tab, add cleaner info [ ]
 4) add xmon moveset
 5) add xmon tests

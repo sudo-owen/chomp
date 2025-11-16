@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {NO_OP_MOVE_INDEX} from "../../Constants.sol";
+import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../../Constants.sol";
 import {EffectStep} from "../../Enums.sol";
 import {IEngine} from "../../IEngine.sol";
+import {MoveDecision} from "../../Structs.sol";
 
 import {StatusEffect} from "./StatusEffect.sol";
 
@@ -30,13 +31,18 @@ contract SleepStatus is StatusEffect {
     function shouldApply(bytes memory data, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
         bool shouldApplyStatusInGeneral = super.shouldApply(data, targetIndex, monIndex);
         bool playerHasZeroSleepers =
-                address(bytes20(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
+            address(bytes20(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
         return (shouldApplyStatusInGeneral && playerHasZeroSleepers);
     }
 
-    function _applySleep(uint256 targetIndex, uint256 monIndex) internal {
+    function _applySleep(uint256 targetIndex, uint256) internal {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        ENGINE.setMove(battleKey, targetIndex, NO_OP_MOVE_INDEX, "", "");
+        // Get exiting move index
+        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        if (moveDecision.moveIndex != SWITCH_MOVE_INDEX) {
+            ENGINE.setMove(battleKey, targetIndex, NO_OP_MOVE_INDEX, "", "");
+        }
     }
 
     // At the start of the turn, check to see if we should apply sleep or end early
@@ -81,7 +87,6 @@ contract SleepStatus is StatusEffect {
             return (abi.encode(turnsLeft - 1), false);
         }
     }
-
 
     function onRemove(bytes memory extraData, uint256 targetIndex, uint256 monIndex) public override {
         super.onRemove(extraData, targetIndex, monIndex);
