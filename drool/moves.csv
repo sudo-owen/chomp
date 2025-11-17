@@ -40,6 +40,6 @@ Gilded Recovery,Aurox,0,2,100,0,Mythic,Self,"Heals a target friendly mon from a 
 Iron Wall,Aurox,0,3,100,0,Metal,Self,"Until the end of the next turn, Aurox heals 50% of all damage taken.",,
 Bull Rush,Aurox,80,2,100,0,Metal,Physical,Deals damage. Also deals 10% of max HP to Aurox.,,
 Contagious Slumber,Xmon,0,2,100,0,Cosmic,Other,"Inflicts Sleep on self and opponent. When asleep, you are forced to rest.",,No
-Vital Siphon,Xmon,40,2,100,0,Cosmic,Special,"Deals damage, 50% chance to steal 1 stamina from opponent.",,No
+Vital Siphon,Xmon,40,2,90,0,Cosmic,Special,"Deals damage, 50% chance to steal 1 stamina from opponent.",,No
 Somniphobia,Xmon,0,1,100,0,Cosmic,Other,"For the next 6 turns, any mon that rests will take 1/16th of max HP as damage.",,No
 Night Terrors,Xmon,0,0,100,0,Cosmic,Special,Gain a Terror stack. Deals damage and costs stamina at end of turn for each Terror stack. Deals extra damage if opponent is alseep.,,No

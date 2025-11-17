@@ -31,6 +31,7 @@ class ContractData:
     file_path: str
     power: Optional[int] = None
     stamina: Optional[int] = None
+    accuracy: Optional[int] = None
     priority: Optional[int] = None
     move_type: Optional[str] = None
     move_class: Optional[str] = None
@@ -180,6 +181,7 @@ class MoveValidator:
         # Extract individual parameters
         contract_data.power = self._extract_param_value(params_block, 'BASE_POWER')
         contract_data.stamina = self._extract_param_value(params_block, 'STAMINA_COST')
+        contract_data.accuracy = self._extract_param_value(params_block, 'ACCURACY')
         contract_data.priority = self._extract_priority_value(params_block)
         contract_data.move_type = self._extract_enum_value(params_block, 'MOVE_TYPE', 'Type')
         contract_data.move_class = self._extract_enum_value(params_block, 'MOVE_CLASS', 'MoveClass')
@@ -190,6 +192,11 @@ class MoveValidator:
         """Parse custom IMoveSet implementation"""
         # Look for constant declarations
         contract_data.power = self._extract_constant_value(content, 'BASE_POWER')
+
+        # Look for accuracy constant (try both DEFAULT_ACCURACY and ACCURACY)
+        contract_data.accuracy = self._extract_constant_value(content, 'DEFAULT_ACCURACY')
+        if contract_data.accuracy is None:
+            contract_data.accuracy = self._extract_constant_value(content, 'ACCURACY')
 
         # Look for function implementations
         contract_data.stamina = self._extract_function_return_value(content, 'stamina')
@@ -327,6 +334,13 @@ class MoveValidator:
                 result['errors'].append(f"Stamina mismatch: contract={contract_data.stamina}, csv={move_data.stamina}")
         else:
             result['warnings'].append("Stamina validation skipped - marked as complex move ('?')")
+
+        # Validate accuracy (skip if not found in contract)
+        if move_data.accuracy != '?' and contract_data.accuracy is not None:
+            if contract_data.accuracy != move_data.accuracy:
+                result['errors'].append(f"Accuracy mismatch: contract={contract_data.accuracy}, csv={move_data.accuracy}")
+        elif move_data.accuracy == '?':
+            result['warnings'].append("Accuracy validation skipped - marked as complex move ('?')")
 
         # Validate priority
         if move_data.priority != '?':
@@ -502,6 +516,13 @@ class MoveValidator:
                     updated_params = re.sub(stamina_pattern, rf'\g<1>{move_data.stamina}', updated_params)
                     modified = True
 
+            # Update accuracy if there's a mismatch and it's not a complex move
+            if move_data.accuracy != '?' and isinstance(move_data.accuracy, int):
+                accuracy_pattern = r'(ACCURACY:\s*)(\d+)'
+                if re.search(accuracy_pattern, updated_params):
+                    updated_params = re.sub(accuracy_pattern, rf'\g<1>{move_data.accuracy}', updated_params)
+                    modified = True
+
             # Update priority if there's a mismatch and it's not a complex move
             if move_data.priority != '?' and isinstance(move_data.priority, int):
                 expected_priority = self.csv_priority_to_contract_priority(move_data.priority)
@@ -548,6 +569,20 @@ class MoveValidator:
 
         # Handle custom IMoveSet implementations with simple constant returns
         elif result['is_custom_implementation']:
+            # Update accuracy constant if there's a mismatch and it's not a complex move
+            if move_data.accuracy != '?' and isinstance(move_data.accuracy, int):
+                # Try DEFAULT_ACCURACY first
+                accuracy_pattern = r'(DEFAULT_ACCURACY\s*=\s*)(\d+)'
+                if re.search(accuracy_pattern, content):
+                    content = re.sub(accuracy_pattern, rf'\g<1>{move_data.accuracy}', content)
+                    modified = True
+                else:
+                    # Try ACCURACY constant
+                    accuracy_pattern = r'(ACCURACY\s*=\s*)(\d+)'
+                    if re.search(accuracy_pattern, content):
+                        content = re.sub(accuracy_pattern, rf'\g<1>{move_data.accuracy}', content)
+                        modified = True
+
             # Update stamina function if it's a simple constant return
             if (move_data.stamina != '?' and isinstance(move_data.stamina, int) and
                 self._is_simple_constant_return(content, 'stamina')):

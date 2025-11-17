@@ -24,13 +24,13 @@ contract VitalSiphon is StandardAttack {
                 NAME: "Vital Siphon",
                 BASE_POWER: 40,
                 STAMINA_COST: 2,
-                ACCURACY: 100,
+                ACCURACY: 90,
                 MOVE_TYPE: Type.Cosmic,
                 MOVE_CLASS: MoveClass.Special,
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
-                EFFECT_ACCURACY: 0,
+                EFFECT_ACCURACY: 90,
                 EFFECT: IEffect(address(0))
             })
         )
