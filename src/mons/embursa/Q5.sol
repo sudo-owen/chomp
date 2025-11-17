@@ -83,7 +83,7 @@ contract Q5 is IMoveSet, BasicEffect {
                 ENGINE.battleKeyForWrite(),
                 attackerPlayerIndex,
                 BASE_POWER,
-                DEFAULT_ACCRUACY,
+                DEFAULT_ACCURACY,
                 DEFAULT_VOL,
                 moveType(ENGINE.battleKeyForWrite()),
                 moveClass(ENGINE.battleKeyForWrite()),

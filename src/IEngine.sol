@@ -8,8 +8,9 @@ import "./Structs.sol";
 import "./moves/IMoveSet.sol";
 
 interface IEngine {
-    // Global battle key to determine which battle to apply state mutations
+    // Transient state
     function battleKeyForWrite() external view returns (bytes32);
+    function tempRNG() external view returns (uint256);
 
     // State mutating effects
     function updateMatchmakers(address[] memory makersToAdd, address[] memory makersToRemove) external;

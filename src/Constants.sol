@@ -13,4 +13,4 @@ uint32 constant CRIT_DENOM = 2;
 uint32 constant DEFAULT_CRIT_RATE = 5;
 
 uint32 constant DEFAULT_VOL = 10;
-uint32 constant DEFAULT_ACCRUACY = 100;
+uint32 constant DEFAULT_ACCURACY = 100;
