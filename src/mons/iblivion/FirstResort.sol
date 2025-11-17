@@ -38,7 +38,7 @@ contract FirstResort is IMoveSet {
             battleKey,
             attackerPlayerIndex,
             BASE_POWER,
-            DEFAULT_ACCRUACY, // 100%
+            DEFAULT_ACCURACY, // 100%
             DEFAULT_VOL,
             moveType(battleKey),
             moveClass(battleKey),

@@ -59,7 +59,7 @@ contract Baselight is IMoveSet {
             battleKey,
             attackerPlayerIndex,
             basePower,
-            DEFAULT_ACCRUACY,
+            DEFAULT_ACCURACY,
             DEFAULT_VOL,
             moveType(battleKey),
             moveClass(battleKey),

@@ -76,7 +76,7 @@ Moves:
 - Iron Wall: Metal, 2 stamina, Until the end of next turn, when Aurox takes damage, heal 50% of it.
 - Bull Rush: Metal, 3 stamina, 80 power, deals 10% max hp damage to self.
 
-Xmon: NEW MON [ ]
+Xmon: NEW MON [x]
 Type: Cosmic
 Xmon is designed to be utility mon. Spams negative status but with little kill potential.
 Ability: Dreamcatcher, on stamina gain, heals by 1/16 max hp.

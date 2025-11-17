@@ -61,7 +61,7 @@ contract DeepFreeze is IMoveSet {
             battleKey,
             attackerPlayerIndex,
             damageToDeal,
-            DEFAULT_ACCRUACY,
+            DEFAULT_ACCURACY,
             DEFAULT_VOL,
             moveType(battleKey),
             moveClass(battleKey),

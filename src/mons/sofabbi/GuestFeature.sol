@@ -35,7 +35,7 @@ contract GuestFeature is IMoveSet {
             battleKey,
             attackerPlayerIndex,
             BASE_POWER,
-            DEFAULT_ACCRUACY,
+            DEFAULT_ACCURACY,
             DEFAULT_VOL,
             guestType,
             moveClass(battleKey),
