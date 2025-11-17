@@ -83,5 +83,5 @@ Ability: Dreamcatcher, on stamina gain, heals by 1/16 max hp.
 Moves:
 - Contagious Slumber: Cosmic, 2 stamina, default priority, inflict Sleep on self and opponent active mon.
 - Vital Siphon: Cosmic, 2 stamina, 40 power, Deals damage, 50% chance to steal 1 stamina from opponent (only if opponent has at least 1 stamina)
-- Somniphobia: Cosmic, 3 stamina, For the next 6 turns, any mon that rests will also take 1/16th of HP as damage (effect triggers afterMove if move index is NO_OP)
+- Somniphobia: Cosmic, 2 stamina, For the next 6 turns, any mon that rests will also take 1/16th of HP as damage (effect triggers afterMove if move index is NO_OP)
 - Night Terrors: Cosmic, 0 stamina, Gain a Terror stack. At the end of turn, Xmon pays 1 stamina per stack, dealing 20 damage to the opponent per stack. Deals 30 damage if the opponent is asleep. (If not enough stamina to pay for all stacks, nothing happens)

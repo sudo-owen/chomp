@@ -46,7 +46,7 @@ contract ContagiousSlumber is IMoveSet {
     }
 
     function moveClass(bytes32) public pure returns (MoveClass) {
-        return MoveClass.Self;
+        return MoveClass.Other;
     }
 
     function isValidTarget(bytes32, bytes calldata) external pure returns (bool) {

@@ -36,7 +36,7 @@ contract Somniphobia is IMoveSet, BasicEffect {
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 3;
+        return 1;
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {
@@ -48,7 +48,7 @@ contract Somniphobia is IMoveSet, BasicEffect {
     }
 
     function moveClass(bytes32) public pure returns (MoveClass) {
-        return MoveClass.Self;
+        return MoveClass.Other;
     }
 
     function isValidTarget(bytes32, bytes calldata) external pure returns (bool) {

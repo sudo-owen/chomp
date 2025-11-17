@@ -63,6 +63,11 @@ import {Electrocute} from "../src/mons/volthare/Electrocute.sol";
 import {MegaStarBlast} from "../src/mons/volthare/MegaStarBlast.sol";
 import {Overclock} from "../src/mons/volthare/Overclock.sol";
 import {RoundTrip} from "../src/mons/volthare/RoundTrip.sol";
+import {ContagiousSlumber} from "../src/mons/xmon/ContagiousSlumber.sol";
+import {Dreamcatcher} from "../src/mons/xmon/Dreamcatcher.sol";
+import {NightTerrors} from "../src/mons/xmon/NightTerrors.sol";
+import {Somniphobia} from "../src/mons/xmon/Somniphobia.sol";
+import {VitalSiphon} from "../src/mons/xmon/VitalSiphon.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
 
 struct DeployData {
@@ -89,7 +94,7 @@ contract SetupMons is Script {
         allDeployData[7] = deployEmbursa(registry);
         allDeployData[8] = deployVolthare(registry);
         allDeployData[9] = deployAurox(registry);
-        // allDeployData[10] = deployXmon(registry);
+        allDeployData[10] = deployXmon(registry);
 
         // Calculate total length for flattened array
         uint256 totalLength = 0;
@@ -753,8 +758,43 @@ contract SetupMons is Script {
     }
 
     function deployXmon(DefaultMonRegistry registry) internal returns (DeployData[] memory) {
-        DeployData[] memory deployedContracts = new DeployData[](0);
+        DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
+
+        ContagiousSlumber contagiousslumber = new ContagiousSlumber(IEngine(vm.envAddress("ENGINE")), IEffect(vm.envAddress("SLEEP_STATUS")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Contagious Slumber",
+            contractAddress: address(contagiousslumber)
+        });
+        contractIndex++;
+
+        VitalSiphon vitalsiphon = new VitalSiphon(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Vital Siphon",
+            contractAddress: address(vitalsiphon)
+        });
+        contractIndex++;
+
+        Somniphobia somniphobia = new Somniphobia(IEngine(vm.envAddress("ENGINE")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Somniphobia",
+            contractAddress: address(somniphobia)
+        });
+        contractIndex++;
+
+        NightTerrors nightterrors = new NightTerrors(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("SLEEP_STATUS")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Night Terrors",
+            contractAddress: address(nightterrors)
+        });
+        contractIndex++;
+
+        Dreamcatcher dreamcatcher = new Dreamcatcher(IEngine(vm.envAddress("ENGINE")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Dreamcatcher",
+            contractAddress: address(dreamcatcher)
+        });
+        contractIndex++;
 
         MonStats memory stats = MonStats({
             hp: 311,
@@ -767,8 +807,13 @@ contract SetupMons is Script {
             type1: Type.Cosmic,
             type2: Type.None
         });
-        IMoveSet[] memory moves = new IMoveSet[](0);
-        IAbility[] memory abilities = new IAbility[](0);
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = IMoveSet(address(contagiousslumber));
+        moves[1] = IMoveSet(address(vitalsiphon));
+        moves[2] = IMoveSet(address(somniphobia));
+        moves[3] = IMoveSet(address(nightterrors));
+        IAbility[] memory abilities = new IAbility[](1);
+        abilities[0] = IAbility(address(dreamcatcher));
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
         registry.createMon(10, stats, moves, abilities, keys, values);
