@@ -3,7 +3,10 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
-import {Engine} from "../src/Engine.sol";
+import {ICPURNG} from "../src/rng/ICPURNG.sol";
+import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
+import {IEngine} from "../src/IEngine.sol";
+import {OkayCPU} from "../src/cpu/OkayCPU.sol";
 
 struct DeployData {
     string name;
@@ -15,8 +18,10 @@ contract Surgery is Script {
 
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
-        Engine engine = new Engine();
-        deployedContracts.push(DeployData({name: "ENGINE", contractAddress: address(engine)}));
+
+        OkayCPU okayCPU = new OkayCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)), ITypeCalculator(vm.envAddress("TYPE_CALC")));
+        deployedContracts.push(DeployData({name: "OKAY CPU", contractAddress: address(okayCPU)}));
+
         vm.stopBroadcast();
         return deployedContracts;
     }

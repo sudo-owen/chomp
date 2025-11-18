@@ -11,8 +11,6 @@ import {RevealedMove} from "../Structs.sol";
 contract PlayerCPU is CPU {
     mapping(bytes32 battleKey => RevealedMove) private declaredMoveForBattle;
 
-    error NotP0();
-
     constructor(uint256 numMoves, IEngine engine, ICPURNG rng) CPU(numMoves, engine, rng) {}
 
     function setMove(bytes32 battleKey, uint128 moveIndex, bytes calldata extraData) external {

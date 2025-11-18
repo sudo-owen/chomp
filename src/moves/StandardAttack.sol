@@ -80,7 +80,9 @@ contract StandardAttack is IMoveSet, Ownable {
             uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
             uint256 defenderMonIndex =
                 ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[defenderPlayerIndex];
-            ENGINE.addEffect(defenderPlayerIndex, defenderMonIndex, _effect, "");
+            if (address(_effect) != address(0)) {
+                ENGINE.addEffect(defenderPlayerIndex, defenderMonIndex, _effect, "");
+            }
         }
 
         return (damage, eventType);

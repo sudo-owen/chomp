@@ -7,18 +7,19 @@ import "../Structs.sol";
 import {IEngine} from "../IEngine.sol";
 import {ICPU} from "./ICPU.sol";
 
-contract CPUMoveManager {
-    IEngine private immutable ENGINE;
-    ICPU private immutable DEFAULT_CPU;
+abstract contract CPUMoveManager {
+    IEngine internal immutable ENGINE;
 
     error NotP0();
-    error NotEngine();
 
-    mapping(address player => ICPU cpu) public cpuForPlayer;
-
-    constructor(IEngine engine, ICPU _DEFAULT_CPU) {
+    constructor(IEngine engine) {
         ENGINE = engine;
-        DEFAULT_CPU = _DEFAULT_CPU;
+
+        // Self-register as an approved matchmaker
+        address[] memory self = new address[](1);
+        self[0] = address(this);
+        address[] memory empty = new address[](0);
+        engine.updateMatchmakers(self, empty);
     }
 
     function selectMove(bytes32 battleKey, uint128 moveIndex, bytes32 salt, bytes calldata extraData) external {
@@ -58,22 +59,8 @@ contract CPUMoveManager {
     }
 
     function _addCPUMoveFromAI(bytes32 battleKey) private {
-        ICPU cpu = _getCPUForPlayer(msg.sender);
-        (uint128 cpuMoveIndex, bytes memory cpuExtraData) = cpu.selectMove(battleKey, 1);
+        (uint128 cpuMoveIndex, bytes memory cpuExtraData) = ICPU(address(this)).selectMove(battleKey, 1);
         bytes32 cpuSalt = keccak256(abi.encode(battleKey, msg.sender, block.timestamp));
         _addCPUMove(battleKey, cpuMoveIndex, cpuSalt, cpuExtraData);
-    }
-
-    function _getCPUForPlayer(address player) private view returns (ICPU) {
-        ICPU cpu = cpuForPlayer[player];
-        return address(cpu) == address(0) ? DEFAULT_CPU : cpu;
-    }
-
-    function setCPUForPlayer(address player, ICPU cpu) external {
-        cpuForPlayer[player] = cpu;
-    }
-
-    function getMoveCountForBattleState(bytes32, address) external view returns (uint256) {
-        return 0; // TODO: fix later
     }
 }

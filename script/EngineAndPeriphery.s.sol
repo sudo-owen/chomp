@@ -8,7 +8,6 @@ import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {DefaultRuleset} from "../src/DefaultRuleset.sol";
 import {Engine} from "../src/Engine.sol";
 import {DefaultValidator} from "../src/DefaultValidator.sol";
-import {CPUMoveManager} from "../src/cpu/CPUMoveManager.sol";
 import {PlayerCPU} from "../src/cpu/PlayerCPU.sol";
 import {RandomCPU} from "../src/cpu/RandomCPU.sol";
 import {OkayCPU} from "../src/cpu/OkayCPU.sol";
@@ -75,22 +74,11 @@ contract EngineAndPeriphery is Script {
         RandomCPU cpu = new RandomCPU(NUM_MOVES, engine, ICPURNG(address(0)));
         deployedContracts.push(DeployData({name: "RANDOM CPU", contractAddress: address(cpu)}));
 
-        CPUMoveManager cpuMoveManager = new CPUMoveManager(engine, cpu);
-        deployedContracts.push(DeployData({name: "CPU MOVE MANAGER", contractAddress: address(cpuMoveManager)}));
-
         PlayerCPU playerCPU = new PlayerCPU(NUM_MOVES, engine, ICPURNG(address(0)));
         deployedContracts.push(DeployData({name: "PLAYER CPU", contractAddress: address(playerCPU)}));
 
-        CPUMoveManager playerCPUManager = new CPUMoveManager(engine, playerCPU);
-        deployedContracts.push(
-            DeployData({name: "PLAYER CPU MOVE MANAGER", contractAddress: address(playerCPUManager)})
-        );
-
         OkayCPU okayCPU = new OkayCPU(NUM_MOVES, engine, ICPURNG(address(0)), typeCalc);
         deployedContracts.push(DeployData({name: "OKAY CPU", contractAddress: address(okayCPU)}));
-
-        CPUMoveManager okayMoveManager = new CPUMoveManager(engine, okayCPU);
-        deployedContracts.push(DeployData({name: "OKAY CPU MOVE MANAGER", contractAddress: address(okayMoveManager)}));
 
         DefaultMatchmaker matchmaker = new DefaultMatchmaker(engine);
         deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));

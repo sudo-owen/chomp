@@ -7,31 +7,26 @@ import {IMatchmaker} from "../matchmaker/IMatchmaker.sol";
 import {IMoveSet} from "../moves/IMoveSet.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
 import {ICPU} from "./ICPU.sol";
+import {CPUMoveManager} from "./CPUMoveManager.sol";
 
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
 import {BattleConfig, BattleState, Battle, ProposedBattle, RevealedMove} from "../Structs.sol";
 
-abstract contract CPU is ICPU, ICPURNG, IMatchmaker {
+abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
     uint256 private immutable NUM_MOVES;
 
-    IEngine public immutable ENGINE;
     ICPURNG public immutable RNG;
     uint256 public nonceToUse;
 
-    constructor(uint256 numMoves, IEngine engine, ICPURNG rng) {
+    constructor(uint256 numMoves, IEngine engine, ICPURNG rng) CPUMoveManager(engine) {
         NUM_MOVES = numMoves;
-        ENGINE = engine;
         if (address(rng) == address(0)) {
             RNG = ICPURNG(address(this));
         } else {
             RNG = rng;
         }
-        address[] memory self = new address[](1);
-        self[0] = address(this);
-        address[] memory empty = new address[](0);
-        engine.updateMatchmakers(self, empty);
     }
 
     /**

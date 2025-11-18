@@ -25,10 +25,10 @@ contract SetupCPU is Script {
         monIndices[3] = 8; // Volthare
 
         GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
-        string[] memory cpuPlayers = new string[](3);
-        cpuPlayers[0] = "RANDOM_CPU";
-        cpuPlayers[1] = "PLAYER_CPU";
-        cpuPlayers[2] = "OKAY_CPU";
+        string[] memory cpuPlayers = new string[](1);
+        cpuPlayers[0] = "OKAY_CPU";
+        // cpuPlayers[1] = "PLAYER_CPU";
+        // cpuPlayers[2] = "OKAY_CPU";
         for (uint256 i; i < cpuPlayers.length; i++) {
             gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
         }
