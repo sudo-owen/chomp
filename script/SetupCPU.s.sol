@@ -43,11 +43,11 @@ contract SetupCPU is Script {
             gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
         }
 
-        // Create team of Embursa, Aurox, Ghouliath, and Gorillax
+        // Create team of Embursa, Aurox, Xmon, and Ghouliath
         monIndices[0] = 7; // Embursa
         monIndices[1] = 9; // Aurox
-        monIndices[2] = 0; // Ghouliath
-        monIndices[3] = 4; // Gorillax
+        monIndices[2] = 10; // Ghouliath
+        monIndices[3] = 0; // Gorillax
 
         for (uint256 i; i < cpuPlayers.length; i++) {
             gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
