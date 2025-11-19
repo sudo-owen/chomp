@@ -115,7 +115,7 @@ contract LookupTeamRegistry is ITeamRegistry {
     }
 
     // Read directly from the registry
-    function getTeam(address player, uint256 teamIndex) external returns (Mon[] memory) {
+    function getTeam(address player, uint256 teamIndex) external view returns (Mon[] memory) {
         Mon[] memory team = new Mon[](MONS_PER_TEAM);
         for (uint256 i; i < MONS_PER_TEAM; ++i) {
             uint256 monId = _getMonRegistryIndex(player, teamIndex, i);

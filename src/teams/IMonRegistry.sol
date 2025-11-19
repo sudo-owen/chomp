@@ -9,6 +9,7 @@ import "../moves/IMoveSet.sol";
 interface IMonRegistry {
     function getMonData(uint256 monId)
         external
+        view
         returns (MonStats memory mon, address[] memory moves, address[] memory abilities);
     function getMonStats(uint256 monId) external view returns (MonStats memory);
     function getMonMetadata(uint256 monId, bytes32 key) external view returns (bytes32);

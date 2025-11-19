@@ -155,6 +155,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Own
     // All IMonRegistry functions are just pass throughs
     function getMonData(uint256 monId)
         external
+        view
         returns (MonStats memory mon, address[] memory moves, address[] memory abilities)
     {
         return MON_REGISTRY.getMonData(monId);

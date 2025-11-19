@@ -19,7 +19,7 @@ contract Surgery is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
-        OkayCPU okayCPU = new OkayCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)), ITypeCalculator(vm.envAddress("TYPE_CALC")));
+        OkayCPU okayCPU = new OkayCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
         deployedContracts.push(DeployData({name: "OKAY CPU", contractAddress: address(okayCPU)}));
 
         vm.stopBroadcast();
