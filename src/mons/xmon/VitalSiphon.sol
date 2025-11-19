@@ -30,7 +30,7 @@ contract VitalSiphon is StandardAttack {
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
-                EFFECT_ACCURACY: 90,
+                EFFECT_ACCURACY: 0,
                 EFFECT: IEffect(address(0))
             })
         )
