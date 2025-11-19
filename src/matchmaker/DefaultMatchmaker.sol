@@ -24,7 +24,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
     error InvalidP0TeamHash();
     error BattleNotAccepted();
 
-    mapping(bytes32 battleKey => ProposedBattle) private proposals;
+    mapping(bytes32 battleKey => ProposedBattle) public proposals;
     mapping(bytes32 newBattleKey => bytes32 oldBattleKey) private preP1FillBattleKey;
 
     constructor(IEngine engine) {

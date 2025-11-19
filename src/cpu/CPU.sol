@@ -33,7 +33,7 @@ abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
      * If it's turn 0, randomly selects a mon index to swap to
      *     Otherwise, randomly selects a valid move, switch index, or no op
      */
-    function selectMove(bytes32 battleKey, uint256 playerIndex)
+    function calculateMove(bytes32 battleKey, uint256 playerIndex)
         external
         virtual
         returns (uint128 moveIndex, bytes memory extraData);
@@ -76,8 +76,8 @@ abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
             }
             // If it's a turn where we need to make a switch, then we should just return valid switches
             {
-                BattleState memory battleState = ENGINE.getBattleState(battleKey);
-                if (battleState.playerSwitchForTurnFlag == 1) {
+                uint256 playerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
+                if (playerSwitchForTurnFlag == 1) {
                     RevealedMove[] memory switchChoices = new RevealedMove[](validSwitchCount);
                     for (uint256 i = 0; i < validSwitchCount; i++) {
                         switchChoices[i] = RevealedMove({

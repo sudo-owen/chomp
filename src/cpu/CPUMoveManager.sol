@@ -27,17 +27,19 @@ abstract contract CPUMoveManager {
             revert NotP0();
         }
 
-        BattleState memory battleState = ENGINE.getBattleState(battleKey);
-        if (battleState.winnerIndex != 2) {
+        address winner = ENGINE.getWinner(battleKey);
+        if (winner != address(0)) {
             return;
         }
 
+        uint256 playerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
+
         // Determine move configuration based on turn flag
-        if (battleState.playerSwitchForTurnFlag == 0) {
+        if (playerSwitchForTurnFlag == 0) {
             // P0's turn: player moves, CPU no-ops
             _addPlayerMove(battleKey, moveIndex, salt, extraData);
             _addCPUMove(battleKey, NO_OP_MOVE_INDEX, "", "");
-        } else if (battleState.playerSwitchForTurnFlag == 1) {
+        } else if (playerSwitchForTurnFlag == 1) {
             // P1's turn: player no-ops, CPU moves
             _addPlayerMove(battleKey, NO_OP_MOVE_INDEX, salt, extraData);
             _addCPUMoveFromAI(battleKey);
@@ -59,7 +61,7 @@ abstract contract CPUMoveManager {
     }
 
     function _addCPUMoveFromAI(bytes32 battleKey) private {
-        (uint128 cpuMoveIndex, bytes memory cpuExtraData) = ICPU(address(this)).selectMove(battleKey, 1);
+        (uint128 cpuMoveIndex, bytes memory cpuExtraData) = ICPU(address(this)).calculateMove(battleKey, 1);
         bytes32 cpuSalt = keccak256(abi.encode(battleKey, msg.sender, block.timestamp));
         _addCPUMove(battleKey, cpuMoveIndex, cpuSalt, cpuExtraData);
     }

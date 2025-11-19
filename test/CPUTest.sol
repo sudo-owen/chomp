@@ -369,8 +369,8 @@ contract CPUTest is Test {
         // First turn: p0 sets move 0 for PlayerCPU
         playerCPU.setMove(battleKey, 0, "");
 
-        // Verify that selectMove returns the correct move
-        (uint256 moveIndex, bytes memory extraData) = playerCPU.selectMove(battleKey, 0);
+        // Verify that calculateMove returns the correct move
+        (uint256 moveIndex, bytes memory extraData) = playerCPU.calculateMove(battleKey, 0);
         assertEq(moveIndex, 0);
         assertEq(extraData.length, 0);
 
@@ -380,8 +380,8 @@ contract CPUTest is Test {
         // Second turn: p0 sets move 1 for PlayerCPU (should override previous move)
         playerCPU.setMove(battleKey, 1, abi.encode(42));
 
-        // Verify that selectMove now returns the new move
-        (moveIndex, extraData) = playerCPU.selectMove(battleKey, 0);
+        // Verify that calculateMove now returns the new move
+        (moveIndex, extraData) = playerCPU.calculateMove(battleKey, 0);
         assertEq(moveIndex, 1);
         assertEq(abi.decode(extraData, (uint256)), 42);
 

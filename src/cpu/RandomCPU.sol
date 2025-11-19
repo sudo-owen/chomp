@@ -15,7 +15,7 @@ contract RandomCPU is CPU {
      * If it's turn 0, randomly selects a mon index to swap to
      *     Otherwise, randomly selects a valid move, switch index, or no op
      */
-    function selectMove(bytes32 battleKey, uint256 playerIndex)
+    function calculateMove(bytes32 battleKey, uint256 playerIndex)
         external
         override
         returns (uint128 moveIndex, bytes memory extraData)

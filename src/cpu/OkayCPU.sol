@@ -27,7 +27,7 @@ contract OkayCPU is CPU {
     /**
      * If it's turn 0, swap in a mon that resists the other player's type1 (if possible)
      */
-    function selectMove(bytes32 battleKey, uint256 playerIndex)
+    function calculateMove(bytes32 battleKey, uint256 playerIndex)
         external
         override
         returns (uint128 moveIndex, bytes memory extraData)
@@ -88,7 +88,7 @@ contract OkayCPU is CPU {
 
             int32 staminaDelta = ENGINE.getMonStateForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], MonStateIndexName.Stamina);
             if (staminaDelta <= -3) {
-                if (_getRNG(battleKey) % 4 != 0) {
+                if (_getRNG(battleKey) % 4 != 0 && noOp.length > 0) {
                     return (noOp[0].moveIndex, noOp[0].extraData);
                 } else {
                     uint256 rngIndex = _getRNG(battleKey) % switches.length;
