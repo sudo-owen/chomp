@@ -11,6 +11,7 @@ import {MonStats} from "../src/Structs.sol";
 import {Type} from "../src/Enums.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
+import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 
 struct DeployData {
     string name;
@@ -23,40 +24,9 @@ contract Surgery is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
-        // Deploy new Vital Siphon
-        VitalSiphon vitalSiphon = new VitalSiphon(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
-        deployedContracts.push(DeployData({name: "Vital Siphon", contractAddress: address(vitalSiphon)}));
-
-        // Get the registry and old Vital Siphon address
-        DefaultMonRegistry registry = DefaultMonRegistry(vm.envAddress("DEFAULT_MON_REGISTRY"));
-        address oldVitalSiphon = vm.envAddress("VITAL_SIPHON");
-
-        // Xmon stats (matching SetupMons.s.sol)
-        MonStats memory stats = MonStats({
-            hp: 311,
-            stamina: 5,
-            speed: 285,
-            attack: 123,
-            defense: 179,
-            specialAttack: 222,
-            specialDefense: 185,
-            type1: Type.Cosmic,
-            type2: Type.None
-        });
-
-        // Prepare moves to add and remove
-        IMoveSet[] memory movesToAdd = new IMoveSet[](1);
-        movesToAdd[0] = IMoveSet(address(vitalSiphon));
-
-        IMoveSet[] memory movesToRemove = new IMoveSet[](1);
-        movesToRemove[0] = IMoveSet(oldVitalSiphon);
-
-        // No ability changes
-        IAbility[] memory abilitiesToAdd = new IAbility[](0);
-        IAbility[] memory abilitiesToRemove = new IAbility[](0);
-
-        // Update Xmon (monId 10) registry
-        registry.modifyMon(10, stats, movesToAdd, movesToRemove, abilitiesToAdd, abilitiesToRemove);
+        // Deploy Matchmaker
+        DefaultMatchmaker matchmaker = new DefaultMatchmaker(IEngine(vm.envAddress("ENGINE")));
+        deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));
 
         vm.stopBroadcast();
         return deployedContracts;

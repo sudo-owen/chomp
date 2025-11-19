@@ -13,7 +13,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
 
     IEngine public immutable ENGINE;
 
-    event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1, bool isFastBattle);
+    event BattleProposal(bytes32 indexed battleKey, address indexed p0, address indexed p1, bool isFastBattle, bytes32 p0TeamHash);
     event BattleAcceptance(bytes32 indexed battleKey, address indexed p1, bytes32 indexed updatedBattleKey);
 
     error P0P1Same();
@@ -61,7 +61,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
         bytes32 storageKey = _initializeStorageKey(battleKey);
         proposals[storageKey] = proposal;
         proposals[storageKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
-        emit BattleProposal(battleKey, proposal.p0, proposal.p1, proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH);
+        emit BattleProposal(battleKey, proposal.p0, proposal.p1, proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH, proposal.p0TeamHash);
         return battleKey;
     }
 
