@@ -80,12 +80,18 @@ contract OkayCPU is CPU {
             - Otherwise, do a smart random select
         */
         else {
-            
+            // If we are KO'ed
+            uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex];
+            int32 isKOed = ENGINE.getMonStateForBattle(battleKey, playerIndex, activeMonIndex, MonStateIndexName.IsKnockedOut);
+            if (isKOed == 1) {
+                uint256 rngIndex = _getRNG(battleKey) % switches.length;
+                return (switches[rngIndex].moveIndex, switches[rngIndex].extraData);
+            }
             // Add some default unpredictability
             if (_getRNG(battleKey) % SMART_SELECT_SHORT_CIRCUIT_DENOM == (SMART_SELECT_SHORT_CIRCUIT_DENOM - 1)) {
                 return _smartRandomSelect(battleKey, noOp, moves, switches);
             }
-
+            // Otherwise, try and act smart
             int32 staminaDelta = ENGINE.getMonStateForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], MonStateIndexName.Stamina);
             if (staminaDelta <= -3) {
                 if (_getRNG(battleKey) % 4 != 0 && noOp.length > 0) {
@@ -96,7 +102,7 @@ contract OkayCPU is CPU {
                 }
             }
             else {
-                int256 hpDelta = ENGINE.getMonStateForBattle(battleKey, playerIndex, ENGINE.getActiveMonIndexForBattleState(battleKey)[playerIndex], MonStateIndexName.Hp);
+                int256 hpDelta = ENGINE.getMonStateForBattle(battleKey, playerIndex, activeMonIndex, MonStateIndexName.Hp);                
                 if (hpDelta != 0) {
                     // Look up move if the opponent is switching and set the correct active mon index
                     uint256 opponentMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[opponentIndex];
