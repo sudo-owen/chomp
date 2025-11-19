@@ -12,6 +12,8 @@ import {Type} from "../src/Enums.sol";
 import {IMoveSet} from "../src/moves/IMoveSet.sol";
 import {IAbility} from "../src/abilities/IAbility.sol";
 import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
+import {OkayCPU} from "../src/cpu/OkayCPU.sol";
+import {ICPURNG} from "../src/rng/ICPURNG.sol";
 
 struct DeployData {
     string name;
@@ -24,9 +26,9 @@ contract Surgery is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
-        // Deploy Matchmaker
-        DefaultMatchmaker matchmaker = new DefaultMatchmaker(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts.push(DeployData({name: "DEFAULT MATCHMAKER", contractAddress: address(matchmaker)}));
+        // Deploy new OkayCPU
+        OkayCPU okayCPU = new OkayCPU(4, IEngine(vm.envAddress("ENGINE")), ICPURNG(address(0)), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        deployedContracts.push(DeployData({name: "OKAY CPU", contractAddress: address(okayCPU)}));
 
         vm.stopBroadcast();
         return deployedContracts;

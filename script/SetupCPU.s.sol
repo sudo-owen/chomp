@@ -17,7 +17,7 @@ contract SetupCPU is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
-        // Create team of Ghouliath, Malalien, Pengym, and Volthare for RandomCPU player
+        // Create team of Ghouliath, Malalien, Pengym, and Volthare for cpu player
         uint256[] memory monIndices = new uint256[](4);
         monIndices[0] = 0; // Ghouliath
         monIndices[1] = 2; // Malalien
