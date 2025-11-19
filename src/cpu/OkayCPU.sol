@@ -96,7 +96,7 @@ contract OkayCPU is CPU {
             if (staminaDelta <= -3) {
                 if (_getRNG(battleKey) % 4 != 0 && noOp.length > 0) {
                     return (noOp[0].moveIndex, noOp[0].extraData);
-                } else {
+                } else if (switches.length > 0) {
                     uint256 rngIndex = _getRNG(battleKey) % switches.length;
                     return (switches[rngIndex].moveIndex, switches[rngIndex].extraData);
                 }
@@ -150,7 +150,7 @@ contract OkayCPU is CPU {
         uint256 adjustedTotalMovesDenom = moves.length + 1;
         if (rngIndex % adjustedTotalMovesDenom == 0) {
             uint256 switchOrNoOp = _getRNG(battleKey) % 2;
-            if (switchOrNoOp == 0) {
+            if (switchOrNoOp == 0 && noOp.length > 0) {
                 emit SmartSelect(battleKey, noOp[0].moveIndex);
                 return (noOp[0].moveIndex, noOp[0].extraData);
             } else if (switches.length > 0) {
@@ -163,6 +163,7 @@ contract OkayCPU is CPU {
             emit SmartSelect(battleKey, moves[moveIndex].moveIndex);
             return (moves[moveIndex].moveIndex, moves[moveIndex].extraData);
         }
+        // We should never get here, but`
         emit SmartSelect(battleKey, noOp[0].moveIndex);
         return (noOp[0].moveIndex, noOp[0].extraData);
     }
