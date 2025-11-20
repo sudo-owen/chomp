@@ -8,7 +8,7 @@ import {IMoveSet} from "../moves/IMoveSet.sol";
 import {ICPURNG} from "../rng/ICPURNG.sol";
 import {ICPU} from "./ICPU.sol";
 import {CPUMoveManager} from "./CPUMoveManager.sol";
-
+import {IValidator} from "../IValidator.sol";
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
@@ -57,7 +57,7 @@ abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
             nonceToUse = nonce;
             return (new RevealedMove[](0), new RevealedMove[](0), switchChoices);
         } else {
-            (BattleConfig memory config,) = ENGINE.getBattle(battleKey);
+            IValidator validator = ENGINE.getBattleValidator(battleKey);
             uint256[] memory validSwitchIndices;
             uint256 validSwitchCount;
             // Check for valid switches
@@ -67,7 +67,7 @@ abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
                 validSwitchIndices = new uint256[](teamSize);
                 for (uint256 i = 0; i < teamSize; i++) {
                     if (i != activeMonIndex[playerIndex]) {
-                        if (config.validator
+                        if (validator
                             .validatePlayerMove(battleKey, SWITCH_MOVE_INDEX, playerIndex, abi.encode(i))) {
                             validSwitchIndices[validSwitchCount++] = i;
                         }
@@ -110,7 +110,7 @@ abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
                         extraDataToUse = abi.encode(validSwitchIndices[randomIndex]);
                         validMoveExtraData[validMoveCount] = extraDataToUse;
                     }
-                    if (config.validator.validatePlayerMove(battleKey, i, playerIndex, extraDataToUse)) {
+                    if (validator.validatePlayerMove(battleKey, i, playerIndex, extraDataToUse)) {
                         validMoveIndices[validMoveCount++] = uint128(i);
                     }
                 }

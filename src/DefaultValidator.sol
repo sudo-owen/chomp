@@ -219,8 +219,7 @@ contract DefaultValidator is IValidator {
         // Otherwise it was either turn 0 (we grab the battle start time), or a two player turn (we grab the timestamp whoever made the last move)
         else {
             if (turnId == 0) {
-                (, BattleData memory data) = ENGINE.getBattle(battleKey);
-                lastTurnTimestamp = data.startTimestamp;
+                lastTurnTimestamp = ENGINE.getStartTimestamp(battleKey);
             } else {
                 lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[(turnId - 1) % 2]);
             }

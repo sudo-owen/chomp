@@ -186,6 +186,10 @@ library AttackCalculator {
             damage = int32(
                 critNum * (scaledBasePower * attackStat * rngScaling) / (defenceStat * RNG_SCALING_DENOM * critDenom)
             );
+            // Handle the case where the type immunity results in 0 damage
+            if (scaledBasePower == 0) {
+                eventType = EngineEventType.MoveTypeImmunity;
+            }
         }
         return (damage, eventType);
     }

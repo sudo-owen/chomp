@@ -14,7 +14,7 @@ import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 contract MegaStarBlast is IMoveSet {
-    uint32 public constant DEFAULT_ACCURACY = 50;
+    uint32 public constant BASE_ACCURACY = 50;
     uint32 public constant ZAP_ACCURACY = 30;
     uint32 public constant BASE_POWER = 150;
 
@@ -47,7 +47,7 @@ contract MegaStarBlast is IMoveSet {
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) external {
         // Check if Storm is active
-        uint32 acc = DEFAULT_ACCURACY;
+        uint32 acc = BASE_ACCURACY;
         int32 stormIndex = _checkForOverclock(battleKey);
         if (stormIndex >= 0) {
             // Remove Storm
