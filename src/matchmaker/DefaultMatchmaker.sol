@@ -8,8 +8,9 @@ import {MappingAllocator} from "../lib/MappingAllocator.sol";
 
 contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
 
-    bytes32 constant public FAST_BATTLE_SENTINAL_HASH = bytes32("FAST_BATTLE_SENTINAL_HASH"); // Used to skip the confirmBattle step
-    uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 1; // Used to tell if a battle has been accepted by p1 or not
+    bytes32 constant public FAST_BATTLE_SENTINAL_HASH = 0x1000000000000000000000000000000000000000000000000000000000000000; // Used to skip the confirmBattle step
+    uint96 constant UNSET_P0_TEAM_INDEX = type(uint96).max - 1; // Used to tell if a battle has been accepted by p1 or not
+    uint96 constant UNSET_P1_TEAM_INDEX = type(uint96).max - 2; // Used to tell if a battle has been accepted by p1 or not
 
     IEngine public immutable ENGINE;
 
@@ -20,12 +21,13 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
     error ProposerNotP0();
     error AcceptorNotP1();
     error ConfirmerNotP0();
+    error AlreadyAccepted();
     error BattleChangedBeforeAcceptance();
     error InvalidP0TeamHash();
     error BattleNotAccepted();
 
     mapping(bytes32 battleKey => ProposedBattle) public proposals;
-    mapping(bytes32 newBattleKey => bytes32 oldBattleKey) private preP1FillBattleKey;
+    mapping(bytes32 newBattleKey => bytes32 oldBattleKey) public preP1FillBattleKey;
 
     constructor(IEngine engine) {
         ENGINE = engine;
@@ -45,7 +47,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
             )
         );
     }
-
+    
     /*
      P0 can bypass the final acceptBattle call by setting p0TeamIndex in the initial call and bytes32(0) for the p0TeamHash
      In this case, a different event is emitted, and calling acceptBattle will immediately start the battle
@@ -81,6 +83,9 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
         }
         if (getBattleProposalIntegrityHash(proposal) != battleIntegrityHash) {
             revert BattleChangedBeforeAcceptance();
+        }
+        if (proposal.p0TeamIndex == UNSET_P0_TEAM_INDEX) {
+            revert AlreadyAccepted();
         }
         proposal.p1TeamIndex = p1TeamIndex;
         if (proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH) {
@@ -144,15 +149,24 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
 
     function _cleanUpBattleProposal(bytes32 battleKey) internal {
         _freeStorageKey(battleKey);
-        delete preP1FillBattleKey[battleKey];
-    }
-
-    function validateMatch(bytes32 battleKey, address player) external view returns (bool) {
         bytes32 battleKeyToUse = battleKey;
         bytes32 battleKeyOverride = preP1FillBattleKey[battleKey];
         if (battleKeyOverride != bytes32(0)) {
             battleKeyToUse = battleKeyOverride;
         }
+        ProposedBattle storage proposal = proposals[_getStorageKey(battleKeyToUse)];
+        proposal.p0TeamIndex = UNSET_P0_TEAM_INDEX;
+        delete preP1FillBattleKey[battleKey];
+    }
+
+    function validateMatch(bytes32 battleKey, address player) external returns (bool) {
+        bytes32 battleKeyToUse = battleKey;
+        bytes32 battleKeyOverride = preP1FillBattleKey[battleKey];
+        if (battleKeyOverride != bytes32(0)) {
+            battleKeyToUse = battleKeyOverride;
+        }
+        // This line will fail if we haven't called `proposeBattle()` beforehand (e.g. if someone tries to accept an already accepted battle where p1 = address(0))
+        // We won't get the right storage key
         ProposedBattle storage proposal = proposals[_getStorageKey(battleKeyToUse)];
         bool isPlayer = player == proposal.p0 || player == proposal.p1;
         return isPlayer;

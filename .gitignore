@@ -19,6 +19,7 @@ input.txt
 output.txt
 ts.txt
 script/jk.s.sol
+snapshots/
 
 # Ignore pycache
 processing/__pycache__/**

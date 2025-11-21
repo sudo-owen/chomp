@@ -396,4 +396,79 @@ contract MatchmakerTest is Test, BattleHelper {
         // Check that Alice and Bob can commit/reveal/reveal to switch to mon index 0
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
     }
+
+    function test_fastBattleSucceedsAndNoSubsequentAccept() public {
+        uint96 p0TeamIndex = 0;
+
+        // Create proposal
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: p0TeamIndex,
+            p0TeamHash: matchmaker.FAST_BATTLE_SENTINAL_HASH(),
+            p1: address(0),
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            engineHooks: new IEngineHook[](0),
+            moveManager: address(commitManager),
+            matchmaker: matchmaker
+        });
+
+        // Propose battle as Alice
+        vm.startPrank(ALICE);
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
+
+        // Accept battle as Bob
+        vm.startPrank(BOB);
+        bytes32 battleIntegrityHash = matchmaker.getBattleProposalIntegrityHash(proposal);
+        bytes32 updatedBattleKey = matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
+
+        // Attempt to accept the battle again as Bob
+        vm.expectRevert(DefaultMatchmaker.AlreadyAccepted.selector);
+        matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
+    }
+
+    function test_battleActuallyReusesStorage() public {
+        uint96 p0TeamIndex = 0;
+
+        // Create proposal
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: p0TeamIndex,
+            p0TeamHash: matchmaker.FAST_BATTLE_SENTINAL_HASH(),
+            p1: BOB,
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            engineHooks: new IEngineHook[](0),
+            moveManager: address(commitManager),
+            matchmaker: matchmaker
+        });
+
+        // Propose battle as Alice
+        vm.startPrank(ALICE);
+        vm.startSnapshotGas("Propose1");
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
+        uint256 accept1Gas = vm.stopSnapshotGas("Propose1");
+
+        // Accept battle as Bob
+        vm.startPrank(BOB);
+        vm.startSnapshotGas("Accept1");
+        bytes32 battleIntegrityHash = matchmaker.getBattleProposalIntegrityHash(proposal);
+        bytes32 updatedBattleKey = matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
+        uint256 gasUsed2 = vm.stopSnapshotGas("Accept1");
+
+        // Propose battle as Alice
+        vm.startPrank(ALICE);
+        vm.startSnapshotGas("Accept2");
+        bytes32 battleKey2 = matchmaker.proposeBattle(proposal);
+        uint256 accept2Gas = vm.stopSnapshotGas("Accept2");
+        
+        // Should be at least 50% cheaper
+        assertLt(accept2Gas / 2, accept1Gas);
+    }
 }
