@@ -148,10 +148,10 @@ contract StatBoosts is BasicEffect {
         view
         returns (bool found, uint256 effectIndex, bytes memory extraData)
     {
-        EffectInstance[] memory effects = ENGINE.getEffects(ENGINE.battleKeyForWrite(), targetIndex, monIndex);
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(ENGINE.battleKeyForWrite(), targetIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
-                return (true, i, effects[i].data);
+                return (true, indices[i], effects[i].data);
             }
         }
         return (false, 0, "");

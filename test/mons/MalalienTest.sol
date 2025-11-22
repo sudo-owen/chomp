@@ -143,7 +143,7 @@ contract MalalienTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1, "Bob's mon should be KO'd");
 
         // Verify that Alice's mon has an indictment charge
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
         bool indictmentFound = false;
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(actusReus) && abi.decode(effects[i].data, (uint256)) == 1) {

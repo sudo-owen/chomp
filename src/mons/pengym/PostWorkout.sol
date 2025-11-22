@@ -24,7 +24,7 @@ contract PostWorkout is IAbility, BasicEffect {
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
         // Check if the effect has already been set for this mon
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
@@ -52,10 +52,10 @@ contract PostWorkout is IAbility, BasicEffect {
 
             // Get the index of the effect and remove it
             uint256 effectIndex;
-            EffectInstance[] memory effects = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+            (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
             for (uint256 i; i < effects.length; i++) {
                 if (effects[i].effect == statusEffect) {
-                    effectIndex = i;
+                    effectIndex = indices[i];
                     break;
                 }
             }

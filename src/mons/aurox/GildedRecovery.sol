@@ -35,12 +35,12 @@ contract GildedRecovery is IMoveSet {
         // If the mon has a status effect, remove it and heal
         if (statusFlag != bytes32(0)) {
             // Find and remove the status effect
-            EffectInstance[] memory effects = ENGINE.getEffects(battleKey, attackerPlayerIndex, targetMonIndex);
+            (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, attackerPlayerIndex, targetMonIndex);
             address statusEffectAddress = address(uint160(uint256(statusFlag)));
 
             for (uint256 i = 0; i < effects.length; i++) {
                 if (address(effects[i].effect) == statusEffectAddress) {
-                    ENGINE.removeEffect(attackerPlayerIndex, targetMonIndex, i);
+                    ENGINE.removeEffect(attackerPlayerIndex, targetMonIndex, indices[i]);
                     break;
                 }
             }

@@ -186,7 +186,7 @@ contract PengymTest is Test, BattleHelper {
         );
 
         // Check that Alice's mon has the PostWorkout effect
-        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         bool hasPostWorkoutEffect = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i].effect == IEffect(address(postWorkout))) {
@@ -203,7 +203,7 @@ contract PengymTest is Test, BattleHelper {
         mockOracle.setRNG(1);
 
         // Check that Alice's mon has the PanicStatus effect
-        aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         bool hasPanicEffect = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i].effect == IEffect(address(panicStatus))) {
@@ -227,7 +227,7 @@ contract PengymTest is Test, BattleHelper {
         );
 
         // Check that Alice's mon no longer has the PanicStatus effect
-        aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         hasPanicEffect = false;
 
         for (uint256 i = 0; i < aliceEffects.length; i++) {
@@ -361,7 +361,7 @@ contract PengymTest is Test, BattleHelper {
         );
 
         // Check that Alice's mon has the PostWorkout effect
-        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         bool hasPostWorkoutEffect = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i].effect == IEffect(address(postWorkout))) {
@@ -378,7 +378,7 @@ contract PengymTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
 
         // Check that Alice's mon has the FrostbiteStatus effect
-        aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         bool hasFrostbiteEffect = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i].effect == IEffect(address(frostbiteStatus))) {
@@ -407,7 +407,7 @@ contract PengymTest is Test, BattleHelper {
         );
 
         // Check that Alice's mon no longer has the FrostbiteStatus effect
-        aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         hasFrostbiteEffect = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i].effect == IEffect(address(frostbiteStatus))) {
@@ -497,7 +497,7 @@ contract PengymTest is Test, BattleHelper {
         assertGt(deepFreezeDoubleDamage, deepFreezeDamage, "Should have dealt more");
 
         // Frostbite should be cleared
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 1, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Frostbite should be cleared, so only StatBoosts left");
     }
 

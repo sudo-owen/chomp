@@ -2319,9 +2319,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Assert that the effect was only applied once
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(state.monStates[1][0].targetedEffects.length, 1);
+        (EffectInstance[] memory effects0, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory effects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects0.length, 1);
+        assertEq(effects1.length, 1);
     }
 
     function test_moveSpecificInvalidFlagsAreCheckedDuringReveal() public {
@@ -3062,12 +3063,12 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
 
         // Verify the dummy effect is applied to Alice's mon
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 1, 0);
+        (EffectInstance[] memory effects, uint256[] memory indices) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1);
 
         // Alice uses the edit effect attack to change the extra data to 69 on Bob
-        _commitRevealExecuteForAliceAndBob(battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(1, 0, 0), "");
-        effects = engine.getEffects(battleKey, 1, 0);
+        _commitRevealExecuteForAliceAndBob(battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(1, 0, indices[0]), "");
+        (effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects[0].data, abi.encode(69));
     }
 }

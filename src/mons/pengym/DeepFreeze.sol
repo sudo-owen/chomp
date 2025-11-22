@@ -30,11 +30,11 @@ contract DeepFreeze is IMoveSet {
     }
 
     function _frostbiteExists(bytes32 battleKey, uint256 targetIndex, uint256 monIndex) internal view returns (int32) {
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
         uint256 numEffects = effects.length;
         for (uint256 i; i < numEffects;) {
             if (address(effects[i].effect) == address(FROSTBITE)) {
-                return int32(int256(i));
+                return int32(int256(indices[i]));
             }
             unchecked {
                 ++i;

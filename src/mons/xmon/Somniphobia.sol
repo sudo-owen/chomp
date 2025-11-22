@@ -26,7 +26,7 @@ contract Somniphobia is IMoveSet, BasicEffect {
 
     function move(bytes32 battleKey, uint256, bytes calldata, uint256) external {
         // Add effect globally for 6 turns (only if it's not already in global effects)
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, 2, 2);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, 2, 2);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
@@ -70,8 +70,7 @@ contract Somniphobia is IMoveSet, BasicEffect {
         returns (bytes memory, bool)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleState(battleKey, targetIndex);
 
         // If this player rested (NO_OP), deal damage
         if (moveDecision.moveIndex == NO_OP_MOVE_INDEX) {

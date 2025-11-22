@@ -38,8 +38,7 @@ contract SleepStatus is StatusEffect {
     function _applySleep(uint256 targetIndex, uint256) internal {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         // Get exiting move index
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleState(battleKey, targetIndex);
         if (moveDecision.moveIndex != SWITCH_MOVE_INDEX) {
             ENGINE.setMove(battleKey, targetIndex, NO_OP_MOVE_INDEX, "", "");
         }

@@ -54,8 +54,7 @@ contract StaminaRegen is BasicEffect {
         returns (bytes memory, bool)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleState(battleKey, targetIndex);
         if (moveDecision.moveIndex == NO_OP_MOVE_INDEX) {
             _regenStamina(targetIndex, monIndex);
         }

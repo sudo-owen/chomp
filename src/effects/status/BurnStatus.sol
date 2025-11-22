@@ -80,7 +80,7 @@ contract BurnStatus is StatusEffect {
             });
             STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
         } else {
-            EffectInstance[] memory effects = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+            (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
             uint256 indexOfBurnEffect;
             uint256 burnDegree;
             bytes memory newExtraData;

@@ -168,7 +168,7 @@ contract VolthareTest is Test, BattleHelper {
         assertEq(spDefDelta, 0, "Special Defense should be reset after Storm subsides");
 
         // Verify that Storm is removed from global effects
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 2, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 0, "Storm effect should be removed from global effects after Storm subsides");
     }
 
@@ -332,7 +332,7 @@ contract VolthareTest is Test, BattleHelper {
         );
 
         // Verify that Storm is applied
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 2, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 1, "Storm should be applied");
         assertEq(address(effects[0].effect), address(storm), "Storm should be applied");
 
@@ -343,7 +343,7 @@ contract VolthareTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), "");
 
         // Verify that Bob's mon is zapped
-        effects = engine.getEffects(battleKey, 1, 0);
+        (effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Bob's mon should be zapped");
         assertEq(address(effects[0].effect), address(zapStatus), "Bob's mon should be zapped");
 
@@ -358,7 +358,7 @@ contract VolthareTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(0), "");
 
         // Verify that Bob's mon is not zapped
-        effects = engine.getEffects(battleKey, 1, 0);
+        (effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Bob's mon should not be zapped (again)");
 
         // Verify that Bob's mon did not take more damage

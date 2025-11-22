@@ -52,8 +52,8 @@ contract OkayCPU is CPU {
             }
         }
         uint256 opponentIndex = (playerIndex + 1) % 2;
+        MoveDecision memory opponentMove = ENGINE.getMoveDecisionForBattleState(battleKey, opponentIndex);
         uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        MoveDecision memory opponentMove = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, opponentIndex, turnId);
 
         // If it's the first turn, try and find a mon who has a type advantage to the opponent's type1
         if (turnId == 0) {

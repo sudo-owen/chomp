@@ -43,13 +43,19 @@ struct Battle {
     IEngineHook[] engineHooks;
 }
 
+struct MoveDecision {
+    uint128 moveIndex;
+    uint8 isRealTurn; // 1 = real turn, 2 = fake/not set (packed with moveIndex for gas efficiency)
+    bytes extraData;
+}
+
 // Stored by the Engine, tracks immutable battle data
 struct BattleData {
     address p1;
     uint96 startTimestamp;
     address p0;
     IEngineHook[] engineHooks;
-    Mon[][] teams;
+    Mon[][] teams; // TODO: move this to BattleConfig later
 }
 
 // Stored by the Engine for a battle, is overwritten after a battle is over
@@ -57,13 +63,17 @@ struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
+    uint96 effectsLength; // Current effective length of effects array for this battle (packed with moveManager)
     bytes32 p0Salt;
     bytes32 p1Salt;
+    MoveDecision[2] playerMoves;
+    EffectInstance[] allEffects; // Unified effects array, append-only and reused across battles
 }
 
 struct EffectInstance {
     IEffect effect;
     bytes data;
+    uint96 location; // top 8 bits: targetIndex (0/1/2), lower 88 bits: monIndex
 }
 
 // Stored by the Engine for a battle, tracks mutable battle data
@@ -73,9 +83,7 @@ struct BattleState {
     uint8 playerSwitchForTurnFlag;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     uint64 turnId;
-    EffectInstance[] globalEffects;
     MonState[][] monStates;
-    MoveDecision[][] playerMoves;
 }
 
 struct MonStats {
@@ -106,13 +114,6 @@ struct MonState {
     int32 specialDefenceDelta;
     bool isKnockedOut; // Is either 0 or 1
     bool shouldSkipTurn; // Used for effects to skip turn, or when moves become invalid (outside of user control)
-    EffectInstance[] targetedEffects;
-}
-
-struct MoveDecision {
-    uint128 moveIndex;
-    bool isRealTurn; // This indicates a non-decision, e.g. a turn where the player made no decision (i.e. only the other player moved)
-    bytes extraData;
 }
 
 // Used for Commit manager

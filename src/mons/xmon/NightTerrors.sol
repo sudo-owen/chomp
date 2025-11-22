@@ -37,7 +37,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
 
         // Check if the effect is already applied to the attacker
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, attackerPlayerIndex, attackerMonIndex);
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, attackerPlayerIndex, attackerMonIndex);
         bool found = false;
         uint256 effectIndex = 0;
         uint64 currentTerrorCount = 0;
@@ -45,7 +45,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 found = true;
-                effectIndex = i;
+                effectIndex = indices[i];
                 // Decode existing extraData
                 (, uint64 storedTerrorCount) = abi.decode(effects[i].data, (uint64, uint64));
                 currentTerrorCount = storedTerrorCount;
@@ -122,7 +122,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
         uint256 defenderMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
 
         // Check if opponent (defender) is asleep by iterating through their effects
-        EffectInstance[] memory defenderEffects = ENGINE.getEffects(battleKey, defenderPlayerIndex, defenderMonIndex);
+        (EffectInstance[] memory defenderEffects, ) = ENGINE.getEffects(battleKey, defenderPlayerIndex, defenderMonIndex);
         bool isAsleep = false;
         for (uint256 i = 0; i < defenderEffects.length; i++) {
             if (address(defenderEffects[i].effect) == address(SLEEP_STATUS)) {

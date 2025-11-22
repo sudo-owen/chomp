@@ -54,7 +54,7 @@ interface IEngine {
         external
         view
         returns (IMoveSet);
-    function getMoveDecisionForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
+    function getMoveDecisionForBattleState(bytes32 battleKey, uint256 playerIndex)
         external
         view
         returns (MoveDecision memory);
@@ -68,7 +68,7 @@ interface IEngine {
     function getEffects(bytes32 battleKey, uint256 targetIndex, uint256 monIndex)
         external
         view
-        returns (EffectInstance[] memory);
+        returns (EffectInstance[] memory, uint256[] memory);
     function getWinner(bytes32 battleKey) external view returns (address);
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
     function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256);

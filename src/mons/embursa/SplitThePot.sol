@@ -23,7 +23,7 @@ contract SplitThePot is IAbility, BasicEffect {
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
         // Check if the effect has already been set for this mon
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
@@ -43,8 +43,7 @@ contract SplitThePot is IAbility, BasicEffect {
     {
         // If the move index was a no-op, heal all non-KO'ed mons
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleState(battleKey, targetIndex);
         if (moveDecision.moveIndex == NO_OP_MOVE_INDEX) {
             uint256 teamSize = ENGINE.getTeamSize(battleKey, targetIndex);
             for (uint256 i; i < teamSize; i++) {

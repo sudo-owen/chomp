@@ -114,8 +114,8 @@ contract SofabbiTest is Test, BattleHelper {
         );
 
         // Verify that the CarrotHarvest effect was applied to Alice's mon
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
+        (EffectInstance[] memory carrotEffects, ) = engine.getEffects(battleKey, 0, 0);
+        assertEq(carrotEffects.length, 1);
 
         // Now have Alice switch to her second mon
         _commitRevealExecuteForAliceAndBob(
@@ -129,8 +129,9 @@ contract SofabbiTest is Test, BattleHelper {
 
         // Verify that the CarrotHarvest effect is still only applied once
         // (should still have only one targeted effect)
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(address(state.monStates[0][0].targetedEffects[0].effect), address(carrotHarvest));
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
+        assertEq(effects.length, 1);
+        assertEq(address(effects[0].effect), address(carrotHarvest));
     }
 
     function test_carrotHarvestTriggersAtEndOfRoundWhenRNGReturnsTrue() public {

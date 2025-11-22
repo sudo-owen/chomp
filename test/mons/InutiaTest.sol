@@ -440,7 +440,7 @@ contract InutiaTest is Test, BattleHelper {
 
         // Using Chain Expansion twice will not lead to two global effects (turn 2)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 2, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 1, "Chain Expansion should only be applied once");
 
         // Bob swaps to mon index 1 (turn 3)
@@ -480,7 +480,7 @@ contract InutiaTest is Test, BattleHelper {
         assertEq(damageToBobMon1, -128, "Damage dealt to Bob's mon index 1 should be 1/16 of max HP (now applied twice)");
 
         // Verify the global effects are now empty (CE is finished)
-        effects = engine.getEffects(battleKey, 2, 0);
+        (effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 0, "Chain Expansion should be removed from global effects");
 
         // Test the heal
@@ -488,7 +488,7 @@ contract InutiaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 1, "", "");
 
         // Verify that CE is back in global effects
-        effects = engine.getEffects(battleKey, 2, 0);
+        (effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 1, "Chain Expansion should be added back to global effects");
 
         // Verify Alice's mon index 0 took damage

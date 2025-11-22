@@ -95,8 +95,8 @@ contract XmonTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Verify that both Alice and Bob have Sleep status
-        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
-        EffectInstance[] memory bobEffects = engine.getEffects(battleKey, 1, 0);
+        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory bobEffects, ) = engine.getEffects(battleKey, 1, 0);
 
         bool aliceHasSleep = false;
         bool bobHasSleep = false;
@@ -227,7 +227,7 @@ contract XmonTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Verify that the global effect is applied
-        EffectInstance[] memory globalEffects = engine.getEffects(battleKey, 2, 2);
+        (EffectInstance[] memory globalEffects, ) = engine.getEffects(battleKey, 2, 2);
         bool hasSomniphobia = false;
         for (uint256 i = 0; i < globalEffects.length; i++) {
             if (address(globalEffects[i].effect) == address(somniphobia)) {
@@ -342,7 +342,7 @@ contract XmonTest is Test, BattleHelper {
         );
 
         // Verify that Alice has the Dreamcatcher effect
-        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         bool hasDreamcatcher = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (address(aliceEffects[i].effect) == address(dreamcatcher)) {
@@ -475,7 +475,7 @@ contract XmonTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Verify Alice's mon 0 has Night Terrors effect
-        EffectInstance[] memory aliceEffectsBeforeSwap = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory aliceEffectsBeforeSwap, ) = engine.getEffects(battleKey, 0, 0);
         bool hasNightTerrorsBeforeSwap = false;
         for (uint256 i = 0; i < aliceEffectsBeforeSwap.length; i++) {
             if (address(aliceEffectsBeforeSwap[i].effect) == address(nightTerrors)) {
@@ -489,7 +489,7 @@ contract XmonTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, abi.encode(1), "");
 
         // Verify Alice's mon 0 no longer has Night Terrors effect
-        EffectInstance[] memory aliceEffectsAfterSwap = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory aliceEffectsAfterSwap, ) = engine.getEffects(battleKey, 0, 0);
         bool hasNightTerrorsAfterSwap = false;
         for (uint256 i = 0; i < aliceEffectsAfterSwap.length; i++) {
             if (address(aliceEffectsAfterSwap[i].effect) == address(nightTerrors)) {
@@ -579,7 +579,7 @@ contract XmonTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, "", "");
 
         // Verify Bob is asleep
-        EffectInstance[] memory bobEffects = engine.getEffects(battleKey, 1, 0);
+        (EffectInstance[] memory bobEffects, ) = engine.getEffects(battleKey, 1, 0);
         bool bobIsAsleep = false;
         for (uint256 i = 0; i < bobEffects.length; i++) {
             if (address(bobEffects[i].effect) == address(sleepStatus)) {
