@@ -179,7 +179,7 @@ contract StatBoostsTest is Test, BattleHelper {
         assertEq(furtherBoostedStat, initialStat + 21, "Stat should be boosted by 21% total");
 
         // Verify no duplicate effect was added
-        effects = engine.getEffects(battleKey, 0, 0);
+        (effects, ) = engine.getEffects(battleKey, 0, 0);
         assertEq(effects.length, effectCount, "No duplicate effect should be added");
 
         // Switch out the mon
@@ -196,7 +196,7 @@ contract StatBoostsTest is Test, BattleHelper {
         );
 
         // Verify the effect was removed
-        effects = engine.getEffects(battleKey, 0, 1);
+        (effects, ) = engine.getEffects(battleKey, 0, 1);
         foundEffect = false;
         for (uint256 i = 0; i < effects.length; i++) {
             if (keccak256(abi.encodePacked(effects[i].effect.name())) == keccak256(abi.encodePacked("Stat Boost"))) {

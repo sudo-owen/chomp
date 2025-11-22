@@ -412,7 +412,7 @@ contract EmbursaTest is Test, BattleHelper {
         );
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 4, "", "");
-        effects = engine.getEffects(battleKey, 1, 0);
+        (effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 2, "Bob's mon should have 2x Dummy status");
 
         // Q5 test
@@ -426,7 +426,7 @@ contract EmbursaTest is Test, BattleHelper {
         );
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 4, "", "");
-        effects = engine.getEffects(battleKey, 2, 0);
+        (effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(address(effects[0].effect), address(q5), "Q5 should be applied to global effects");
         assertEq(
             engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut),
@@ -445,7 +445,7 @@ contract EmbursaTest is Test, BattleHelper {
         );
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 3, 4, "", "");
-        effects = engine.getEffects(battleKey, 1, 0);
+        (effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(address(effects[1].effect), address(statBoosts), "StatBoosts should be applied to Bob's mon");
         assertEq(
             engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut),

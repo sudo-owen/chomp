@@ -234,7 +234,7 @@ contract AuroxTest is Test, BattleHelper {
             0,
             "Alice's mon should have 0 staminaDelta"
         );
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
         for (uint256 i = 0; i < effects.length; i++) {
             assertNotEq(address(effects[i].effect), address(frostbiteStatus), "Alice's mon should no longer have frostbite");
         }
@@ -298,7 +298,7 @@ contract AuroxTest is Test, BattleHelper {
         assertEq(aliceDamage, -1 * int32(attack.basePower(battleKey)) * int32(100 - ironWall.HEAL_PERCENT()) / 100, "Alice's mon should take reduced damage");
 
         // Verify that the effect is gone
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
         for (uint256 i = 0; i < effects.length; i++) {
             assertNotEq(address(effects[i].effect), address(ironWall), "Alice's mon should no longer have Iron Wall");
         }
@@ -405,7 +405,7 @@ contract AuroxTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Verify that Bob's mon index 0 has frostbite (first effect is stat boost)
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 1, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 1, 0);
 
         assertEq(address(effects[1].effect), address(frostbiteStatus), "Bob's mon should have frostbite");
 
@@ -416,7 +416,7 @@ contract AuroxTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, "", "");
 
         // Verify that Alice's mon index 0 has burn (first effect is stat boost)
-        effects = engine.getEffects(battleKey, 0, 0);
+        (effects, ) = engine.getEffects(battleKey, 0, 0);
         assertEq(address(effects[1].effect), address(burnStatus), "Alice's mon should have burn");
     }
 }
