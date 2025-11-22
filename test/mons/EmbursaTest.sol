@@ -410,6 +410,8 @@ contract EmbursaTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
+        (effects, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects.length, 0, "Bob's mon should have no effects");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 4, "", "");
         (effects, ) = engine.getEffects(battleKey, 1, 0);

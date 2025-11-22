@@ -134,6 +134,8 @@ contract Engine is IEngine, MappingAllocator {
         if (config.moveManager != battle.moveManager) {
             config.moveManager = battle.moveManager;
         }
+        // Reset effectsLength to 0 for the new battle
+        config.effectsLength = 0;
 
         // Store the battle data
         battleData[battleKey] = BattleData({
@@ -1148,7 +1150,8 @@ contract Engine is IEngine, MappingAllocator {
         uint256 count = 0;
         for (uint256 i = 0; i < effectsLength; i++) {
             (uint256 effTargetIndex, uint256 effMonIndex) = _decodeLocation(effects[i].location);
-            if (effTargetIndex == targetIndex && effMonIndex == monIndex) {
+            // Include effects that match the target, or global effects (targetIndex == 2)
+            if ((effTargetIndex == targetIndex && effMonIndex == monIndex) || effTargetIndex == 2) {
                 count++;
             }
         }
@@ -1159,7 +1162,8 @@ contract Engine is IEngine, MappingAllocator {
         uint256 resultIndex = 0;
         for (uint256 i = 0; i < effectsLength; i++) {
             (uint256 effTargetIndex, uint256 effMonIndex) = _decodeLocation(effects[i].location);
-            if (effTargetIndex == targetIndex && effMonIndex == monIndex) {
+            // Include effects that match the target, or global effects (targetIndex == 2)
+            if ((effTargetIndex == targetIndex && effMonIndex == monIndex) || effTargetIndex == 2) {
                 result[resultIndex] = effects[i];
                 indices[resultIndex] = i; // Store the actual index in unified array
                 resultIndex++;
