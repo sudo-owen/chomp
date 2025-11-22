@@ -222,6 +222,11 @@ contract Engine is IEngine, MappingAllocator {
             revert GameAlreadyOver();
         }
 
+        // Check that at least one move has been set
+        if (config.playerMoves[0].isRealTurn != 1 && config.playerMoves[1].isRealTurn != 1) {
+            revert MovesNotSet();
+        }
+
         // Set up turn / player vars
         uint256 turnId = state.turnId;
         uint256 playerSwitchForTurnFlag = 2;
@@ -275,11 +280,6 @@ contract Engine is IEngine, MappingAllocator {
             - Set player switch for turn flag
         */
         else {
-            // Validate both moves have been revealed for the current turn
-            // This block only runs when playerSwitchForTurnFlag == 2 (both players move)
-            if (config.playerMoves[0].isRealTurn != 1 || config.playerMoves[1].isRealTurn != 1) {
-                revert MovesNotSet();
-            }
 
             // Update the temporary RNG to the newest value
             uint256 rng = config.rngOracle.getRNG(config.p0Salt, config.p1Salt);
