@@ -55,7 +55,6 @@ struct BattleData {
     uint96 startTimestamp;
     address p0;
     IEngineHook[] engineHooks;
-    Mon[][] teams; // TODO: move this to BattleConfig later
 }
 
 // Stored by the Engine for a battle, is overwritten after a battle is over
@@ -63,11 +62,13 @@ struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
-    uint96 effectsLength; // Current effective length of effects array for this battle (packed with moveManager)
+    uint88 effectsLength; // Current effective length of effects array for this battle (packed with moveManager and teamSizes)
+    uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
     bytes32 p0Salt;
     bytes32 p1Salt;
     MoveDecision[2] playerMoves;
     EffectInstance[] allEffects; // Unified effects array, append-only and reused across battles
+    Mon[][] teams; // Reused across battles for storage efficiency
 }
 
 struct EffectInstance {

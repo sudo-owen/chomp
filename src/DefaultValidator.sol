@@ -37,7 +37,7 @@ contract DefaultValidator is IValidator {
     }
 
     // Validates that there are MONS_PER_TEAM mons per team w/ MOVES_PER_MON moves each
-    function validateGameStart(BattleData calldata b, ITeamRegistry teamRegistry, uint256 p0TeamIndex, uint256 p1TeamIndex
+    function validateGameStart(BattleData calldata b, Mon[][] calldata teams, ITeamRegistry teamRegistry, uint256 p0TeamIndex, uint256 p1TeamIndex
     ) external returns (bool) {
         IMonRegistry monRegistry = teamRegistry.getMonRegistry();
 
@@ -56,7 +56,7 @@ contract DefaultValidator is IValidator {
         }
         // Otherwise,we check team and move length
         for (uint256 i; i < playerIndices.length; ++i) {
-            if (b.teams[i].length != MONS_PER_TEAM) {
+            if (teams[i].length != MONS_PER_TEAM) {
                 return false;
             }
 
@@ -65,11 +65,11 @@ contract DefaultValidator is IValidator {
 
             // Check that each mon is still up to date with the current mon registry values
             for (uint256 j; j < MONS_PER_TEAM; ++j) {
-                if (b.teams[i][j].moves.length != MOVES_PER_MON) {
+                if (teams[i][j].moves.length != MOVES_PER_MON) {
                     return false;
                 }
                 // Call the IMonRegistry to see if the stats, moves, and ability are still valid
-                if (address(monRegistry) != address(0) && !monRegistry.validateMon(b.teams[i][j], teamIndices[j])) {
+                if (address(monRegistry) != address(0) && !monRegistry.validateMon(teams[i][j], teamIndices[j])) {
                     return false;
                 }
             }
