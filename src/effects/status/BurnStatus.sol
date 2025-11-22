@@ -80,13 +80,13 @@ contract BurnStatus is StatusEffect {
             });
             STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
         } else {
-            (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+            (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
             uint256 indexOfBurnEffect;
             uint256 burnDegree;
             bytes memory newExtraData;
             for (uint256 i = 0; i < effects.length; i++) {
                 if (address(effects[i].effect) == address(this)) {
-                    indexOfBurnEffect = i;
+                    indexOfBurnEffect = indices[i];
                     burnDegree = abi.decode(effects[i].data, (uint256));
                     newExtraData = effects[i].data;
                 }

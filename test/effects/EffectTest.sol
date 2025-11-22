@@ -515,6 +515,7 @@ contract EffectTest is Test, BattleHelper {
 
         // Check that both mons took additional 1/8 damage (256/8 = 32)
         // Total damage should be 16 (first round) + 32 (second round) = 48
+        state = engine.getBattleState(battleKey);
         assertEq(state.monStates[0][0].hpDelta, -48);
         assertEq(state.monStates[1][0].hpDelta, -48);
 
