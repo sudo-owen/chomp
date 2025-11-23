@@ -6,12 +6,11 @@ import "../../Constants.sol";
 import "../../Enums.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import {IEffect} from "../../effects/IEffect.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
+import {IEffect} from "../../effects/IEffect.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract IronWall is IMoveSet, BasicEffect {
-
     uint256 public constant REMOVE = 0;
     uint256 public constant DO_NOT_REMOVE = 1;
 
@@ -28,7 +27,6 @@ contract IronWall is IMoveSet, BasicEffect {
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
-
         // Get the active mon index
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
 
@@ -80,13 +78,17 @@ contract IronWall is IMoveSet, BasicEffect {
         override
         returns (bytes memory updatedExtraData, bool removeAfterRun)
     {
-        // Heal 50% of the damage taken
+        // Calculate 50% of the damage taken
         int32 healAmount = (damageDealt * HEAL_PERCENT) / 100;
-
-        if (healAmount > 0) {
+        // Heal only if not KO'ed
+        if (
+            healAmount > 0
+                && ENGINE.getMonStateForBattle(
+                        ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.IsKnockedOut
+                    ) == 0
+        ) {
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.Hp, healAmount);
         }
-
         return (extraData, false);
     }
 

@@ -304,6 +304,69 @@ contract AuroxTest is Test, BattleHelper {
         }
     }
 
+    function test_ironWallSkipsIfKO() public {
+        uint32 maxHp = 100;
+
+        IronWall ironWall = new IronWall(IEngine(address(engine)));
+        StandardAttack attack = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: maxHp,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: DEFAULT_PRIORITY,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack",
+                EFFECT: IEffect(address(0))
+            })
+        );
+
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = ironWall;
+        moves[1] = attack;
+
+        Mon memory fastMon = _createMon();
+        fastMon.moves = moves;
+        fastMon.stats.hp = maxHp;
+        Mon memory slowMon = _createMon();
+        slowMon.moves = moves;
+        slowMon.stats.hp = maxHp;
+        Mon[] memory team = new Mon[](2);
+        team[0] = fastMon;
+        team[1] = slowMon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Both players select their first mon
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
+        );
+
+        // Alice uses Iron Wall, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
+
+        // Alice does nothing, Bob attacks
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, "", "");
+
+        // Verify that Alice's mon index 0 is KO'ed
+        int32 isKnockedOut = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut);
+        assertEq(isKnockedOut, 1, "Alice's mon should be KO'ed");
+
+        //Verify that HP delta is -100
+        int32 hpDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(hpDelta, -100, "Alice's mon should have -100 HP delta");
+    }
+
     function test_upOnlyBoostsOnDamage() public {
         uint32 maxHp = 100;
         uint32 maxAtk = 100;
