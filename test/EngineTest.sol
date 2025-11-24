@@ -192,11 +192,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Assert Alice wins
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), ALICE);
 
         // Assert that the staminaDelta was set correctly
-        assertEq(state.monStates[0][0].staminaDelta, -1);
+        assertEq(engine.getMonStateForStorageKey(battleKey, 0, 0, MonStateIndexName.Stamina), -1);
     }
 
     function test_fasterPriorityKOsGameOver() public {
@@ -267,11 +266,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Assert Bob wins as he has faster priority on a slower mon
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
 
         // Assert that the staminaDelta was set correctly for Bob's mon
-        assertEq(state.monStates[1][0].staminaDelta, -1);
+        assertEq(engine.getMonStateForStorageKey(battleKey, 1, 0, MonStateIndexName.Stamina), -1);
     }
 
     function _setup2v2FasterPriorityBattleAndForceSwitch() internal returns (bytes32) {
@@ -375,12 +373,11 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Assert Bob wins as he has faster priority on a slower mon
-        state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
 
         // Assert that the staminaDelta was set correctly for Bob's mon
         // (we used two attacks of 1 stamina, so -2)
-        assertEq(state.monStates[1][0].staminaDelta, -2);
+        assertEq(engine.getMonStateForStorageKey(battleKey, 1, 0, MonStateIndexName.Stamina), -2);
     }
 
     function test_fasterPriorityKOsForcesSwitchCorrectlyFailsOnInvalidSwitchReveal() public {
@@ -482,7 +479,7 @@ contract EngineTest is Test, BattleHelper {
         BattleState memory state = engine.getBattleState(battleKey);
 
         // Assert that the staminaDelta was set correctly (2 moves spent) for the winning mon
-        assertEq(state.monStates[state.winnerIndex][0].staminaDelta, -2);
+        assertEq(engine.getMonStateForStorageKey(battleKey, state.winnerIndex, 0, MonStateIndexName.Stamina), -2);
     }
 
     function test_switchPriorityIsFasterThanMove() public {
@@ -535,9 +532,8 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that mon index for Alice is 1
         // Assert that the mon state for Alice has -5 applied to the switched in mon
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
-        assertEq(state.monStates[0][1].hpDelta, -5);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Hp), -5);
     }
 
     function test_switchPriorityIsSlowerThanSuperfastMove() public {
@@ -590,9 +586,8 @@ contract EngineTest is Test, BattleHelper {
 
         // Assert that mon index for Alice is 1
         // Assert that the mon state for Alice has -5 applied to the previous mon
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
-        assertEq(state.monStates[0][0].hpDelta, -5);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -5);
     }
 
     function test_switchPriorityIsSlowerThanSuperfastMoveWithKO() public {
@@ -704,10 +699,8 @@ contract EngineTest is Test, BattleHelper {
         // (No mons are knocked out yet)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
-        BattleState memory state = engine.getBattleState(battleKey);
-
         // Assert that the staminaDelta was set correctly (now back to 0)
-        assertEq(state.monStates[0][0].staminaDelta, 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), 0);
     }
 
     function test_accuracyWorksAsExpectedWithRNG() public {
@@ -786,11 +779,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Assert that Bob's move missed (did no damage)
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].hpDelta, 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), 0);
 
         // Assert that Alice's move did damage
-        assertEq(state.monStates[1][0].hpDelta, -5);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -5);
     }
 
     function test_invalidMoveIfStaminaCostTooHigh() public {
@@ -1096,8 +1088,7 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 0, abi.encode(1), "");
 
         // Assert that the temporary stat boost effect is updated to 2 because the roundEnd hook also runs
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][1].attackDelta, 2);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Attack), 2);
     }
 
     function test_moveKOSupersedesRoundEndEffectKOForGameEnd() public {
@@ -1422,9 +1413,8 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, moveIndex, moveIndex, extraData, extraData);
 
         // Assert no winner, and no damage dealt
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getWinner(battleKey), address(0));
-        assertEq(state.monStates[1][0].hpDelta, 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), 0);
     }
 
     function test_forceSwitchMoveCorrectlySwitchesNonPriorityPlayerEndOfRound() public {
@@ -1501,11 +1491,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, abi.encode(1, 1), "");
 
         // Verify that Bob's mon is now index 1
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
 
         // Verify that Alice's mon took damage
-        assertEq(state.monStates[0][0].hpDelta, -5);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -5);
     }
 
     function test_forceSwitchMoveCorrectlySwitchesPriorityPlayerAfterAttacking() public {
@@ -1582,11 +1571,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, abi.encode(0, 1), "");
 
         // Assert that Alice's mon is now index 1
-        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[0], 1);
 
         // Assert that Alice's new mon took damage
-        assertEq(state.monStates[0][1].hpDelta, -5);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Hp), -5);
     }
 
     function test_forceSwitchMoveIgnoresInvalidSwitchTargetPriorityPlayerAfterAttacking() public {
@@ -1859,7 +1847,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Assert that Alice's new mon is now KOed
-        assertEq(state.monStates[0][1].isKnockedOut, true);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1);
     }
 
     // environmental effect kills mon after switch in from other player move and forces switch
@@ -1929,7 +1917,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(state.playerSwitchForTurnFlag, 1);
 
         // Assert that Bob's new mon is now KOed
-        assertEq(state.monStates[1][1].isKnockedOut, true);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.IsKnockedOut), 1);
     }
 
     // environmental effect kills mon after switch in move (not as a side effect from move)
@@ -1997,7 +1985,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Assert that Alice's new mon is now KOed
-        assertEq(state.monStates[0][1].isKnockedOut, true);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1);
     }
 
     // ability triggers effect leading to death on self after switch-in (lol)
@@ -2159,10 +2147,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, abi.encode(0, 1), "");
 
         // Assert that Alice's new mon is now KOed
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][1].isKnockedOut, true);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1);
 
         // Assert that player switch flag for turn is now 0, indicating Alice has to switch
+        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
     }
 
@@ -2260,10 +2248,10 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 0, abi.encode(1), "");
 
         // Assert that Alice's new mon is now KOed
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][1].isKnockedOut, true);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1);
 
         // Assert that player switch flag for turn is now 0, indicating Alice has to switch
+        BattleState memory state = engine.getBattleState(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
     }
 
@@ -2418,9 +2406,8 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Assert that the temporary stat boost effect was applied to both mons
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].attackDelta, 1);
-        assertEq(state.monStates[1][0].attackDelta, 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack), 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack), 1);
 
         // Alice and Bob both switch to mon index 1
         _commitRevealExecuteForAliceAndBob(
@@ -2428,9 +2415,8 @@ contract EngineTest is Test, BattleHelper {
         );
 
         // Assert that the temporary stat boost effect was removed from both mons
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][1].attackDelta, 0);
-        assertEq(state.monStates[1][1].attackDelta, 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Attack), 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Attack), 0);
     }
 
     function test_afterDamageHookRuns() public {
@@ -2488,12 +2474,11 @@ contract EngineTest is Test, BattleHelper {
 
         // Alice and Bob both select attacks, both of them are move index 1 (normal attack)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 1, "", "");
-        BattleState memory state = engine.getBattleState(battleKey);
 
         // Assert that the rebound effect was applied to both mons
         // (both have done no damage now)
-        assertEq(state.monStates[0][0].hpDelta, 0);
-        assertEq(state.monStates[1][0].hpDelta, 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), 0);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), 0);
     }
 
     function test_doubleCommitOrDoubleRevealReverts() public {

@@ -194,9 +194,8 @@ contract SofabbiTest is Test, BattleHelper {
         );
 
         // Verify that staminaDelta is 1 for both mons
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].staminaDelta, 1);
-        assertEq(state.monStates[1][0].staminaDelta, 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 1);
 
         // Set oracle to return 0 (ie no mons gain staminaDelta)
         mockOracle.setRNG(0);
@@ -205,9 +204,8 @@ contract SofabbiTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // Verify that staminaDelta is still 1 for both mons
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].staminaDelta, 1);
-        assertEq(state.monStates[1][0].staminaDelta, 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), 1);
     }
 
     function test_guestFeature() public {

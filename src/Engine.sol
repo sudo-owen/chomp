@@ -124,6 +124,26 @@ contract Engine is IEngine, MappingAllocator {
         bytes32 battleConfigKey = _initializeStorageKey(battleKey);
         BattleConfig storage config = battleConfig[battleConfigKey];
 
+        // Clear previous battle's mon states by setting non-zero values to sentinel
+        for (uint256 i = 0; i < config.monStates.length; i++) {
+            for (uint256 j = 0; j < config.monStates[i].length; j++) {
+                MonState storage monState = config.monStates[i][j];
+
+                // Set all non-zero int32 fields to sentinel value
+                if (monState.hpDelta != 0) monState.hpDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.staminaDelta != 0) monState.staminaDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.speedDelta != 0) monState.speedDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.attackDelta != 0) monState.attackDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.defenceDelta != 0) monState.defenceDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.specialAttackDelta != 0) monState.specialAttackDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.specialDefenceDelta != 0) monState.specialDefenceDelta = CLEARED_MON_STATE_SENTINEL;
+
+                // Reset bools to false
+                monState.isKnockedOut = false;
+                monState.shouldSkipTurn = false;
+            }
+        }
+
         // Store the battle config (update fields individually to preserve allEffects array)
         if (config.validator != battle.validator) {
             config.validator = battle.validator;
@@ -181,15 +201,23 @@ contract Engine is IEngine, MappingAllocator {
             }
         }
 
-        // Initialize empty mon state for each team
+        // Reuse or initialize mon state arrays
         // Note: activeMonIndex is a packed uint16 that defaults to 0 (both players start with mon index 0)
-        for (uint256 i; i < 2; ++i) {
-            battleStates[battleKey].monStates.push();
+        if (config.monStates.length < 2) {
+            // Need to create the player arrays
+            for (uint256 i = config.monStates.length; i < 2; i++) {
+                config.monStates.push();
+            }
+        }
 
-            // Initialize empty mon delta states for each mon on the team (use actual team size)
+        // For each player, ensure we have enough mon state slots
+        for (uint256 i = 0; i < 2; i++) {
             uint256 teamSize = (i == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
-            for (uint256 j; j < teamSize; ++j) {
-                battleStates[battleKey].monStates[i].push();
+            uint256 existingSlots = config.monStates[i].length;
+
+            // Add new slots if needed (existing slots will be reused as-is)
+            for (uint256 j = existingSlots; j < teamSize; j++) {
+                config.monStates[i].push();
             }
         }
 
@@ -229,9 +257,6 @@ contract Engine is IEngine, MappingAllocator {
 
         // Initialize winnerIndex to 2 (uninitialized/no winner)
         battleStates[battleKey].winnerIndex = 2;
-
-        // Initialize storage for moves (fixed-size array, default values are sufficient)
-        // Default: moveIndex=0, isRealTurn=0 (will be set to 2 for fake/not set), extraData=""
 
         for (uint256 i = 0; i < battle.engineHooks.length; i++) {
             battle.engineHooks[i].onBattleStart(battleKey);
@@ -485,6 +510,7 @@ contract Engine is IEngine, MappingAllocator {
         for (uint256 i = 0; i < battleData[battleKey].engineHooks.length; i++) {
             battleData[battleKey].engineHooks[i].onBattleEnd(battleKey);
         }
+
         // Free the key used for battle configs so other battles can use it
         _freeStorageKey(battleKey);
         emit BattleComplete(battleKey, winner);
@@ -500,22 +526,23 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        BattleState storage state = battleStates[battleKey];
-        MonState storage monState = state.monStates[playerIndex][monIndex];
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        MonState storage monState = config.monStates[playerIndex][monIndex];
         if (stateVarIndex == MonStateIndexName.Hp) {
-            monState.hpDelta += valueToAdd;
+            monState.hpDelta = (monState.hpDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.hpDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Stamina) {
-            monState.staminaDelta += valueToAdd;
+            monState.staminaDelta = (monState.staminaDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.staminaDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Speed) {
-            monState.speedDelta += valueToAdd;
+            monState.speedDelta = (monState.speedDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.speedDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Attack) {
-            monState.attackDelta += valueToAdd;
+            monState.attackDelta = (monState.attackDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.attackDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Defense) {
-            monState.defenceDelta += valueToAdd;
+            monState.defenceDelta = (monState.defenceDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.defenceDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
-            monState.specialAttackDelta += valueToAdd;
+            monState.specialAttackDelta = (monState.specialAttackDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.specialAttackDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
-            monState.specialDefenceDelta += valueToAdd;
+            monState.specialDefenceDelta = (monState.specialDefenceDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.specialDefenceDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
             monState.isKnockedOut = (valueToAdd % 2) == 1;
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
@@ -661,11 +688,15 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        MonState storage monState = battleStates[battleKey].monStates[playerIndex][monIndex];
-        monState.hpDelta -= damage;
-        // Set KO flag if the total hpDelta is greater than the original mon HP
         bytes32 storageKey = _getStorageKey(battleKey);
-        uint32 baseHp = battleConfig[storageKey].teams[playerIndex][monIndex].stats.hp;
+        BattleConfig storage config = battleConfig[storageKey];
+        MonState storage monState = config.monStates[playerIndex][monIndex];
+
+        // If sentinel, replace with -damage; otherwise subtract damage
+        monState.hpDelta = (monState.hpDelta == CLEARED_MON_STATE_SENTINEL) ? -damage : monState.hpDelta - damage;
+
+        // Set KO flag if the total hpDelta is greater than the original mon HP
+        uint32 baseHp = config.teams[playerIndex][monIndex].stats.hp;
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
         }
@@ -775,7 +806,7 @@ contract Engine is IEngine, MappingAllocator {
             uint256 playerIndex = playerIndices[i];
             uint256 teamSize = (playerIndex == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
             for (uint256 j = 0; j < teamSize; j++) {
-                if (state.monStates[playerIndex][j].isKnockedOut) {
+                if (config.monStates[playerIndex][j].isKnockedOut) {
                     monsKOed++;
                 }
             }
@@ -801,11 +832,11 @@ contract Engine is IEngine, MappingAllocator {
             playerSwitchForTurnFlag = 2;
 
             isPriorityPlayerActiveMonKnockedOut =
-            state.monStates[priorityPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex)]
+            config.monStates[priorityPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex)]
             .isKnockedOut;
 
             isNonPriorityPlayerActiveMonKnockedOut =
-            state.monStates[otherPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex)]
+            config.monStates[otherPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex)]
             .isKnockedOut;
 
             // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
@@ -826,9 +857,11 @@ contract Engine is IEngine, MappingAllocator {
         // will all resolve before checking for KOs or winners
         // (could break this up even more, but that's for a later version / PR)
 
+        bytes32 storageKey = _getStorageKey(battleKey);
         BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
         uint256 currentActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
-        MonState storage currentMonState = state.monStates[playerIndex][currentActiveMonIndex];
+        MonState storage currentMonState = config.monStates[playerIndex][currentActiveMonIndex];
 
         // Emit event first, then run effects
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
@@ -853,11 +886,10 @@ contract Engine is IEngine, MappingAllocator {
         _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
-        bytes32 storageKey = _getStorageKey(battleKey);
-        Mon memory mon = battleConfig[storageKey].teams[playerIndex][monToSwitchIndex];
+        Mon memory mon = config.teams[playerIndex][monToSwitchIndex];
         if (
             address(mon.ability) != address(0) && state.turnId != 0
-                && !state.monStates[playerIndex][monToSwitchIndex].isKnockedOut
+                && !config.monStates[playerIndex][monToSwitchIndex].isKnockedOut
         ) {
             mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
         }
@@ -867,7 +899,8 @@ contract Engine is IEngine, MappingAllocator {
         internal
         returns (uint256 playerSwitchForTurnFlag)
     {
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
         BattleState storage state = battleStates[battleKey];
         MoveDecision memory move = config.playerMoves[playerIndex];
         int32 staminaCost;
@@ -875,7 +908,7 @@ contract Engine is IEngine, MappingAllocator {
 
         // Handle shouldSkipTurn flag first and toggle it off if set
         uint256 activeMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
-        MonState storage currentMonState = state.monStates[playerIndex][activeMonIndex];
+        MonState storage currentMonState = config.monStates[playerIndex][activeMonIndex];
         if (currentMonState.shouldSkipTurn) {
             currentMonState.shouldSkipTurn = false;
             return playerSwitchForTurnFlag;
@@ -910,7 +943,7 @@ contract Engine is IEngine, MappingAllocator {
 
             // Update the mon state directly to account for the stamina cost of the move
             staminaCost = int32(moveSet.stamina(battleKey, playerIndex, activeMonIndex));
-            state.monStates[playerIndex][activeMonIndex].staminaDelta -= staminaCost;
+            config.monStates[playerIndex][activeMonIndex].staminaDelta -= staminaCost;
 
             // Emit event and then run the move
             emit MonMove(battleKey, playerIndex, activeMonIndex, move.moveIndex, move.extraData, staminaCost);
@@ -1045,7 +1078,9 @@ contract Engine is IEngine, MappingAllocator {
         uint256 prevPlayerSwitchForTurnFlag
     ) private returns (uint256 playerSwitchForTurnFlag) {
         // Check for Game Over and return early if so
+        bytes32 storageKey = _getStorageKey(battleKey);
         BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
         if (state.winnerIndex != 2) {
             return playerSwitchForTurnFlag;
@@ -1053,7 +1088,7 @@ contract Engine is IEngine, MappingAllocator {
         // If non-global effect, check if we should still run if mon is KOed
         if (effectIndex != 2) {
             bool isMonKOed =
-                state.monStates[playerIndex][_unpackActiveMonIndex(state.activeMonIndex, playerIndex)].isKnockedOut;
+                config.monStates[playerIndex][_unpackActiveMonIndex(state.activeMonIndex, playerIndex)].isKnockedOut;
             if (isMonKOed && condition == EffectRunCondition.SkipIfGameOverOrMonKO) {
                 return playerSwitchForTurnFlag;
             }
@@ -1107,10 +1142,10 @@ contract Engine is IEngine, MappingAllocator {
         } else {
             // Calculate speeds by combining base stats with deltas
             uint32 p0MonSpeed = uint32(
-                int32(config.teams[0][p0ActiveMonIndex].stats.speed) + state.monStates[0][p0ActiveMonIndex].speedDelta
+                int32(config.teams[0][p0ActiveMonIndex].stats.speed) + config.monStates[0][p0ActiveMonIndex].speedDelta
             );
             uint32 p1MonSpeed = uint32(
-                int32(config.teams[1][p1ActiveMonIndex].stats.speed) + state.monStates[1][p1ActiveMonIndex].speedDelta
+                int32(config.teams[1][p1ActiveMonIndex].stats.speed) + config.monStates[1][p1ActiveMonIndex].speedDelta
             );
             if (p0MonSpeed > p1MonSpeed) {
                 return 0;
@@ -1296,34 +1331,64 @@ contract Engine is IEngine, MappingAllocator {
         uint256 monIndex,
         MonStateIndexName stateVarIndex
     ) external view returns (int32) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        int32 value;
+
         if (stateVarIndex == MonStateIndexName.Hp) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].hpDelta;
+            value = config.monStates[playerIndex][monIndex].hpDelta;
         } else if (stateVarIndex == MonStateIndexName.Stamina) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].staminaDelta;
+            value = config.monStates[playerIndex][monIndex].staminaDelta;
         } else if (stateVarIndex == MonStateIndexName.Speed) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].speedDelta;
+            value = config.monStates[playerIndex][monIndex].speedDelta;
         } else if (stateVarIndex == MonStateIndexName.Attack) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].attackDelta;
+            value = config.monStates[playerIndex][monIndex].attackDelta;
         } else if (stateVarIndex == MonStateIndexName.Defense) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].defenceDelta;
+            value = config.monStates[playerIndex][monIndex].defenceDelta;
         } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].specialAttackDelta;
+            value = config.monStates[playerIndex][monIndex].specialAttackDelta;
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].specialDefenceDelta;
+            value = config.monStates[playerIndex][monIndex].specialDefenceDelta;
         } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
-            if (battleStates[battleKey].monStates[playerIndex][monIndex].isKnockedOut) {
-                return 1;
-            } else {
-                return 0;
-            }
+            return config.monStates[playerIndex][monIndex].isKnockedOut ? int32(1) : int32(0);
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
-            if (battleStates[battleKey].monStates[playerIndex][monIndex].shouldSkipTurn) {
-                return 1;
-            } else {
-                return 0;
-            }
+            return config.monStates[playerIndex][monIndex].shouldSkipTurn ? int32(1) : int32(0);
         } else {
-            return 0;
+            return int32(0);
+        }
+
+        // Return 0 if sentinel value is encountered
+        return (value == CLEARED_MON_STATE_SENTINEL) ? int32(0) : value;
+    }
+
+    function getMonStateForStorageKey(
+        bytes32 storageKey,
+        uint256 playerIndex,
+        uint256 monIndex,
+        MonStateIndexName stateVarIndex
+    ) external view returns (int32) {
+        BattleConfig storage config = battleConfig[storageKey];
+
+        if (stateVarIndex == MonStateIndexName.Hp) {
+            return config.monStates[playerIndex][monIndex].hpDelta;
+        } else if (stateVarIndex == MonStateIndexName.Stamina) {
+            return config.monStates[playerIndex][monIndex].staminaDelta;
+        } else if (stateVarIndex == MonStateIndexName.Speed) {
+            return config.monStates[playerIndex][monIndex].speedDelta;
+        } else if (stateVarIndex == MonStateIndexName.Attack) {
+            return config.monStates[playerIndex][monIndex].attackDelta;
+        } else if (stateVarIndex == MonStateIndexName.Defense) {
+            return config.monStates[playerIndex][monIndex].defenceDelta;
+        } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
+            return config.monStates[playerIndex][monIndex].specialAttackDelta;
+        } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
+            return config.monStates[playerIndex][monIndex].specialDefenceDelta;
+        } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
+            return config.monStates[playerIndex][monIndex].isKnockedOut ? int32(1) : int32(0);
+        } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
+            return config.monStates[playerIndex][monIndex].shouldSkipTurn ? int32(1) : int32(0);
+        } else {
+            return int32(0);
         }
     }
 

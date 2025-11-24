@@ -69,6 +69,7 @@ struct BattleConfig {
     MoveDecision[2] playerMoves;
     EffectInstance[] allEffects; // Unified effects array, append-only and reused across battles
     Mon[][] teams; // Reused across battles for storage efficiency
+    MonState[][] monStates; // Reused across battles for storage efficiency
 }
 
 struct EffectInstance {
@@ -84,7 +85,6 @@ struct BattleState {
     uint8 playerSwitchForTurnFlag;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     uint64 turnId;
-    MonState[][] monStates;
 }
 
 struct MonStats {

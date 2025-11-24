@@ -50,6 +50,12 @@ interface IEngine {
         uint256 monIndex,
         MonStateIndexName stateVarIndex
     ) external view returns (int32);
+    function getMonStateForStorageKey(
+        bytes32 storageKey,
+        uint256 playerIndex,
+        uint256 monIndex,
+        MonStateIndexName stateVarIndex
+    ) external view returns (int32);
     function getMoveForMonForBattle(bytes32 battleKey, uint256 playerIndex, uint256 monIndex, uint256 moveIndex)
         external
         view

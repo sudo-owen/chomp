@@ -14,3 +14,5 @@ uint32 constant DEFAULT_CRIT_RATE = 5;
 
 uint32 constant DEFAULT_VOL = 10;
 uint32 constant DEFAULT_ACCURACY = 100;
+
+int32 constant CLEARED_MON_STATE_SENTINEL = type(int32).max - 1;
