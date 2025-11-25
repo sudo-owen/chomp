@@ -73,6 +73,15 @@ contract Engine is IEngine, MappingAllocator {
         address source,
         uint256 step
     );
+    event EffectRun(
+        bytes32 indexed battleKey,
+        uint256 effectIndex,
+        uint256 monIndex,
+        address effectAddress,
+        bytes extraData,
+        address source,
+        uint256 step
+    );
     event EffectEdit(
         bytes32 indexed battleKey,
         uint256 effectIndex,
@@ -1013,6 +1022,17 @@ contract Engine is IEngine, MappingAllocator {
                     currentStep = uint256(round);
                     currentStepUpdated = true;
                 }
+
+                // Emit event first, then handle side effects
+                emit EffectRun(
+                    battleKey,
+                    effectIndex,
+                    monIndex,
+                    address(effects[i].effect),
+                    effects[i].data,
+                    _getUpstreamCallerAndResetValue(),
+                    currentStep
+                );
 
                 // Run the effects (depending on which round stage we are on)
                 bytes memory updatedExtraData;
