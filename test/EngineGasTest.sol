@@ -252,6 +252,6 @@ contract EngineGasTest is Test, BattleHelper {
         assertLt(setup2Gas, setup1Gas);
 
         // Battle comparison
-        // assertLt(secondBattleGas, firstBattleGas);
+        assertLt(secondBattleGas, firstBattleGas);
      }
 }

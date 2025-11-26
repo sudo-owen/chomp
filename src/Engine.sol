@@ -245,7 +245,16 @@ contract Engine is IEngine, MappingAllocator {
                     });
                     // Check if we need to push or can overwrite
                     if (effectIndex < cfg.allEffects.length) {
-                        cfg.allEffects[effectIndex] = newEffect;
+                        EffectInstance storage existingEffect = cfg.allEffects[effectIndex];
+                        if (existingEffect.effect != newEffect.effect) {
+                            existingEffect.effect = newEffect.effect;
+                        }
+                        if (keccak256(existingEffect.data) != keccak256(newEffect.data)) {
+                            existingEffect.data = newEffect.data;
+                        }
+                        if (existingEffect.location != newEffect.location) {
+                            existingEffect.location = newEffect.location;
+                        }
                     } else {
                         cfg.allEffects.push(newEffect);
                     }
@@ -256,7 +265,7 @@ contract Engine is IEngine, MappingAllocator {
 
         // Validate the battle config
         if (!battle.validator
-                .validateGameStart(battleData[battleKey], config.teams, battle.teamRegistry, battle.p0TeamIndex, battle.p1TeamIndex))
+                .validateGameStart(battle.p0, battle.p1, config.teams, battle.teamRegistry, battle.p0TeamIndex, battle.p1TeamIndex))
         {
             revert InvalidBattleConfig();
         }
@@ -620,7 +629,16 @@ contract Engine is IEngine, MappingAllocator {
                 // Check if we need to push or can overwrite
                 if (effectIndex < config.allEffects.length) {
                     // Overwrite existing slot
-                    config.allEffects[effectIndex] = newEffect;
+                    EffectInstance storage existingEffect = config.allEffects[effectIndex];
+                    if (existingEffect.effect != newEffect.effect) {
+                        existingEffect.effect = newEffect.effect;
+                    }
+                    if (keccak256(existingEffect.data) != keccak256(newEffect.data)) {
+                        existingEffect.data = newEffect.data;
+                    }
+                    if (existingEffect.location != newEffect.location) {
+                        existingEffect.location = newEffect.location;
+                    }
                 } else {
                     // Need to push new slot
                     config.allEffects.push(newEffect);

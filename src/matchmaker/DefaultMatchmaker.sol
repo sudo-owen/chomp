@@ -61,7 +61,40 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
         }
         (battleKey,) = ENGINE.computeBattleKey(proposal.p0, proposal.p1);
         bytes32 storageKey = _initializeStorageKey(battleKey);
-        proposals[storageKey] = proposal;
+        ProposedBattle storage existingBattle = proposals[storageKey];
+        if (existingBattle.p0 != proposal.p0) {
+            existingBattle.p0 = proposal.p0;
+        }
+        if (existingBattle.p0TeamIndex != proposal.p0TeamIndex) {
+            existingBattle.p0TeamIndex = proposal.p0TeamIndex;
+        }
+        if (existingBattle.p0TeamHash != proposal.p0TeamHash) {
+            existingBattle.p0TeamHash = proposal.p0TeamHash;
+        }
+        if (existingBattle.p1 != proposal.p1) {
+            existingBattle.p1 = proposal.p1;
+        }
+        if (existingBattle.teamRegistry != proposal.teamRegistry) {
+            existingBattle.teamRegistry = proposal.teamRegistry;
+        }
+        if (existingBattle.validator != proposal.validator) {
+            existingBattle.validator = proposal.validator;
+        }
+        if (existingBattle.rngOracle != proposal.rngOracle) {
+            existingBattle.rngOracle = proposal.rngOracle;
+        }
+        if (existingBattle.ruleset != proposal.ruleset) {
+            existingBattle.ruleset = proposal.ruleset;
+        }
+        if (existingBattle.moveManager != proposal.moveManager) {
+            existingBattle.moveManager = proposal.moveManager;
+        }
+        if (existingBattle.matchmaker != proposal.matchmaker) {
+            existingBattle.matchmaker = proposal.matchmaker;
+        }
+        if (existingBattle.engineHooks.length != proposal.engineHooks.length && proposal.engineHooks.length != 0) {
+            existingBattle.engineHooks = proposal.engineHooks;
+        }
         proposals[storageKey].p1TeamIndex = UNSET_P1_TEAM_INDEX;
         emit BattleProposal(battleKey, proposal.p0, proposal.p1, proposal.p0TeamHash == FAST_BATTLE_SENTINAL_HASH, proposal.p0TeamHash);
         return battleKey;
@@ -159,7 +192,7 @@ contract DefaultMatchmaker is IMatchmaker, MappingAllocator {
         delete preP1FillBattleKey[battleKey];
     }
 
-    function validateMatch(bytes32 battleKey, address player) external returns (bool) {
+    function validateMatch(bytes32 battleKey, address player) external view returns (bool) {
         bytes32 battleKeyToUse = battleKey;
         bytes32 battleKeyOverride = preP1FillBattleKey[battleKey];
         if (battleKeyOverride != bytes32(0)) {

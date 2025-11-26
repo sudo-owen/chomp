@@ -37,19 +37,19 @@ contract DefaultValidator is IValidator {
     }
 
     // Validates that there are MONS_PER_TEAM mons per team w/ MOVES_PER_MON moves each
-    function validateGameStart(BattleData calldata b, Mon[][] calldata teams, ITeamRegistry teamRegistry, uint256 p0TeamIndex, uint256 p1TeamIndex
+    function validateGameStart(address p0, address p1, Mon[][] calldata teams, ITeamRegistry teamRegistry, uint256 p0TeamIndex, uint256 p1TeamIndex
     ) external returns (bool) {
         IMonRegistry monRegistry = teamRegistry.getMonRegistry();
 
         // p0 and p1 each have 6 mons, each mon has 4 moves
         uint256[2] memory playerIndices = [uint256(0), uint256(1)];
-        address[2] memory players = [b.p0, b.p1];
+        address[2] memory players = [p0, p1];
         uint256[2] memory teamIndex = [uint256(p0TeamIndex), uint256(p1TeamIndex)];
 
         // If either player has a team count of zero, then it's invalid
         {
-            uint256 p0teamCount = teamRegistry.getTeamCount(b.p0);
-            uint256 p1TeamCount = teamRegistry.getTeamCount(b.p1);
+            uint256 p0teamCount = teamRegistry.getTeamCount(p0);
+            uint256 p1TeamCount = teamRegistry.getTeamCount(p1);
             if (p0teamCount == 0 || p1TeamCount == 0) {
                 return false;
             }
