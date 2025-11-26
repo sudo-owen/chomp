@@ -66,7 +66,8 @@ struct BattleConfig {
     uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
     bytes32 p0Salt;
     bytes32 p1Salt;
-    MoveDecision[2] playerMoves;
+    MoveDecision p0Move;
+    MoveDecision p1Move;
     EffectInstance[] allEffects; // Unified effects array, append-only and reused across battles
     Mon[][] teams; // Reused across battles for storage efficiency
     MonState[][] monStates; // Reused across battles for storage efficiency

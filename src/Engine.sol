@@ -296,7 +296,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Check that at least one move has been set
-        if (config.playerMoves[0].isRealTurn != 1 && config.playerMoves[1].isRealTurn != 1) {
+        if (config.p0Move.isRealTurn != 1 && config.p1Move.isRealTurn != 1) {
             revert MovesNotSet();
         }
 
@@ -499,8 +499,8 @@ contract Engine is IEngine, MappingAllocator {
         // - Clear move flags for next turn (set to 2 = fake/not set)
         state.turnId += 1;
         state.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
-        config.playerMoves[0].isRealTurn = 2;
-        config.playerMoves[1].isRealTurn = 2;
+        config.p0Move.isRealTurn = 2;
+        config.p1Move.isRealTurn = 2;
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
         emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
@@ -771,12 +771,13 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Simply overwrite the move for this player (isRealTurn = 1 means real turn)
-        battleConfig[_getStorageKey(battleKey)].playerMoves[playerIndex] =
-            MoveDecision({moveIndex: moveIndex, isRealTurn: 1, extraData: extraData});
+        MoveDecision memory newMove = MoveDecision({moveIndex: moveIndex, isRealTurn: 1, extraData: extraData});
 
         if (playerIndex == 0) {
+            battleConfig[_getStorageKey(battleKey)].p0Move = newMove;
             battleConfig[_getStorageKey(battleKey)].p0Salt = salt;
         } else {
+            battleConfig[_getStorageKey(battleKey)].p1Move = newMove;
             battleConfig[_getStorageKey(battleKey)].p1Salt = salt;
         }
     }
@@ -929,7 +930,7 @@ contract Engine is IEngine, MappingAllocator {
         bytes32 storageKey = _getStorageKey(battleKey);
         BattleConfig storage config = battleConfig[storageKey];
         BattleState storage state = battleStates[battleKey];
-        MoveDecision memory move = config.playerMoves[playerIndex];
+        MoveDecision memory move = (playerIndex == 0) ? config.p0Move : config.p1Move;
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
@@ -1145,8 +1146,8 @@ contract Engine is IEngine, MappingAllocator {
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleState storage state = battleStates[battleKey];
-        MoveDecision memory p0Move = config.playerMoves[0];
-        MoveDecision memory p1Move = config.playerMoves[1];
+        MoveDecision memory p0Move = config.p0Move;
+        MoveDecision memory p1Move = config.p1Move;
         uint256 p0ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 0);
         uint256 p1ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 1);
         uint256 p0Priority;
@@ -1344,7 +1345,8 @@ contract Engine is IEngine, MappingAllocator {
         view
         returns (MoveDecision memory)
     {
-        return battleConfig[_getStorageKey(battleKey)].playerMoves[playerIndex];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        return (playerIndex == 0) ? config.p0Move : config.p1Move;
     }
 
     function getPlayersForBattle(bytes32 battleKey) external view returns (address[] memory) {
