@@ -70,31 +70,23 @@ contract ChainExpansion is IMoveSet, BasicEffect {
      *  Effect implementation
      */
 
-    function _encodeState(uint128 chargesLeft, uint128 playerIndex) internal pure returns (bytes memory) {
-        return abi.encodePacked(chargesLeft, playerIndex);
+    function _encodeState(uint128 chargesLeft, uint128 playerIndex) internal pure returns (bytes32) {
+        return bytes32((uint256(chargesLeft) << 128) | playerIndex);
     }
 
-    function _decodeState(bytes memory data) internal pure returns (uint256 chargesLeft, uint256 playerIndex) {
-        assembly {
-            // Load the full 32 bytes starting at data + 32 (skipping length prefix)
-            let packed := mload(add(data, 32))
-
-            // First uint128: shift right 128 bits
-            chargesLeft := shr(128, packed)
-
-            // Second uint128: mask to keep only lower 128 bits
-            playerIndex := and(packed, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        }
+    function _decodeState(bytes32 data) internal pure returns (uint256 chargesLeft, uint256 playerIndex) {
+        chargesLeft = uint256(data) >> 128;
+        playerIndex = uint256(data) & type(uint128).max;
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.OnMonSwitchIn);
     }
 
-    function onMonSwitchIn(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchIn(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         (uint256 chargesLeft, uint256 ownerIndex) = _decodeState(extraData);
@@ -135,7 +127,7 @@ contract ChainExpansion is IMoveSet, BasicEffect {
             ENGINE.dealDamage(targetIndex, monIndex, damageToDeal);
         }
         if (chargesLeft == 1) {
-            return ("", true);
+            return (bytes32(0), true);
         }
         else {
             return (_encodeState(uint128(chargesLeft - 1), uint128(ownerIndex)), false);

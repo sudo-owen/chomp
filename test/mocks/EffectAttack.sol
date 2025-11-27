@@ -35,10 +35,10 @@ contract EffectAttack is IMoveSet {
         return "Effect Attack";
     }
 
-    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes memory extraData, uint256) external {
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes memory, uint256) external {
         uint256 targetIndex = (attackerPlayerIndex + 1) % 2;
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[targetIndex];
-        ENGINE.addEffect(targetIndex, activeMonIndex, EFFECT, extraData);
+        ENGINE.addEffect(targetIndex, activeMonIndex, EFFECT, bytes32(0));
     }
 
     function priority(bytes32, uint256) external view returns (uint32) {

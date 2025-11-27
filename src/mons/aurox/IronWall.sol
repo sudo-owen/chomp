@@ -32,7 +32,7 @@ contract IronWall is IMoveSet, BasicEffect {
 
         // Add the effect to Aurox with the activation turn stored in extraData
         // The effect will last until the end of turn (currentTurn + 1)
-        ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, IEffect(address(this)), abi.encode(DO_NOT_REMOVE));
+        ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, IEffect(address(this)), bytes32(DO_NOT_REMOVE));
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -64,19 +64,19 @@ contract IronWall is IMoveSet, BasicEffect {
         return (step == EffectStep.AfterDamage || step == EffectStep.RoundEnd || step == EffectStep.RoundStart);
     }
 
-    function onRoundStart(uint256, bytes memory, uint256, uint256)
+    function onRoundStart(uint256, bytes32, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        return (abi.encode(REMOVE), false);
+        return (bytes32(REMOVE), false);
     }
 
-    function onAfterDamage(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex, int32 damageDealt)
+    function onAfterDamage(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex, int32 damageDealt)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Calculate 50% of the damage taken
         int32 healAmount = (damageDealt * HEAL_PERCENT) / 100;
@@ -92,14 +92,14 @@ contract IronWall is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Decode the remove flag
-        uint256 removeFlag = abi.decode(extraData, (uint256));
+        uint256 removeFlag = uint256(extraData);
 
         // Remove the effect at the end of next full turn
         if (removeFlag == REMOVE) {

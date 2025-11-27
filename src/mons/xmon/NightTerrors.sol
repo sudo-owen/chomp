@@ -47,7 +47,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
                 found = true;
                 effectIndex = indices[i];
                 // Decode existing extraData
-                (, uint64 storedTerrorCount) = abi.decode(effects[i].data, (uint64, uint64));
+                (, uint64 storedTerrorCount) = _unpackExtraData(effects[i].data);
                 currentTerrorCount = storedTerrorCount;
                 break;
             }
@@ -55,7 +55,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
 
         // Increment terror count
         uint64 newTerrorCount = currentTerrorCount + 1;
-        bytes memory newExtraData = abi.encode(uint64(defenderPlayerIndex), newTerrorCount);
+        bytes32 newExtraData = _packExtraData(uint64(defenderPlayerIndex), newTerrorCount);
 
         if (found) {
             // Edit existing effect
@@ -64,6 +64,15 @@ contract NightTerrors is IMoveSet, BasicEffect {
             // Add new effect
             ENGINE.addEffect(attackerPlayerIndex, attackerMonIndex, this, newExtraData);
         }
+    }
+
+    function _packExtraData(uint64 defenderPlayerIndex, uint64 terrorCount) internal pure returns (bytes32) {
+        return bytes32((uint256(defenderPlayerIndex) << 64) | terrorCount);
+    }
+
+    function _unpackExtraData(bytes32 data) internal pure returns (uint64 defenderPlayerIndex, uint64 terrorCount) {
+        defenderPlayerIndex = uint64(uint256(data) >> 64);
+        terrorCount = uint64(uint256(data) & type(uint64).max);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -95,14 +104,14 @@ contract NightTerrors is IMoveSet, BasicEffect {
         return (step == EffectStep.RoundEnd || step == EffectStep.OnMonSwitchOut);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         // targetIndex/monIndex is the attacker (who has the effect)
         // defenderPlayerIndex is stored in extraData (who should take damage)
-        (uint64 defenderPlayerIndex, uint64 terrorCount) = abi.decode(extraData, (uint64, uint64));
+        (uint64 defenderPlayerIndex, uint64 terrorCount) = _unpackExtraData(extraData);
 
         bytes32 battleKey = ENGINE.battleKeyForWrite();
 
@@ -155,11 +164,11 @@ contract NightTerrors is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onMonSwitchOut(uint256, bytes memory extraData, uint256, uint256)
+    function onMonSwitchOut(uint256, bytes32 extraData, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         // Clear effect on switch out
         return (extraData, true);

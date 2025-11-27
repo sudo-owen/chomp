@@ -43,7 +43,7 @@ contract Storm is BasicEffect {
         uint256 duration = getDuration(battleKey, playerIndex);
         if (duration == 0) {
             // If not, add the effect to the global effects array
-            ENGINE.addEffect(2, 0, IEffect(address(this)), abi.encode(playerIndex));
+            ENGINE.addEffect(2, 0, IEffect(address(this)), bytes32(playerIndex));
         } else {
             // Otherwise, reset the duration
             setDuration(DEFAULT_DURATION, playerIndex);
@@ -79,12 +79,12 @@ contract Storm is BasicEffect {
         STAT_BOOST.removeStatBoosts(playerIndex, monIndex, StatBoostFlag.Temp);
     }
 
-    function onApply(uint256, bytes memory extraData, uint256, uint256)
+    function onApply(uint256, bytes32 extraData, uint256, uint256)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        uint256 playerIndex = abi.decode(extraData, (uint256));
+        uint256 playerIndex = uint256(extraData);
 
         // Set default duration
         setDuration(DEFAULT_DURATION, playerIndex);
@@ -96,12 +96,12 @@ contract Storm is BasicEffect {
         return (extraData, false);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        uint256 playerIndex = abi.decode(extraData, (uint256));
+        uint256 playerIndex = uint256(extraData);
         uint256 duration = getDuration(ENGINE.battleKeyForWrite(), playerIndex);
         if (duration == 1) {
             return (extraData, true);
@@ -111,12 +111,12 @@ contract Storm is BasicEffect {
         }
     }
 
-    function onMonSwitchIn(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchIn(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        uint256 playerIndex = abi.decode(extraData, (uint256));
+        uint256 playerIndex = uint256(extraData);
         // Apply stat change to the mon on the team of the player who summoned Storm
         if (targetIndex == playerIndex) {
             _applyStatChange(targetIndex, monIndex);
@@ -124,8 +124,8 @@ contract Storm is BasicEffect {
         return (extraData, false);
     }
 
-    function onRemove(bytes memory extraData, uint256, uint256) external override {
-        uint256 playerIndex = abi.decode(extraData, (uint256));
+    function onRemove(bytes32 extraData, uint256, uint256) external override {
+        uint256 playerIndex = uint256(extraData);
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[playerIndex];
         // Reset stat changes from the mon on the team of the player who summoned Storm
         _removeStatChange(playerIndex, activeMonIndex);

@@ -213,8 +213,9 @@ contract EngineGasTest is Test, BattleHelper {
 
         // Check effects array after setup 2
         (BattleConfigView memory cfgAfterSetup2,) = engine.getBattle(battleKey2);
-        console.log("After setup 2 - effectsLength:", cfgAfterSetup2.effectsLength);
-        console.log("After setup 2 - allEffects.length:", cfgAfterSetup2.allEffects.length);
+        console.log("After setup 2 - globalEffectsLength:", cfgAfterSetup2.globalEffectsLength);
+        console.log("After setup 2 - p0EffectsLength:", cfgAfterSetup2.p0EffectsLength);
+        console.log("After setup 2 - p1EffectsLength:", cfgAfterSetup2.p1EffectsLength);
 
         // - Both players send in mon 0
         vm.startSnapshotGas("SecondBattle");
@@ -388,16 +389,18 @@ contract EngineGasTest is Test, BattleHelper {
 
         // Check after switch
         (BattleConfigView memory cfgAfterSwitch,) = engine.getBattle(battleKey1);
-        console.log("After B1 switch - effectsLength:", cfgAfterSwitch.effectsLength);
-        console.log("After B1 switch - allEffects.length:", cfgAfterSwitch.allEffects.length);
+        console.log("After B1 switch - globalEffectsLength:", cfgAfterSwitch.globalEffectsLength);
+        console.log("After B1 switch - p0EffectsLength:", cfgAfterSwitch.p0EffectsLength);
+        console.log("After B1 switch - p1EffectsLength:", cfgAfterSwitch.p1EffectsLength);
 
         // Both apply effect to each other (adds 2 effects)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, 0, 0, "", "");
 
         // Check after effects applied
         (BattleConfigView memory cfgAfterEffects,) = engine.getBattle(battleKey1);
-        console.log("After B1 effects - effectsLength:", cfgAfterEffects.effectsLength);
-        console.log("After B1 effects - allEffects.length:", cfgAfterEffects.allEffects.length);
+        console.log("After B1 effects - globalEffectsLength:", cfgAfterEffects.globalEffectsLength);
+        console.log("After B1 effects - p0EffectsLength:", cfgAfterEffects.p0EffectsLength);
+        console.log("After B1 effects - p1EffectsLength:", cfgAfterEffects.p1EffectsLength);
 
         // Both attack - should KO
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, 1, 1, "", "");
@@ -415,8 +418,9 @@ contract EngineGasTest is Test, BattleHelper {
 
         // Check if effects array was reused
         (BattleConfigView memory cfg2,) = engine.getBattle(battleKey2);
-        console.log("After B2 setup - effectsLength:", cfg2.effectsLength);
-        console.log("After B2 setup - allEffects.length:", cfg2.allEffects.length);
+        console.log("After B2 setup - globalEffectsLength:", cfg2.globalEffectsLength);
+        console.log("After B2 setup - p0EffectsLength:", cfg2.p0EffectsLength);
+        console.log("After B2 setup - p1EffectsLength:", cfg2.p1EffectsLength);
 
         vm.startSnapshotGas("B2_Execute");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey2, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));

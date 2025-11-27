@@ -34,7 +34,7 @@ contract IntrinsicValue is IAbility, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // Should run at end of round
@@ -42,10 +42,10 @@ contract IntrinsicValue is IAbility, BasicEffect {
         return (step == EffectStep.RoundEnd);
     }
 
-    function onRoundEnd(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         bool statsReset = false;
 
@@ -64,6 +64,6 @@ contract IntrinsicValue is IAbility, BasicEffect {
             // Increase baselight level if we reset any stats
             BASELIGHT.increaseBaselightLevel(targetIndex, monIndex);
         }
-        return ("", false);
+        return (bytes32(0), false);
     }
 }

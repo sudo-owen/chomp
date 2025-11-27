@@ -146,7 +146,7 @@ contract MalalienTest is Test, BattleHelper {
         (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
         bool indictmentFound = false;
         for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(actusReus) && abi.decode(effects[i].data, (uint256)) == 1) {
+            if (address(effects[i].effect) == address(actusReus) && uint256(effects[i].data) == 1) {
                 indictmentFound = true;
                 break;
             }

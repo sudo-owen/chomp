@@ -25,10 +25,10 @@ contract SpAtkDebuffEffect is StatusEffect {
         return (r == EffectStep.OnApply || r == EffectStep.OnRemove);
     }
 
-    function onApply(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onApply(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         public
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Reduce special attack by half
         StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);
@@ -43,7 +43,7 @@ contract SpAtkDebuffEffect is StatusEffect {
         return (extraData, false);
     }
 
-    function onRemove(bytes memory data, uint256 targetIndex, uint256 monIndex) public override {
+    function onRemove(bytes32 data, uint256 targetIndex, uint256 monIndex) public override {
         super.onRemove(data, targetIndex, monIndex);
 
         // Reset the special attack reduction

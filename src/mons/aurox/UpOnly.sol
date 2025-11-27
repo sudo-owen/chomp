@@ -36,7 +36,7 @@ contract UpOnly is IAbility, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), "");
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // IEffect implementation
@@ -44,10 +44,10 @@ contract UpOnly is IAbility, BasicEffect {
         return (step == EffectStep.AfterDamage);
     }
 
-    function onAfterDamage(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex, int32)
+    function onAfterDamage(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex, int32)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Add 5% attack boost every time damage is taken
         StatBoostToApply[] memory statBoosts = new StatBoostToApply[](1);

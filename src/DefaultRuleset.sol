@@ -22,8 +22,8 @@ contract DefaultRuleset is IRuleset {
         }
     }
 
-    function getInitialGlobalEffects() external view returns (IEffect[] memory, bytes[] memory) {
-        bytes[] memory data = new bytes[](1);
+    function getInitialGlobalEffects() external view returns (IEffect[] memory, bytes32[] memory) {
+        bytes32[] memory data = new bytes32[](effects.length);
         return (effects, data);
     }
 }

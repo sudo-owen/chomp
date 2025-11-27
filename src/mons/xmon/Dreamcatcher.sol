@@ -31,7 +31,7 @@ contract Dreamcatcher is IAbility, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), "");
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // IEffect implementation
@@ -41,12 +41,12 @@ contract Dreamcatcher is IAbility, BasicEffect {
 
     function onUpdateMonState(
         uint256,
-        bytes memory extraData,
+        bytes32 extraData,
         uint256 playerIndex,
         uint256 monIndex,
         MonStateIndexName stateVarIndex,
         int32 valueToAdd
-    ) external override returns (bytes memory, bool) {
+    ) external override returns (bytes32, bool) {
         // Only trigger if Stamina is being increased (positive valueToAdd)
         if (stateVarIndex == MonStateIndexName.Stamina && valueToAdd > 0) {
             bytes32 battleKey = ENGINE.battleKeyForWrite();

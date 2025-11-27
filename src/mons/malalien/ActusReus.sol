@@ -35,18 +35,18 @@ contract ActusReus is IAbility, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.AfterMove || step == EffectStep.AfterDamage);
     }
 
-    function onAfterMove(uint256, bytes memory extraData, uint256 targetIndex, uint256)
+    function onAfterMove(uint256, bytes32 extraData, uint256 targetIndex, uint256)
         external
         override
         view
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Check if opposing mon is KOed
         uint256 otherPlayerIndex = (targetIndex + 1) % 2;
@@ -57,18 +57,18 @@ contract ActusReus is IAbility, BasicEffect {
                 ENGINE.battleKeyForWrite(), otherPlayerIndex, otherPlayerActiveMonIndex, MonStateIndexName.IsKnockedOut
             ) == 1;
         if (isOtherMonKOed) {
-            return (abi.encode(1), false);
+            return (bytes32(uint256(1)), false);
         }
         return (extraData, false);
     }
 
-    function onAfterDamage(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex, int32)
+    function onAfterDamage(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex, int32)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         // Check if we have an indictment
-        if (abi.decode(extraData, (uint256)) == 1) {
+        if (uint256(extraData) == 1) {
             // If we are KO'ed, set a speed delta of half of the opposing mon's base speed
             bool isKOed =
                 ENGINE.getMonStateForBattle(
@@ -85,7 +85,7 @@ contract ActusReus is IAbility, BasicEffect {
                     boostType: StatBoostType.Divide
                 });
                 STAT_BOOSTS.addStatBoosts(otherPlayerIndex, otherPlayerActiveMonIndex, statBoosts, StatBoostFlag.Temp);
-                return (abi.encode(0), false);
+                return (bytes32(0), false);
             }
         }
         return (extraData, false);

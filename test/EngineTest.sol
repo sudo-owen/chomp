@@ -3054,6 +3054,6 @@ contract EngineTest is Test, BattleHelper {
         // Alice uses the edit effect attack to change the extra data to 69 on Bob
         _commitRevealExecuteForAliceAndBob(battleKey, 0, NO_OP_MOVE_INDEX, abi.encode(1, 0, indices[0]), "");
         (effects, ) = engine.getEffects(battleKey, 1, 0);
-        assertEq(effects[0].data, abi.encode(69));
+        assertEq(effects[0].data, bytes32(uint256(69)));
     }
 }

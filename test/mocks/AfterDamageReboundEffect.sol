@@ -21,10 +21,10 @@ contract AfterDamageReboundEffect is BasicEffect {
     }
 
     // NOTE: CURRENTLY ONLY RUN LOCALLY ON MONS (global effects do not have this hook)
-    function onAfterDamage(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex, int32)
+    function onAfterDamage(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex, int32)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         // Heals for all damage done
         int32 currentDamage =

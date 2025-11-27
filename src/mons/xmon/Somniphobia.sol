@@ -32,7 +32,7 @@ contract Somniphobia is IMoveSet, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(2, 2, this, abi.encode(DURATION));
+        ENGINE.addEffect(2, 2, this, bytes32(DURATION));
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -64,10 +64,10 @@ contract Somniphobia is IMoveSet, BasicEffect {
         return (step == EffectStep.AfterMove || step == EffectStep.RoundEnd);
     }
 
-    function onAfterMove(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onAfterMove(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleState(battleKey, targetIndex);
@@ -85,17 +85,17 @@ contract Somniphobia is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory, bool removeAfterRun)
+        returns (bytes32, bool removeAfterRun)
     {
-        uint256 turnsLeft = abi.decode(extraData, (uint256));
+        uint256 turnsLeft = uint256(extraData);
         if (turnsLeft == 1) {
             return (extraData, true);
         } else {
-            return (abi.encode(turnsLeft - 1), false);
+            return (bytes32(turnsLeft - 1), false);
         }
     }
 }

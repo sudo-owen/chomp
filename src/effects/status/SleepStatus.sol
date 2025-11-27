@@ -28,7 +28,7 @@ contract SleepStatus is StatusEffect {
     }
 
     // Whether or not to add the effect if the step condition is met
-    function shouldApply(bytes memory data, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
+    function shouldApply(bytes32 data, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
         bool shouldApplyStatusInGeneral = super.shouldApply(data, targetIndex, monIndex);
         bool playerHasZeroSleepers =
             address(bytes20(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
@@ -45,10 +45,10 @@ contract SleepStatus is StatusEffect {
     }
 
     // At the start of the turn, check to see if we should apply sleep or end early
-    function onRoundStart(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundStart(uint256 rng, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         bool wakeEarly = rng % 3 == 0;
         if (!wakeEarly) {
@@ -58,10 +58,10 @@ contract SleepStatus is StatusEffect {
     }
 
     // On apply, checks to apply the sleep flag, and then sets the extraData to be the duration
-    function onApply(uint256 rng, bytes memory data, uint256 targetIndex, uint256 monIndex)
+    function onApply(uint256 rng, bytes32 data, uint256 targetIndex, uint256 monIndex)
         public
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         super.onApply(rng, data, targetIndex, monIndex);
         // Check if opponent has yet to move and if so, also affect their move for this round
@@ -70,24 +70,24 @@ contract SleepStatus is StatusEffect {
         if (targetIndex != priorityPlayerIndex) {
             _applySleep(targetIndex, monIndex);
         }
-        return (abi.encode(DURATION), false);
+        return (bytes32(DURATION), false);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory, bool removeAfterRun)
+        returns (bytes32, bool removeAfterRun)
     {
-        uint256 turnsLeft = abi.decode(extraData, (uint256));
+        uint256 turnsLeft = uint256(extraData);
         if (turnsLeft == 1) {
             return (extraData, true);
         } else {
-            return (abi.encode(turnsLeft - 1), false);
+            return (bytes32(turnsLeft - 1), false);
         }
     }
 
-    function onRemove(bytes memory extraData, uint256 targetIndex, uint256 monIndex) public override {
+    function onRemove(bytes32 extraData, uint256 targetIndex, uint256 monIndex) public override {
         super.onRemove(extraData, targetIndex, monIndex);
         ENGINE.setGlobalKV(_globalSleepKey(targetIndex), bytes32(0));
     }

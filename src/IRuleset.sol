@@ -6,5 +6,5 @@ import "./effects/IEffect.sol";
 
 interface IRuleset {
     // Returns which global effects to start the game with
-    function getInitialGlobalEffects() external returns (IEffect[] memory, bytes[] memory);
+    function getInitialGlobalEffects() external returns (IEffect[] memory, bytes32[] memory);
 }

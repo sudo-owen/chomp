@@ -39,7 +39,7 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
             uint64 v2 = uint64(playerIndex) & 0x3F; // player index (masked to 6 bits)
             uint64 v3 = uint64(monIndex) & 0x3F; // mon index (masked to 6 bits)
             uint256 packedValue = (v1 << 12) | (v2 << 6) | v3;
-            ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(packedValue));
+            ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(packedValue));
         }
     }
 
@@ -48,10 +48,10 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
         return (step == EffectStep.RoundEnd || step == EffectStep.AfterDamage);
     }
 
-    function onAfterDamage(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex, int32)
+    function onAfterDamage(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex, int32)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         /*
         On damage, if the mon is KO'd, add this effect to the global effects list (so we can hook into onRoundEnd)
@@ -67,20 +67,20 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
             uint64 v2 = uint64(targetIndex) & 0x3F; // player index (masked to 6 bits)
             uint64 v3 = uint64(monIndex) & 0x3F; // mon index (masked to 6 bits)
             uint256 packedValue = (v1 << 12) | (v2 << 6) | v3;
-            ENGINE.addEffect(2, 0, IEffect(address(this)), abi.encode(packedValue));
+            ENGINE.addEffect(2, 0, IEffect(address(this)), bytes32(packedValue));
             return (extraData, true);
         }
         return (extraData, false);
     }
 
     // Regain stamina on round end, this can overheal stamina
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Decode the packed magic value
-        uint256 packedValue = abi.decode(extraData, (uint256));
+        uint256 packedValue = uint256(extraData);
         uint64 turnsLeft = uint64(packedValue >> 12);
         uint64 playerIndex = uint64((packedValue >> 6) & 0x3F); // Extract 6 bits for player index
         uint64 monIndex = uint64(packedValue & 0x3F); // Extract 6 bits for mon index
@@ -103,7 +103,7 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
             return (extraData, true);
         } else {
             uint256 newPackedValue = ((turnsLeft - 1) << 12) | ((playerIndex & 0x3F) << 6) | (monIndex & 0x3F);
-            return (abi.encode(newPackedValue), false);
+            return (bytes32(newPackedValue), false);
         }
     }
 }

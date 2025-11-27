@@ -23,17 +23,17 @@ contract SingleInstanceEffect is BasicEffect {
         return r == EffectStep.OnApply;
     }
 
-    function onApply(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onApply(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool removeAfterRun)
+        returns (bytes32, bool removeAfterRun)
     {
         bytes32 indexHash = keccak256(abi.encode(targetIndex, monIndex));
         ENGINE.setGlobalKV(indexHash, bytes32("true"));
-        return ("", false);
+        return (bytes32(0), false);
     }
 
-    function shouldApply(bytes memory, uint256 targetIndex, uint256 monIndex) external view override returns (bool) {
+    function shouldApply(bytes32, uint256 targetIndex, uint256 monIndex) external view override returns (bool) {
         bytes32 indexHash = keccak256(abi.encode(targetIndex, monIndex));
         bytes32 value = ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), indexHash);
         return value == bytes32(0);

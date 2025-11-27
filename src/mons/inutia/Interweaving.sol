@@ -46,17 +46,17 @@ contract Interweaving is IAbility, BasicEffect {
         }
         // Otherwise, add this effect to the mon when it switches in
         // This way we can trigger on switch out
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.OnMonSwitchOut || step == EffectStep.OnApply);
     }
 
-    function onMonSwitchOut(uint256, bytes memory, uint256 targetIndex, uint256)
+    function onMonSwitchOut(uint256, bytes32, uint256 targetIndex, uint256)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         uint256 otherPlayerIndex = (targetIndex + 1) % 2;
         uint256 otherPlayerActiveMonIndex =
@@ -68,6 +68,6 @@ contract Interweaving is IAbility, BasicEffect {
             boostType: StatBoostType.Divide
         });
         STAT_BOOST.addStatBoosts(otherPlayerIndex, otherPlayerActiveMonIndex, statBoosts, StatBoostFlag.Temp);
-        return ("", false);
+        return (bytes32(0), false);
     }
 }

@@ -13,7 +13,7 @@ abstract contract StatusEffect is BasicEffect {
     }
 
     // Whether or not to add the effect if the step condition is met
-    function shouldApply(bytes memory, uint256 targetIndex, uint256 monIndex) public virtual view override returns (bool) {
+    function shouldApply(bytes32, uint256 targetIndex, uint256 monIndex) public virtual view override returns (bool) {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
 
@@ -29,11 +29,11 @@ abstract contract StatusEffect is BasicEffect {
         }
     }
 
-    function onApply(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onApply(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         public
         virtual
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
@@ -43,9 +43,9 @@ abstract contract StatusEffect is BasicEffect {
             // Set the global status flag to be the address of the status
             ENGINE.setGlobalKV(keyForMon, bytes32(uint256(uint160(address(this)))));
         }
-    } 
+    }
 
-    function onRemove(bytes memory, uint256 targetIndex, uint256 monIndex) public virtual override {
+    function onRemove(bytes32, uint256 targetIndex, uint256 monIndex) public virtual override {
         // On remove, reset the status flag
         ENGINE.setGlobalKV(StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex), bytes32(0));
     }

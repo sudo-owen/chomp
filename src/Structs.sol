@@ -62,7 +62,9 @@ struct BattleConfig {
     IValidator validator;
     IRandomnessOracle rngOracle;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
-    uint88 effectsLength; // Current effective length of effects mapping for this battle
+    uint24 globalEffectsLength;
+    uint24 p0EffectsLength;
+    uint24 p1EffectsLength;
     uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
     bytes32 p0Salt;
     bytes32 p1Salt;
@@ -70,13 +72,15 @@ struct BattleConfig {
     MoveDecision p1Move;
     Mon[][] teams;
     MonState[][] monStates;
-    mapping(uint256 => EffectInstance) allEffects; // Unified effects mapping, indexed 0 to effectsLength-1, reused across battles
+    mapping(uint256 => EffectInstance) globalEffects;
+    mapping(uint256 => EffectInstance) p0Effects;
+    mapping(uint256 => EffectInstance) p1Effects;
 }
 
 struct EffectInstance {
     IEffect effect;
-    bytes data;
     uint96 location; // top 8 bits: targetIndex (0/1/2), lower 88 bits: monIndex
+    bytes32 data;
 }
 
 // View struct for getBattle - contains array instead of mapping for memory return
@@ -84,13 +88,17 @@ struct BattleConfigView {
     IValidator validator;
     IRandomnessOracle rngOracle;
     address moveManager;
-    uint88 effectsLength;
+    uint24 globalEffectsLength;
+    uint24 p0EffectsLength;
+    uint24 p1EffectsLength;
     uint8 teamSizes;
     bytes32 p0Salt;
     bytes32 p1Salt;
     MoveDecision p0Move;
     MoveDecision p1Move;
-    EffectInstance[] allEffects; // Dynamically built from mapping
+    EffectInstance[] globalEffects;
+    EffectInstance[] p0Effects;
+    EffectInstance[] p1Effects;
     Mon[][] teams;
     MonState[][] monStates;
 }

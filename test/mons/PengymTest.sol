@@ -496,9 +496,9 @@ contract PengymTest is Test, BattleHelper {
         // Damage dealt should be greater
         assertGt(deepFreezeDoubleDamage, deepFreezeDamage, "Should have dealt more");
 
-        // Frostbite should be cleared
+        // Frostbite should be cleared, and its associated StatBoost should also be removed
         (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 1, 0);
-        assertEq(effects.length, 1, "Frostbite should be cleared, so only StatBoosts left");
+        assertEq(effects.length, 0, "Frostbite and its StatBoost should be cleared");
     }
 
     function test_pistolSquat() public {

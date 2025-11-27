@@ -27,10 +27,10 @@ contract FrostbiteStatus is StatusEffect {
         return (r == EffectStep.OnApply || r == EffectStep.RoundEnd || r == EffectStep.OnRemove);
     }
 
-    function onApply(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onApply(uint256 rng, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         public
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
 
         super.onApply(rng, extraData, targetIndex, monIndex);
@@ -48,18 +48,18 @@ contract FrostbiteStatus is StatusEffect {
         return (extraData, false);
     }
 
-    function onRemove(bytes memory data, uint256 targetIndex, uint256 monIndex) public override {
+    function onRemove(bytes32 data, uint256 targetIndex, uint256 monIndex) public override {
         super.onRemove(data, targetIndex, monIndex);
 
         // Reset the special attack reduction
         STAT_BOOST.removeStatBoosts(targetIndex, monIndex, StatBoostFlag.Perm);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         public
         override
-        returns (bytes memory, bool)
-    {   
+        returns (bytes32, bool)
+    {
         // Calculate damage to deal
         uint32 maxHealth =
             ENGINE.getMonValueForBattle(ENGINE.battleKeyForWrite(), targetIndex, monIndex, MonStateIndexName.Hp);

@@ -21,10 +21,10 @@ contract ZapStatus is StatusEffect {
                 || r == EffectStep.OnRemove || r == EffectStep.OnMonSwitchIn);
     }
 
-    function onApply(uint256 rng, bytes memory data, uint256 targetIndex, uint256 monIndex)
+    function onApply(uint256 rng, bytes32 data, uint256 targetIndex, uint256 monIndex)
         public
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         super.onApply(rng, data, targetIndex, monIndex);
 
@@ -43,40 +43,40 @@ contract ZapStatus is StatusEffect {
         }
         // else: Opponent has already moved, state = 0 (not yet skipped), wait for RoundStart
 
-        return (abi.encode(state), false);
+        return (bytes32(uint256(state)), false);
     }
 
-    function onRoundStart(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onRoundStart(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // If we're at RoundStart and effect is still present, always set skip flag and mark as skipped
         // (If state was ALREADY_SKIPPED, effect would have been removed at previous RoundEnd)
         ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
-        return (abi.encode(ALREADY_SKIPPED), false);
+        return (bytes32(uint256(ALREADY_SKIPPED)), false);
     }
 
-    function onMonSwitchIn(uint256, bytes memory extraData, uint256, uint256)
+    function onMonSwitchIn(uint256, bytes32 extraData, uint256, uint256)
         external
         override
         pure
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         return (extraData, false);
     }
 
-    function onRemove(bytes memory data, uint256 targetIndex, uint256 monIndex) public override {
+    function onRemove(bytes32 data, uint256 targetIndex, uint256 monIndex) public override {
         super.onRemove(data, targetIndex, monIndex);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         public
         pure
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
-        uint8 state = abi.decode(extraData, (uint8));
+        uint8 state = uint8(uint256(extraData));
 
         // Otherwise keep the effect
         return (extraData, state == ALREADY_SKIPPED);

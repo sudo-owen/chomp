@@ -29,17 +29,17 @@ contract SplitThePot is IAbility, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.AfterMove);
     }
 
-    function onAfterMove(uint256, bytes memory, uint256 targetIndex, uint256)
+    function onAfterMove(uint256, bytes32, uint256 targetIndex, uint256)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // If the move index was a no-op, heal all non-KO'ed mons
         bytes32 battleKey = ENGINE.battleKeyForWrite();
@@ -65,6 +65,6 @@ contract SplitThePot is IAbility, BasicEffect {
                 }
             }
         }
-        return ("", false);
+        return (bytes32(0), false);
     }
 }

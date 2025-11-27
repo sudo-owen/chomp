@@ -69,7 +69,7 @@ contract Engine is IEngine, MappingAllocator {
         uint256 effectIndex,
         uint256 monIndex,
         address effectAddress,
-        bytes extraData,
+        bytes32 extraData,
         address source,
         uint256 step
     );
@@ -78,7 +78,7 @@ contract Engine is IEngine, MappingAllocator {
         uint256 effectIndex,
         uint256 monIndex,
         address effectAddress,
-        bytes extraData,
+        bytes32 extraData,
         address source,
         uint256 step
     );
@@ -87,7 +87,7 @@ contract Engine is IEngine, MappingAllocator {
         uint256 effectIndex,
         uint256 monIndex,
         address effectAddress,
-        bytes extraData,
+        bytes32 extraData,
         address source,
         uint256 step
     );
@@ -153,7 +153,7 @@ contract Engine is IEngine, MappingAllocator {
             }
         }
 
-        // Store the battle config (update fields individually to preserve allEffects mapping slots)
+        // Store the battle config (update fields individually to preserve effects mapping slots)
         if (config.validator != battle.validator) {
             config.validator = battle.validator;
         }
@@ -163,8 +163,10 @@ contract Engine is IEngine, MappingAllocator {
         if (config.moveManager != battle.moveManager) {
             config.moveManager = battle.moveManager;
         }
-        // Reset effectsLength to 0 for the new battle
-        config.effectsLength = 0;
+        // Reset effects lengths to 0 for the new battle
+        config.globalEffectsLength = 0;
+        config.p0EffectsLength = 0;
+        config.p1EffectsLength = 0;
 
         // Store the battle data
         battleData[battleKey] = BattleData({
@@ -232,17 +234,17 @@ contract Engine is IEngine, MappingAllocator {
 
         // Get the global effects and data to start the game if any
         if (address(battle.ruleset) != address(0)) {
-            (IEffect[] memory effects, bytes[] memory data) = battle.ruleset.getInitialGlobalEffects();
+            (IEffect[] memory effects, bytes32[] memory data) = battle.ruleset.getInitialGlobalEffects();
             if (effects.length > 0) {
                 bytes32 storageKey = battleConfigKey;
                 BattleConfig storage cfg = battleConfig[storageKey];
                 for (uint256 i = 0; i < effects.length; i++) {
-                    uint256 effectIndex = cfg.effectsLength;
-                    EffectInstance storage effectSlot = cfg.allEffects[effectIndex];
+                    uint256 effectIndex = cfg.globalEffectsLength;
+                    EffectInstance storage effectSlot = cfg.globalEffects[effectIndex];
                     effectSlot.effect = effects[i];
                     effectSlot.data = data[i];
                     effectSlot.location = _encodeLocation(2, 0);
-                    cfg.effectsLength = uint88(effectIndex + 1);
+                    cfg.globalEffectsLength = uint24(effectIndex + 1);
                 }
             }
         }
@@ -573,13 +575,13 @@ contract Engine is IEngine, MappingAllocator {
         );
     }
 
-    function addEffect(uint256 targetIndex, uint256 monIndex, IEffect effect, bytes memory extraData) external {
+    function addEffect(uint256 targetIndex, uint256 monIndex, IEffect effect, bytes32 extraData) external {
         bytes32 battleKey = battleKeyForWrite;
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
         if (effect.shouldApply(extraData, targetIndex, monIndex)) {
-            bytes memory extraDataToUse = extraData;
+            bytes32 extraDataToUse = extraData;
             bool removeAfterRun = false;
 
             // Emit event first, then handle side effects
@@ -599,23 +601,37 @@ contract Engine is IEngine, MappingAllocator {
                 (extraDataToUse, removeAfterRun) = effect.onApply(tempRNG, extraData, targetIndex, monIndex);
             }
             if (!removeAfterRun) {
-                // Add to unified effects mapping
+                // Add to the appropriate effects mapping based on targetIndex
                 bytes32 storageKey = _getStorageKey(battleKey);
                 BattleConfig storage config = battleConfig[storageKey];
-                uint256 effectIndex = config.effectsLength;
 
-                EffectInstance storage effectSlot = config.allEffects[effectIndex];
-                effectSlot.effect = effect;
-                effectSlot.data = extraDataToUse;
-                effectSlot.location = _encodeLocation(targetIndex, monIndex);
-
-                // Increment the effective length
-                config.effectsLength = uint88(effectIndex + 1);
+                if (targetIndex == 2) {
+                    uint256 effectIndex = config.globalEffectsLength;
+                    EffectInstance storage effectSlot = config.globalEffects[effectIndex];
+                    effectSlot.effect = effect;
+                    effectSlot.data = extraDataToUse;
+                    effectSlot.location = _encodeLocation(targetIndex, monIndex);
+                    config.globalEffectsLength = uint24(effectIndex + 1);
+                } else if (targetIndex == 0) {
+                    uint256 effectIndex = config.p0EffectsLength;
+                    EffectInstance storage effectSlot = config.p0Effects[effectIndex];
+                    effectSlot.effect = effect;
+                    effectSlot.data = extraDataToUse;
+                    effectSlot.location = _encodeLocation(targetIndex, monIndex);
+                    config.p0EffectsLength = uint24(effectIndex + 1);
+                } else {
+                    uint256 effectIndex = config.p1EffectsLength;
+                    EffectInstance storage effectSlot = config.p1Effects[effectIndex];
+                    effectSlot.effect = effect;
+                    effectSlot.data = extraDataToUse;
+                    effectSlot.location = _encodeLocation(targetIndex, monIndex);
+                    config.p1EffectsLength = uint24(effectIndex + 1);
+                }
             }
         }
     }
 
-    function editEffect(uint256 targetIndex, uint256 monIndex, uint256 effectIndex, bytes memory newExtraData)
+    function editEffect(uint256 targetIndex, uint256 monIndex, uint256 effectIndex, bytes32 newExtraData)
         external
     {
         bytes32 battleKey = battleKeyForWrite;
@@ -623,10 +639,17 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
 
-        // Access the unified effects array
+        // Access the appropriate effects mapping based on targetIndex
         bytes32 storageKey = _getStorageKey(battleKey);
         BattleConfig storage config = battleConfig[storageKey];
-        EffectInstance storage effectInstance = config.allEffects[effectIndex];
+        EffectInstance storage effectInstance;
+        if (targetIndex == 2) {
+            effectInstance = config.globalEffects[effectIndex];
+        } else if (targetIndex == 0) {
+            effectInstance = config.p0Effects[effectIndex];
+        } else {
+            effectInstance = config.p1Effects[effectIndex];
+        }
 
         effectInstance.data = newExtraData;
         emit EffectEdit(
@@ -646,26 +669,91 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
 
-        // Access the unified effects mapping
+        // Access the appropriate effects mapping based on targetIndex
         bytes32 storageKey = _getStorageKey(battleKey);
         BattleConfig storage config = battleConfig[storageKey];
 
+        // Get effect based on targetIndex (we'll re-read length after onRemove)
+        EffectInstance storage effectToRemove;
+        if (targetIndex == 2) {
+            effectToRemove = config.globalEffects[indexToRemove];
+        } else if (targetIndex == 0) {
+            effectToRemove = config.p0Effects[indexToRemove];
+        } else {
+            effectToRemove = config.p1Effects[indexToRemove];
+        }
+
         // One last check to see if we should run the final lifecycle hook
-        EffectInstance storage effectToRemove = config.allEffects[indexToRemove];
         IEffect effect = effectToRemove.effect;
+        bytes32 data = effectToRemove.data;
         if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
-            effect.onRemove(effectToRemove.data, targetIndex, monIndex);
+            effect.onRemove(data, targetIndex, monIndex);
+        }
+
+        // Re-read length after onRemove (it may have changed due to nested removals)
+        uint256 currentLength;
+        if (targetIndex == 2) {
+            currentLength = config.globalEffectsLength;
+        } else if (targetIndex == 0) {
+            currentLength = config.p0EffectsLength;
+        } else {
+            currentLength = config.p1EffectsLength;
+        }
+
+        // Find the effect we want to remove - it may have moved due to nested removals
+        // Search through all effects to find the one matching our effect address and data
+        uint256 foundIndex = type(uint256).max;
+        for (uint256 i; i < currentLength; ++i) {
+            EffectInstance storage eff;
+            if (targetIndex == 2) {
+                eff = config.globalEffects[i];
+            } else if (targetIndex == 0) {
+                eff = config.p0Effects[i];
+            } else {
+                eff = config.p1Effects[i];
+            }
+            if (address(eff.effect) == address(effect) && eff.data == data) {
+                foundIndex = i;
+                break;
+            }
+        }
+
+        // If effect not found, it was already removed by a nested call
+        if (foundIndex == type(uint256).max) {
+            emit EffectRemove(
+                battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep
+            );
+            return;
         }
 
         // Remove effect instance by swapping with last and decrementing length
-        uint256 lastIndex = config.effectsLength - 1;
-        if (indexToRemove != lastIndex) {
-            EffectInstance storage lastEffect = config.allEffects[lastIndex];
-            effectToRemove.effect = lastEffect.effect;
-            effectToRemove.data = lastEffect.data;
-            effectToRemove.location = lastEffect.location;
+        uint256 lastIndex = currentLength - 1;
+        if (foundIndex != lastIndex) {
+            EffectInstance storage effectToSwap;
+            EffectInstance storage lastEffect;
+            if (targetIndex == 2) {
+                effectToSwap = config.globalEffects[foundIndex];
+                lastEffect = config.globalEffects[lastIndex];
+            } else if (targetIndex == 0) {
+                effectToSwap = config.p0Effects[foundIndex];
+                lastEffect = config.p0Effects[lastIndex];
+            } else {
+                effectToSwap = config.p1Effects[foundIndex];
+                lastEffect = config.p1Effects[lastIndex];
+            }
+            effectToSwap.effect = lastEffect.effect;
+            effectToSwap.data = lastEffect.data;
+            effectToSwap.location = lastEffect.location;
         }
-        config.effectsLength = uint88(lastIndex);
+
+        // Decrement the appropriate length
+        if (targetIndex == 2) {
+            config.globalEffectsLength = uint24(lastIndex);
+        } else if (targetIndex == 0) {
+            config.p0EffectsLength = uint24(lastIndex);
+        } else {
+            config.p1EffectsLength = uint24(lastIndex);
+        }
 
         emit EffectRemove(
             battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep
@@ -988,91 +1076,176 @@ contract Engine is IEngine, MappingAllocator {
             monIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
         }
 
-        // Iterate through all effects, filtering by location
-        uint256 i;
-        uint256 effectsLength = config.effectsLength;
+        // Snapshot effects to memory before iterating.
+        // This prevents issues with nested removals during onRemove modifying the array.
+        // Use the appropriate mapping based on effectIndex (0=p0, 1=p1, 2=global)
+        uint256 effectsLength;
+        if (effectIndex == 2) {
+            effectsLength = config.globalEffectsLength;
+        } else if (effectIndex == 0) {
+            effectsLength = config.p0EffectsLength;
+        } else {
+            effectsLength = config.p1EffectsLength;
+        }
+        if (effectsLength == 0) return;
 
-        while (i < effectsLength) {
-            EffectInstance storage currentEffect = config.allEffects[i];
-            // Check if this effect matches our target
-            (uint256 effTargetIndex, uint256 effMonIndex) = _decodeLocation(currentEffect.location);
-            bool playerMonMatch = (effTargetIndex == effectIndex && effMonIndex == monIndex);
-            bool isGlobalMatch = (effTargetIndex == 2 && effectIndex == 2);
-            bool matches = playerMonMatch || isGlobalMatch;
+        // First pass: count matching effects (filter by monIndex for player effects)
+        uint256 matchCount;
+        for (uint256 i; i < effectsLength; ++i) {
+            EffectInstance storage eff;
+            if (effectIndex == 2) {
+                eff = config.globalEffects[i];
+                ++matchCount; // Global effects always match
+            } else if (effectIndex == 0) {
+                eff = config.p0Effects[i];
+                (, uint256 effMonIndex) = _decodeLocation(eff.location);
+                if (effMonIndex == monIndex) ++matchCount;
+            } else {
+                eff = config.p1Effects[i];
+                (, uint256 effMonIndex) = _decodeLocation(eff.location);
+                if (effMonIndex == monIndex) ++matchCount;
+            }
+        }
 
-            if (!matches) {
-                ++i;
+        if (matchCount == 0) return;
+
+        // Allocate memory arrays for the snapshot
+        IEffect[] memory effects = new IEffect[](matchCount);
+        bytes32[] memory datas = new bytes32[](matchCount);
+        uint96[] memory locations = new uint96[](matchCount);
+
+        // Second pass: populate the snapshot
+        uint256 idx;
+        for (uint256 i; i < effectsLength; ++i) {
+            EffectInstance storage eff;
+            bool matches;
+            if (effectIndex == 2) {
+                eff = config.globalEffects[i];
+                matches = true;
+            } else if (effectIndex == 0) {
+                eff = config.p0Effects[i];
+                (, uint256 effMonIndex) = _decodeLocation(eff.location);
+                matches = (effMonIndex == monIndex);
+            } else {
+                eff = config.p1Effects[i];
+                (, uint256 effMonIndex) = _decodeLocation(eff.location);
+                matches = (effMonIndex == monIndex);
+            }
+            if (matches) {
+                effects[idx] = eff.effect;
+                datas[idx] = eff.data;
+                locations[idx] = eff.location;
+                ++idx;
+            }
+        }
+
+        // Third pass: run effects from the snapshot
+        _runEffectsFromSnapshot(
+            battleKey, config, rng, effectIndex, playerIndex, monIndex, round, extraEffectsData, effects, datas, locations
+        );
+    }
+
+    function _runEffectsFromSnapshot(
+        bytes32 battleKey,
+        BattleConfig storage config,
+        uint256 rng,
+        uint256 effectIndex,
+        uint256 playerIndex,
+        uint256 monIndex,
+        EffectStep round,
+        bytes memory extraEffectsData,
+        IEffect[] memory effects,
+        bytes32[] memory datas,
+        uint96[] memory locations
+    ) private {
+        bool currentStepUpdated;
+        uint256 matchCount = effects.length;
+        for (uint256 i; i < matchCount; ++i) {
+            IEffect effect = effects[i];
+            bytes32 data = datas[i];
+
+            if (!effect.shouldRunAtStep(round)) {
                 continue;
             }
-            bool currentStepUpdated;
-            if (currentEffect.effect.shouldRunAtStep(round)) {
-                // Only update the current step if we need to run any effects, and only update it once per step
-                if (!currentStepUpdated) {
-                    currentStep = uint256(round);
-                    currentStepUpdated = true;
-                }
 
-                // Emit event first, then handle side effects
-                emit EffectRun(
-                    battleKey,
-                    effectIndex,
-                    monIndex,
-                    address(currentEffect.effect),
-                    currentEffect.data,
-                    _getUpstreamCallerAndResetValue(),
-                    currentStep
-                );
+            // Only update the current step if we need to run any effects, and only update it once per step
+            if (!currentStepUpdated) {
+                currentStep = uint256(round);
+                currentStepUpdated = true;
+            }
 
-                // Run the effects (depending on which round stage we are on)
-                bytes memory updatedExtraData;
-                bool removeAfterRun;
-                if (round == EffectStep.RoundStart) {
-                    (updatedExtraData, removeAfterRun) =
-                        currentEffect.effect.onRoundStart(rng, currentEffect.data, playerIndex, monIndex);
-                } else if (round == EffectStep.RoundEnd) {
-                    (updatedExtraData, removeAfterRun) =
-                        currentEffect.effect.onRoundEnd(rng, currentEffect.data, playerIndex, monIndex);
-                } else if (round == EffectStep.OnMonSwitchIn) {
-                    (updatedExtraData, removeAfterRun) =
-                        currentEffect.effect.onMonSwitchIn(rng, currentEffect.data, playerIndex, monIndex);
-                } else if (round == EffectStep.OnMonSwitchOut) {
-                    (updatedExtraData, removeAfterRun) =
-                        currentEffect.effect.onMonSwitchOut(rng, currentEffect.data, playerIndex, monIndex);
-                } else if (round == EffectStep.AfterDamage) {
-                    (updatedExtraData, removeAfterRun) = currentEffect.effect
-                        .onAfterDamage(
-                            rng, currentEffect.data, playerIndex, monIndex, abi.decode(extraEffectsData, (int32))
-                        );
-                } else if (round == EffectStep.AfterMove) {
-                    (updatedExtraData, removeAfterRun) =
-                        currentEffect.effect.onAfterMove(rng, currentEffect.data, playerIndex, monIndex);
-                } else if (round == EffectStep.OnUpdateMonState) {
-                    (
-                        uint256 statePlayerIndex,
-                        uint256 stateMonIndex,
-                        MonStateIndexName stateVarIndex,
-                        int32 valueToAdd
-                    ) = abi.decode(extraEffectsData, (uint256, uint256, MonStateIndexName, int32));
-                    (updatedExtraData, removeAfterRun) = currentEffect.effect
-                        .onUpdateMonState(
-                            rng, currentEffect.data, statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd
-                        );
-                }
+            // Emit event first, then handle side effects
+            emit EffectRun(
+                battleKey, effectIndex, monIndex, address(effect), data, _getUpstreamCallerAndResetValue(), currentStep
+            );
 
-                // If we remove the effect after doing it, then we clear and update the mapping
-                if (removeAfterRun) {
-                    removeEffect(effectIndex, monIndex, i);
-                    // After removal, effectsLength decreased, so don't increment i
-                    // The effect that was at the end is now at position i
-                    effectsLength = config.effectsLength;
-                }
-                // Otherwise, we update the extra data if e.g. the effect needs to modify its own storage
-                else {
-                    currentEffect.data = updatedExtraData;
-                    ++i;
-                }
+            // Run the effects (depending on which round stage we are on)
+            bytes32 updatedExtraData;
+            bool removeAfterRun;
+            if (round == EffectStep.RoundStart) {
+                (updatedExtraData, removeAfterRun) = effect.onRoundStart(rng, data, playerIndex, monIndex);
+            } else if (round == EffectStep.RoundEnd) {
+                (updatedExtraData, removeAfterRun) = effect.onRoundEnd(rng, data, playerIndex, monIndex);
+            } else if (round == EffectStep.OnMonSwitchIn) {
+                (updatedExtraData, removeAfterRun) = effect.onMonSwitchIn(rng, data, playerIndex, monIndex);
+            } else if (round == EffectStep.OnMonSwitchOut) {
+                (updatedExtraData, removeAfterRun) = effect.onMonSwitchOut(rng, data, playerIndex, monIndex);
+            } else if (round == EffectStep.AfterDamage) {
+                (updatedExtraData, removeAfterRun) =
+                    effect.onAfterDamage(rng, data, playerIndex, monIndex, abi.decode(extraEffectsData, (int32)));
+            } else if (round == EffectStep.AfterMove) {
+                (updatedExtraData, removeAfterRun) = effect.onAfterMove(rng, data, playerIndex, monIndex);
+            } else if (round == EffectStep.OnUpdateMonState) {
+                (uint256 statePlayerIndex, uint256 stateMonIndex, MonStateIndexName stateVarIndex, int32 valueToAdd) =
+                    abi.decode(extraEffectsData, (uint256, uint256, MonStateIndexName, int32));
+                (updatedExtraData, removeAfterRun) =
+                    effect.onUpdateMonState(rng, data, statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd);
+            }
+
+            // If we need to remove or update the effect, find it in storage
+            if (removeAfterRun || updatedExtraData != data) {
+                _findAndUpdateEffect(config, effectIndex, monIndex, effect, data, locations[i], updatedExtraData, removeAfterRun);
+            }
+        }
+    }
+
+    function _findAndUpdateEffect(
+        BattleConfig storage config,
+        uint256 effectIndex,
+        uint256 monIndex,
+        IEffect effect,
+        bytes32 data,
+        uint96 location,
+        bytes32 updatedExtraData,
+        bool removeAfterRun
+    ) private {
+        // Get the appropriate mapping and length
+        uint256 currentLength;
+        if (effectIndex == 2) {
+            currentLength = config.globalEffectsLength;
+        } else if (effectIndex == 0) {
+            currentLength = config.p0EffectsLength;
+        } else {
+            currentLength = config.p1EffectsLength;
+        }
+
+        // Find the effect in storage by matching effect address, data, and location
+        for (uint256 j; j < currentLength; ++j) {
+            EffectInstance storage stored;
+            if (effectIndex == 2) {
+                stored = config.globalEffects[j];
+            } else if (effectIndex == 0) {
+                stored = config.p0Effects[j];
             } else {
-                ++i;
+                stored = config.p1Effects[j];
+            }
+            if (stored.effect == effect && stored.data == data && stored.location == location) {
+                if (removeAfterRun) {
+                    removeEffect(effectIndex, monIndex, j);
+                } else {
+                    stored.data = updatedExtraData;
+                }
+                break;
             }
         }
     }
@@ -1218,31 +1391,72 @@ contract Engine is IEngine, MappingAllocator {
         returns (EffectInstance[] memory, uint256[] memory)
     {
         BattleConfig storage config = battleConfig[storageKey];
-        uint256 effectsLength = config.effectsLength;
 
-        // First pass: count matching effects
-        uint256 count = 0;
-        for (uint256 i = 0; i < effectsLength; i++) {
-            (uint256 effTargetIndex, uint256 effMonIndex) = _decodeLocation(config.allEffects[i].location);
-            // Include effects that match the target, or global effects (targetIndex == 2)
-            if ((effTargetIndex == targetIndex && effMonIndex == monIndex) || effTargetIndex == 2) {
-                count++;
+        // Get effects from the appropriate mapping based on targetIndex
+        // Also include global effects for player queries
+        uint256 playerEffectsLength;
+        uint256 globalEffectsLength = config.globalEffectsLength;
+
+        if (targetIndex == 2) {
+            // Global query - just return global effects
+            EffectInstance[] memory globalResult = new EffectInstance[](globalEffectsLength);
+            uint256[] memory globalIndices = new uint256[](globalEffectsLength);
+            for (uint256 i = 0; i < globalEffectsLength; i++) {
+                globalResult[i] = config.globalEffects[i];
+                globalIndices[i] = i;
+            }
+            return (globalResult, globalIndices);
+        }
+
+        // Player query - need to filter by monIndex and include global effects
+        if (targetIndex == 0) {
+            playerEffectsLength = config.p0EffectsLength;
+        } else {
+            playerEffectsLength = config.p1EffectsLength;
+        }
+
+        // First pass: count matching player effects
+        uint256 playerCount = 0;
+        for (uint256 i = 0; i < playerEffectsLength; i++) {
+            EffectInstance storage eff;
+            if (targetIndex == 0) {
+                eff = config.p0Effects[i];
+            } else {
+                eff = config.p1Effects[i];
+            }
+            (, uint256 effMonIndex) = _decodeLocation(eff.location);
+            if (effMonIndex == monIndex) {
+                playerCount++;
             }
         }
 
-        // Second pass: populate result arrays
-        EffectInstance[] memory result = new EffectInstance[](count);
-        uint256[] memory indices = new uint256[](count);
+        // Allocate result arrays (player effects + global effects)
+        uint256 totalCount = playerCount + globalEffectsLength;
+        EffectInstance[] memory result = new EffectInstance[](totalCount);
+        uint256[] memory indices = new uint256[](totalCount);
+
+        // Populate with matching player effects
         uint256 resultIndex = 0;
-        for (uint256 i = 0; i < effectsLength; i++) {
-            EffectInstance storage eff = config.allEffects[i];
-            (uint256 effTargetIndex, uint256 effMonIndex) = _decodeLocation(eff.location);
-            // Include effects that match the target, or global effects (targetIndex == 2)
-            if ((effTargetIndex == targetIndex && effMonIndex == monIndex) || effTargetIndex == 2) {
+        for (uint256 i = 0; i < playerEffectsLength; i++) {
+            EffectInstance storage eff;
+            if (targetIndex == 0) {
+                eff = config.p0Effects[i];
+            } else {
+                eff = config.p1Effects[i];
+            }
+            (, uint256 effMonIndex) = _decodeLocation(eff.location);
+            if (effMonIndex == monIndex) {
                 result[resultIndex] = eff;
-                indices[resultIndex] = i; // Store the actual index in unified mapping
+                indices[resultIndex] = i;
                 resultIndex++;
             }
+        }
+
+        // Append global effects
+        for (uint256 i = 0; i < globalEffectsLength; i++) {
+            result[resultIndex] = config.globalEffects[i];
+            indices[resultIndex] = i;
+            resultIndex++;
         }
 
         return (result, indices);
@@ -1256,24 +1470,41 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[storageKey];
         BattleData storage data = battleData[battleKey];
 
-        // Build effects array from mapping
-        uint256 effectsLength = config.effectsLength;
-        EffectInstance[] memory effects = new EffectInstance[](effectsLength);
-        for (uint256 i = 0; i < effectsLength; i++) {
-            effects[i] = config.allEffects[i];
+        // Build effects arrays from mappings
+        uint256 globalLen = config.globalEffectsLength;
+        uint256 p0Len = config.p0EffectsLength;
+        uint256 p1Len = config.p1EffectsLength;
+
+        EffectInstance[] memory globalEffects = new EffectInstance[](globalLen);
+        for (uint256 i = 0; i < globalLen; i++) {
+            globalEffects[i] = config.globalEffects[i];
+        }
+
+        EffectInstance[] memory p0Effects = new EffectInstance[](p0Len);
+        for (uint256 i = 0; i < p0Len; i++) {
+            p0Effects[i] = config.p0Effects[i];
+        }
+
+        EffectInstance[] memory p1Effects = new EffectInstance[](p1Len);
+        for (uint256 i = 0; i < p1Len; i++) {
+            p1Effects[i] = config.p1Effects[i];
         }
 
         BattleConfigView memory configView = BattleConfigView({
             validator: config.validator,
             rngOracle: config.rngOracle,
             moveManager: config.moveManager,
-            effectsLength: config.effectsLength,
+            globalEffectsLength: config.globalEffectsLength,
+            p0EffectsLength: config.p0EffectsLength,
+            p1EffectsLength: config.p1EffectsLength,
             teamSizes: config.teamSizes,
             p0Salt: config.p0Salt,
             p1Salt: config.p1Salt,
             p0Move: config.p0Move,
             p1Move: config.p1Move,
-            allEffects: effects,
+            globalEffects: globalEffects,
+            p0Effects: p0Effects,
+            p1Effects: p1Effects,
             teams: config.teams,
             monStates: config.monStates
         });

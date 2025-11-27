@@ -30,17 +30,17 @@ contract PostWorkout is IAbility, BasicEffect {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.OnMonSwitchOut);
     }
 
-    function onMonSwitchOut(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchOut(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
@@ -64,6 +64,6 @@ contract PostWorkout is IAbility, BasicEffect {
             // Boost stamina by 1
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.Stamina, 1);
         }
-        return ("", false);
+        return (bytes32(0), false);
     }
 }
