@@ -212,7 +212,7 @@ contract EngineGasTest is Test, BattleHelper {
         uint256 setup2Gas = vm.stopSnapshotGas("Setup 2");
 
         // Check effects array after setup 2
-        (BattleConfig memory cfgAfterSetup2,) = engine.getBattle(battleKey2);
+        (BattleConfigView memory cfgAfterSetup2,) = engine.getBattle(battleKey2);
         console.log("After setup 2 - effectsLength:", cfgAfterSetup2.effectsLength);
         console.log("After setup 2 - allEffects.length:", cfgAfterSetup2.allEffects.length);
 
@@ -387,7 +387,7 @@ contract EngineGasTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
 
         // Check after switch
-        (BattleConfig memory cfgAfterSwitch,) = engine.getBattle(battleKey1);
+        (BattleConfigView memory cfgAfterSwitch,) = engine.getBattle(battleKey1);
         console.log("After B1 switch - effectsLength:", cfgAfterSwitch.effectsLength);
         console.log("After B1 switch - allEffects.length:", cfgAfterSwitch.allEffects.length);
 
@@ -395,7 +395,7 @@ contract EngineGasTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, 0, 0, "", "");
 
         // Check after effects applied
-        (BattleConfig memory cfgAfterEffects,) = engine.getBattle(battleKey1);
+        (BattleConfigView memory cfgAfterEffects,) = engine.getBattle(battleKey1);
         console.log("After B1 effects - effectsLength:", cfgAfterEffects.effectsLength);
         console.log("After B1 effects - allEffects.length:", cfgAfterEffects.allEffects.length);
 
@@ -414,7 +414,7 @@ contract EngineGasTest is Test, BattleHelper {
         uint256 setup2 = vm.stopSnapshotGas("B2_Setup");
 
         // Check if effects array was reused
-        (BattleConfig memory cfg2,) = engine.getBattle(battleKey2);
+        (BattleConfigView memory cfg2,) = engine.getBattle(battleKey2);
         console.log("After B2 setup - effectsLength:", cfg2.effectsLength);
         console.log("After B2 setup - allEffects.length:", cfg2.allEffects.length);
 
