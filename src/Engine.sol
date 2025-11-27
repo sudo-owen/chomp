@@ -249,9 +249,7 @@ contract Engine is IEngine, MappingAllocator {
                         if (existingEffect.effect != newEffect.effect) {
                             existingEffect.effect = newEffect.effect;
                         }
-                        if (keccak256(existingEffect.data) != keccak256(newEffect.data)) {
-                            existingEffect.data = newEffect.data;
-                        }
+                        existingEffect.data = newEffect.data;
                         if (existingEffect.location != newEffect.location) {
                             existingEffect.location = newEffect.location;
                         }
@@ -628,17 +626,8 @@ contract Engine is IEngine, MappingAllocator {
 
                 // Check if we need to push or can overwrite
                 if (effectIndex < config.allEffects.length) {
-                    // Overwrite existing slot
-                    EffectInstance storage existingEffect = config.allEffects[effectIndex];
-                    if (existingEffect.effect != newEffect.effect) {
-                        existingEffect.effect = newEffect.effect;
-                    }
-                    if (keccak256(existingEffect.data) != keccak256(newEffect.data)) {
-                        existingEffect.data = newEffect.data;
-                    }
-                    if (existingEffect.location != newEffect.location) {
-                        existingEffect.location = newEffect.location;
-                    }
+                    // Overwrite existing slot - always write since comparison costs may exceed savings
+                    config.allEffects[effectIndex] = newEffect;
                 } else {
                     // Need to push new slot
                     config.allEffects.push(newEffect);
