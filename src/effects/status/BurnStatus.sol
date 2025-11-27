@@ -41,11 +41,11 @@ contract BurnStatus is StatusEffect {
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
 
         // Get value from ENGINE KV
-        bytes32 monStatusFlag = ENGINE.getGlobalKV(battleKey, keyForMon);
+        uint192 monStatusFlag = ENGINE.getGlobalKV(battleKey, keyForMon);
 
         // Check if a status already exists for the mon (or if it's already burned)
-        bool noStatus = monStatusFlag == bytes32(0);
-        bool hasBurnAlready = monStatusFlag == bytes32(uint256(uint160(address(this))));
+        bool noStatus = monStatusFlag == 0;
+        bool hasBurnAlready = monStatusFlag == uint192(uint160(address(this)));
         return (noStatus || hasBurnAlready);
     }
 
@@ -62,8 +62,8 @@ contract BurnStatus is StatusEffect {
         bool hasBurnAlready;
         {
             bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
-            bytes32 monStatusFlag = ENGINE.getGlobalKV(battleKey, keyForMon);
-            hasBurnAlready = monStatusFlag == bytes32(uint256(uint160(address(this))));
+            uint192 monStatusFlag = ENGINE.getGlobalKV(battleKey, keyForMon);
+            hasBurnAlready = monStatusFlag == uint192(uint160(address(this)));
         }
 
         // Set burn flag
@@ -108,7 +108,7 @@ contract BurnStatus is StatusEffect {
         STAT_BOOSTS.removeStatBoosts(targetIndex, monIndex, StatBoostFlag.Perm);
 
         // Reset the burn degree
-        ENGINE.setGlobalKV(getKeyForMonIndex(targetIndex, monIndex), bytes32(0));
+        ENGINE.setGlobalKV(getKeyForMonIndex(targetIndex, monIndex), 0);
     }
 
     // Deal damage over time

@@ -1,8 +1,7 @@
 # TODO
 
-1) add description to moves in the editor, new tab, add cleaner info [ ]
-4) add xmon moveset
-5) add xmon tests
+To make lookups even faster, have unique mappings for p00, 01, ...05, and the same for p1
+Then cache lengths for all of them in packed uints
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES

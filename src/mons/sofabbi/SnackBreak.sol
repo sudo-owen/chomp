@@ -29,7 +29,7 @@ contract SnackBreak is IMoveSet {
     function _increaseSnackLevel(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) internal {
         uint256 snackLevel = _getSnackLevel(battleKey, playerIndex, monIndex);
         if (snackLevel < MAX_DIVISOR) {
-            ENGINE.setGlobalKV(keccak256(abi.encode(playerIndex, monIndex, name())), bytes32(snackLevel + 1));
+            ENGINE.setGlobalKV(keccak256(abi.encode(playerIndex, monIndex, name())), uint192(snackLevel + 1));
         }
     }
 

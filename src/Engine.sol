@@ -19,7 +19,7 @@ contract Engine is IEngine, MappingAllocator {
     mapping(bytes32 => BattleData) private battleData; // These are immutable after a battle begins
     mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle, we reuse these storage slots for subsequent battles
     mapping(bytes32 battleKey => BattleState) private battleStates;
-    mapping(bytes32 battleKey => mapping(bytes32 => bytes32)) private globalKV;
+    mapping(bytes32 storageKey => mapping(bytes32 => bytes32)) private globalKV; // Value layout: [64 bits timestamp | 192 bits value]
     uint256 public transient tempRNG; // Used to provide RNG during execute() tx
     uint256 private transient currentStep; // Used to bubble up step data for events
     address private transient upstreamCaller; // Used to bubble up caller data for events
@@ -760,12 +760,16 @@ contract Engine is IEngine, MappingAllocator {
         );
     }
 
-    function setGlobalKV(bytes32 key, bytes32 value) external {
+    function setGlobalKV(bytes32 key, uint192 value) external {
         bytes32 battleKey = battleKeyForWrite;
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        globalKV[battleKey][key] = value;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        uint64 timestamp = uint64(battleData[battleKey].startTimestamp);
+        // Pack timestamp (upper 64 bits) with value (lower 192 bits)
+        bytes32 packed = bytes32((uint256(timestamp) << 192) | uint256(value));
+        globalKV[storageKey][key] = packed;
     }
 
     function dealDamage(uint256 playerIndex, uint256 monIndex, int32 damage) external {
@@ -1673,8 +1677,17 @@ contract Engine is IEngine, MappingAllocator {
         return battleStates[battleKey].playerSwitchForTurnFlag;
     }
 
-    function getGlobalKV(bytes32 battleKey, bytes32 key) external view returns (bytes32) {
-        return globalKV[battleKey][key];
+    function getGlobalKV(bytes32 battleKey, bytes32 key) external view returns (uint192) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        bytes32 packed = globalKV[storageKey][key];
+        // Extract timestamp (upper 64 bits) and value (lower 192 bits)
+        uint64 storedTimestamp = uint64(uint256(packed) >> 192);
+        uint64 currentTimestamp = uint64(battleData[battleKey].startTimestamp);
+        // If timestamps don't match, return 0 (stale value from different battle)
+        if (storedTimestamp != currentTimestamp) {
+            return 0;
+        }
+        return uint192(uint256(packed));
     }
 
     function getEffects(bytes32 battleKey, uint256 targetIndex, uint256 monIndex)

@@ -55,7 +55,7 @@ contract Storm is BasicEffect {
     }
 
     function setDuration(uint256 newDuration, uint256 playerIndex) public {
-        ENGINE.setGlobalKV(_effectKey(playerIndex), bytes32(newDuration));
+        ENGINE.setGlobalKV(_effectKey(playerIndex), uint192(newDuration));
     }
 
     function _applyStatChange(uint256 playerIndex, uint256 monIndex) internal {

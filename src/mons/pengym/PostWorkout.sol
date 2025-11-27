@@ -44,11 +44,11 @@ contract PostWorkout is IAbility, BasicEffect {
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
-        bytes32 statusAddress = ENGINE.getGlobalKV(battleKey, keyForMon);
+        uint192 statusAddress = ENGINE.getGlobalKV(battleKey, keyForMon);
 
         // Check if a status exists
-        if (statusAddress != bytes32(0)) {
-            IEffect statusEffect = IEffect(address(uint160(uint256(statusAddress))));
+        if (statusAddress != 0) {
+            IEffect statusEffect = IEffect(address(uint160(statusAddress)));
 
             // Get the index of the effect and remove it
             uint256 effectIndex;

@@ -28,13 +28,12 @@ contract RiseFromTheGrave is IAbility, BasicEffect {
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
         // Check if the effect has already been set for this mon (can only be set once)
         bytes32 monEffectId = keccak256(abi.encode(playerIndex, monIndex, name()));
-        if (ENGINE.getGlobalKV(battleKey, monEffectId) != bytes32(0)) {
+        if (ENGINE.getGlobalKV(battleKey, monEffectId) != 0) {
             return;
         }
         // Otherwise, add this effect to the mon when it switches in
         else {
-            uint256 value = 1;
-            ENGINE.setGlobalKV(monEffectId, bytes32(value));
+            ENGINE.setGlobalKV(monEffectId, 1);
             uint64 v1 = MON_EFFECT_IDENTIFIER; // turns left, or sentinel value
             uint64 v2 = uint64(playerIndex) & 0x3F; // player index (masked to 6 bits)
             uint64 v3 = uint64(monIndex) & 0x3F; // mon index (masked to 6 bits)

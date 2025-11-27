@@ -15,11 +15,12 @@ import {IEffect} from "./IEffect.sol";
  *  - Snapshot (aggregated multipliers) stored in globalKV
  *
  *  Extra Data Layout (bytes32):
- *  [1 bit isPerm | 175 bits key | 80 bits stat data]
+ *  [8 bits isPerm | 168 bits key | 80 bits stat data]
  *  stat data = 5 stats × 16 bits: [8 boostPercent | 7 boostCount | 1 isMultiply]
  *
- *  Snapshot stored in globalKV with key: keccak256(targetIndex, monIndex, "StatBoostSnapshot")
- *  Snapshot layout: [32 empty | 32 atk | 32 def | 32 spatk | 32 spdef | 32 speed | 64 empty]
+ *  Snapshot stored in globalKV with key: keccak256(targetIndex, monIndex, address(this))
+ *  Snapshot layout (uint256):
+ *  [32 empty (255-224) | 32 atk (223-192) | 32 def (191-160) | 32 spatk (159-128) | 32 spdef (127-96) | 32 speed (95-64) | 64 empty (63-0)]
  */
 
 contract StatBoosts is BasicEffect {
@@ -134,23 +135,25 @@ contract StatBoosts is BasicEffect {
         return (false, 0, bytes32(0));
     }
 
-    function _packBoostSnapshot(uint32[] memory unpackedSnapshot) internal pure returns (uint256) {
-        return (uint256(unpackedSnapshot[0]) << 192) | (uint256(unpackedSnapshot[1]) << 160)
-            | (uint256(unpackedSnapshot[2]) << 128) | (uint256(unpackedSnapshot[3]) << 96)
-            | (uint256(unpackedSnapshot[4]) << 64);
+    function _packBoostSnapshot(uint32[] memory unpackedSnapshot) internal pure returns (uint192) {
+        return uint192(
+            (uint256(unpackedSnapshot[0]) << 160) | (uint256(unpackedSnapshot[1]) << 128)
+                | (uint256(unpackedSnapshot[2]) << 96) | (uint256(unpackedSnapshot[3]) << 64)
+                | (uint256(unpackedSnapshot[4]) << 32)
+        );
     }
 
-    function _unpackBoostSnapshot(uint256 playerIndex, uint256 monIndex, uint256 boostSnapshot)
+    function _unpackBoostSnapshot(uint256 playerIndex, uint256 monIndex, uint192 boostSnapshot)
         internal
         view
         returns (uint32[] memory snapshotPerStat)
     {
         snapshotPerStat = new uint32[](5);
-        snapshotPerStat[0] = uint32((boostSnapshot >> 192) & 0xFFFFFFFF);
-        snapshotPerStat[1] = uint32((boostSnapshot >> 160) & 0xFFFFFFFF);
-        snapshotPerStat[2] = uint32((boostSnapshot >> 128) & 0xFFFFFFFF);
-        snapshotPerStat[3] = uint32((boostSnapshot >> 96) & 0xFFFFFFFF);
-        snapshotPerStat[4] = uint32((boostSnapshot >> 64) & 0xFFFFFFFF);
+        snapshotPerStat[0] = uint32((boostSnapshot >> 160) & 0xFFFFFFFF);
+        snapshotPerStat[1] = uint32((boostSnapshot >> 128) & 0xFFFFFFFF);
+        snapshotPerStat[2] = uint32((boostSnapshot >> 96) & 0xFFFFFFFF);
+        snapshotPerStat[3] = uint32((boostSnapshot >> 64) & 0xFFFFFFFF);
+        snapshotPerStat[4] = uint32((boostSnapshot >> 32) & 0xFFFFFFFF);
         uint32[] memory stats = _getMonStatSubset(playerIndex, monIndex);
         for (uint256 i; i < snapshotPerStat.length; i++) {
             if (snapshotPerStat[i] == 0) {
@@ -206,7 +209,7 @@ contract StatBoosts is BasicEffect {
     // If excludeTempBoosts is true, skip temp boosts (used during onMonSwitchOut when temp boosts are being removed)
     function _recalculateAndApplyStats(uint256 targetIndex, uint256 monIndex, bool excludeTempBoosts) internal {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint256 prevSnapshot = uint256(ENGINE.getGlobalKV(battleKey, _snapshotKey(targetIndex, monIndex)));
+        uint192 prevSnapshot = ENGINE.getGlobalKV(battleKey, _snapshotKey(targetIndex, monIndex));
 
         (EffectInstance[] memory effects,) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
 
@@ -251,7 +254,7 @@ contract StatBoosts is BasicEffect {
         }
 
         // Update snapshot in globalKV
-        ENGINE.setGlobalKV(_snapshotKey(targetIndex, monIndex), bytes32(_packBoostSnapshot(newBoostedStats)));
+        ENGINE.setGlobalKV(_snapshotKey(targetIndex, monIndex), _packBoostSnapshot(newBoostedStats));
     }
 
     function _mergeExistingAndNewBoosts(

@@ -13,15 +13,15 @@ library HeatBeaconLib {
     }
 
     function _getPriorityBoost(IEngine engine, uint256 playerIndex) internal view returns (uint32) {
-        bytes32 value = engine.getGlobalKV(engine.battleKeyForWrite(), _getKey(playerIndex));
-        return value == bytes32("1") ? 1 : 0;
+        uint192 value = engine.getGlobalKV(engine.battleKeyForWrite(), _getKey(playerIndex));
+        return value == 1 ? 1 : 0;
     }
 
     function _setPriorityBoost(IEngine engine, uint256 playerIndex) internal {
-        engine.setGlobalKV(_getKey(playerIndex), bytes32("1"));
+        engine.setGlobalKV(_getKey(playerIndex), 1);
     }
 
     function _clearPriorityBoost(IEngine engine, uint256 playerIndex) internal {
-        engine.setGlobalKV(_getKey(playerIndex), bytes32("0"));
+        engine.setGlobalKV(_getKey(playerIndex), 0);
     }
 }

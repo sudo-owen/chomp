@@ -34,16 +34,15 @@ contract Initialize is IMoveSet, BasicEffect {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
         // Check if global KV is set
-        bytes32 flag = ENGINE.getGlobalKV(battleKey, _initializeKey(attackerPlayerIndex, activeMonIndex));
-        if (flag == bytes32(0)) {
+        uint192 flag = ENGINE.getGlobalKV(battleKey, _initializeKey(attackerPlayerIndex, activeMonIndex));
+        if (flag == 0) {
             // Apply the buffs
             _applyBuff(attackerPlayerIndex, activeMonIndex);
 
             // Apply effect globally
             ENGINE.addEffect(2, 2, this, _encodeState(attackerPlayerIndex, activeMonIndex));
             // Set global KV to prevent this move doing anything until Inutia swaps out
-            uint256 newFlag = 1;
-            ENGINE.setGlobalKV(_initializeKey(attackerPlayerIndex, activeMonIndex), bytes32(newFlag));
+            ENGINE.setGlobalKV(_initializeKey(attackerPlayerIndex, activeMonIndex), 1);
         }
         // Otherwise we don't do anything
     }

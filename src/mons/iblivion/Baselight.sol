@@ -42,7 +42,7 @@ contract Baselight is IMoveSet {
         if (newLevel > MAX_BASELIGHT_LEVEL) {
             return;
         }
-        ENGINE.setGlobalKV(_baselightKey(playerIndex, monIndex), bytes32(newLevel));
+        ENGINE.setGlobalKV(_baselightKey(playerIndex, monIndex), uint192(newLevel));
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256 rng) external {

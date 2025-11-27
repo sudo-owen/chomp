@@ -31,7 +31,7 @@ contract SleepStatus is StatusEffect {
     function shouldApply(bytes32 data, uint256 targetIndex, uint256 monIndex) public view override returns (bool) {
         bool shouldApplyStatusInGeneral = super.shouldApply(data, targetIndex, monIndex);
         bool playerHasZeroSleepers =
-            address(bytes20(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
+            address(uint160(ENGINE.getGlobalKV(ENGINE.battleKeyForWrite(), _globalSleepKey(targetIndex)))) == address(0);
         return (shouldApplyStatusInGeneral && playerHasZeroSleepers);
     }
 
@@ -89,6 +89,6 @@ contract SleepStatus is StatusEffect {
 
     function onRemove(bytes32 extraData, uint256 targetIndex, uint256 monIndex) public override {
         super.onRemove(extraData, targetIndex, monIndex);
-        ENGINE.setGlobalKV(_globalSleepKey(targetIndex), bytes32(0));
+        ENGINE.setGlobalKV(_globalSleepKey(targetIndex), 0);
     }
 }
