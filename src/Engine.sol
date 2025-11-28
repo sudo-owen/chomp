@@ -1060,7 +1060,9 @@ contract Engine is IEngine, MappingAllocator {
 
             // Update the mon state directly to account for the stamina cost of the move
             staminaCost = int32(moveSet.stamina(battleKey, playerIndex, activeMonIndex));
-            config.monStates[playerIndex][activeMonIndex].staminaDelta -= staminaCost;
+            MonState storage monState = config.monStates[playerIndex][activeMonIndex];
+            monState.staminaDelta =
+                (monState.staminaDelta == CLEARED_MON_STATE_SENTINEL) ? -staminaCost : monState.staminaDelta - staminaCost;
 
             // Emit event and then run the move
             emit MonMove(battleKey, playerIndex, activeMonIndex, move.moveIndex, move.extraData, staminaCost);
