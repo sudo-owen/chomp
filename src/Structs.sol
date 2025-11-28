@@ -79,7 +79,6 @@ struct BattleConfig {
 
 struct EffectInstance {
     IEffect effect;
-    uint96 location; // top 8 bits: targetIndex (0/1/2), lower 88 bits: monIndex
     bytes32 data;
 }
 
