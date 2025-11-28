@@ -78,4 +78,5 @@ interface IEngine {
     function getWinner(bytes32 battleKey) external view returns (address);
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256);
     function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256);
+    function getBattleContext(bytes32 battleKey) external view returns (BattleContext memory);
 }

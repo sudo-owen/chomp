@@ -83,7 +83,9 @@ contract DefaultValidator is IValidator {
         view
         returns (bool)
     {
-        uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
+
         if (monToSwitchIndex >= MONS_PER_TEAM) {
             return false;
         }
@@ -94,8 +96,8 @@ contract DefaultValidator is IValidator {
         }
         // If it's not the zeroth turn, we cannot switch to the same mon
         // (exception for zeroth turn because we have not initiated a swap yet, so index 0 is fine)
-        if (ENGINE.getTurnIdForBattleState(battleKey) != 0) {
-            if (monToSwitchIndex == activeMonIndex[playerIndex]) {
+        if (ctx.turnId != 0) {
+            if (monToSwitchIndex == activeMonIndex) {
                 return false;
             }
         }
@@ -108,16 +110,17 @@ contract DefaultValidator is IValidator {
         uint256 playerIndex,
         bytes calldata extraData
     ) public view returns (bool) {
-        uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
 
         // A move cannot be selected if its stamina costs more than the mon's current stamina
-        IMoveSet moveSet = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], moveIndex);
+        IMoveSet moveSet = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex, moveIndex);
         int256 monStaminaDelta =
-            ENGINE.getMonStateForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], MonStateIndexName.Stamina);
+            ENGINE.getMonStateForBattle(battleKey, playerIndex, activeMonIndex, MonStateIndexName.Stamina);
         uint256 monBaseStamina =
-            ENGINE.getMonValueForBattle(battleKey, playerIndex, activeMonIndex[playerIndex], MonStateIndexName.Stamina);
+            ENGINE.getMonValueForBattle(battleKey, playerIndex, activeMonIndex, MonStateIndexName.Stamina);
         uint256 monCurrentStamina = uint256(int256(monBaseStamina) + monStaminaDelta);
-        if (moveSet.stamina(battleKey, playerIndex, activeMonIndex[playerIndex]) > monCurrentStamina) {
+        if (moveSet.stamina(battleKey, playerIndex, activeMonIndex) > monCurrentStamina) {
             return false;
         } else {
             // Then, we check the move itself to see if it enforces any other specific conditions
@@ -134,16 +137,17 @@ contract DefaultValidator is IValidator {
         view
         returns (bool)
     {
-        uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
 
         // Enforce a switch IF:
         // - if it is the zeroth turn
         // - if the active mon is knocked out
         {
-            bool isTurnZero = ENGINE.getTurnIdForBattleState(battleKey) == 0;
+            bool isTurnZero = ctx.turnId == 0;
             bool isActiveMonKnockedOut =
                 ENGINE.getMonStateForBattle(
-                    battleKey, playerIndex, activeMonIndex[playerIndex], MonStateIndexName.IsKnockedOut
+                    battleKey, playerIndex, activeMonIndex, MonStateIndexName.IsKnockedOut
                 ) == 1;
             if (isTurnZero || isActiveMonKnockedOut) {
                 if (moveIndex != SWITCH_MOVE_INDEX) {
@@ -166,14 +170,67 @@ contract DefaultValidator is IValidator {
         // AND if the new mon isn't the same index as the existing mon
         else if (moveIndex == SWITCH_MOVE_INDEX) {
             uint256 monToSwitchIndex = abi.decode(extraData, (uint256));
-            return validateSwitch(battleKey, playerIndex, monToSwitchIndex);
+            return _validateSwitchInternal(battleKey, playerIndex, monToSwitchIndex, ctx);
         }
 
         // Otherwise, it's not a switch or a no-op, so it's a move
-        if (!validateSpecificMoveSelection(battleKey, moveIndex, playerIndex, extraData)) {
+        if (!_validateSpecificMoveSelectionInternal(battleKey, moveIndex, playerIndex, extraData, activeMonIndex)) {
             return false;
         }
 
+        return true;
+    }
+
+    // Internal version that accepts pre-fetched context to avoid redundant calls
+    function _validateSwitchInternal(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 monToSwitchIndex,
+        BattleContext memory ctx
+    ) internal view returns (bool) {
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
+
+        if (monToSwitchIndex >= MONS_PER_TEAM) {
+            return false;
+        }
+        bool isNewMonKnockedOut =
+            ENGINE.getMonStateForBattle(battleKey, playerIndex, monToSwitchIndex, MonStateIndexName.IsKnockedOut) == 1;
+        if (isNewMonKnockedOut) {
+            return false;
+        }
+        // If it's not the zeroth turn, we cannot switch to the same mon
+        // (exception for zeroth turn because we have not initiated a swap yet, so index 0 is fine)
+        if (ctx.turnId != 0) {
+            if (monToSwitchIndex == activeMonIndex) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Internal version that accepts pre-fetched activeMonIndex to avoid redundant calls
+    function _validateSpecificMoveSelectionInternal(
+        bytes32 battleKey,
+        uint256 moveIndex,
+        uint256 playerIndex,
+        bytes calldata extraData,
+        uint256 activeMonIndex
+    ) internal view returns (bool) {
+        // A move cannot be selected if its stamina costs more than the mon's current stamina
+        IMoveSet moveSet = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex, moveIndex);
+        int256 monStaminaDelta =
+            ENGINE.getMonStateForBattle(battleKey, playerIndex, activeMonIndex, MonStateIndexName.Stamina);
+        uint256 monBaseStamina =
+            ENGINE.getMonValueForBattle(battleKey, playerIndex, activeMonIndex, MonStateIndexName.Stamina);
+        uint256 monCurrentStamina = uint256(int256(monBaseStamina) + monStaminaDelta);
+        if (moveSet.stamina(battleKey, playerIndex, activeMonIndex) > monCurrentStamina) {
+            return false;
+        } else {
+            // Then, we check the move itself to see if it enforces any other specific conditions
+            if (!moveSet.isValidTarget(battleKey, extraData)) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -203,37 +260,36 @@ contract DefaultValidator is IValidator {
                 - check the timestamp from their commit, and we either timeout or don't
     */
     function validateTimeout(bytes32 battleKey, uint256 playerIndexToCheck) external view returns (address loser) {
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
         uint256 otherPlayerIndex = (playerIndexToCheck + 1) % 2;
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        
-        ICommitManager commitManager = ICommitManager(ENGINE.getMoveManager(battleKey));
+        uint64 turnId = ctx.turnId;
 
-        uint256 prevPlayerSwitchForTurnFlag = ENGINE.getPrevPlayerSwitchForTurnFlagForBattleState(battleKey);
-        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
+        ICommitManager commitManager = ICommitManager(ctx.moveManager);
+
+        address[2] memory players = [ctx.p0, ctx.p1];
         uint256 lastTurnTimestamp;
         // If the last turn was a single player turn, and it's not the first turn (as the prev flag is always zero), we get the timestamp from their last move
-        if (turnId != 0 && (prevPlayerSwitchForTurnFlag == 0 || prevPlayerSwitchForTurnFlag == 1)) {
+        if (turnId != 0 && (ctx.prevPlayerSwitchForTurnFlag == 0 || ctx.prevPlayerSwitchForTurnFlag == 1)) {
             lastTurnTimestamp =
-                commitManager.getLastMoveTimestampForPlayer(battleKey, players[prevPlayerSwitchForTurnFlag]);
+                commitManager.getLastMoveTimestampForPlayer(battleKey, players[ctx.prevPlayerSwitchForTurnFlag]);
         }
         // Otherwise it was either turn 0 (we grab the battle start time), or a two player turn (we grab the timestamp whoever made the last move)
         else {
             if (turnId == 0) {
-                lastTurnTimestamp = ENGINE.getStartTimestamp(battleKey);
+                lastTurnTimestamp = ctx.startTimestamp;
             } else {
                 lastTurnTimestamp = commitManager.getLastMoveTimestampForPlayer(battleKey, players[(turnId - 1) % 2]);
             }
         }
-        uint256 currentPlayerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
 
         // It's a single player turn, and it's our turn:
-        if (currentPlayerSwitchForTurnFlag == playerIndexToCheck) {
+        if (ctx.playerSwitchForTurnFlag == playerIndexToCheck) {
             if (block.timestamp >= lastTurnTimestamp + PREV_TURN_MULTIPLIER * TIMEOUT_DURATION) {
                 return players[playerIndexToCheck];
             }
         }
         // It's a two player turn:
-        else if (currentPlayerSwitchForTurnFlag == 2) {
+        else if (ctx.playerSwitchForTurnFlag == 2) {
             // We are committing + revealing:
             if (turnId % 2 == playerIndexToCheck) {
                 (bytes32 playerMoveHash, uint256 playerTurnId) =

@@ -168,3 +168,18 @@ struct StatBoostUpdate {
     uint32 oldStat;
     uint32 newStat;
 }
+
+// Batch context for external callers to avoid multiple SLOADs
+struct BattleContext {
+    uint96 startTimestamp;
+    address p0;
+    address p1;
+    uint8 winnerIndex; // 2 = uninitialized (no winner), 0 = p0 winner, 1 = p1 winner
+    uint64 turnId;
+    uint8 playerSwitchForTurnFlag;
+    uint8 prevPlayerSwitchForTurnFlag;
+    uint8 p0ActiveMonIndex;
+    uint8 p1ActiveMonIndex;
+    address validator;
+    address moveManager;
+}

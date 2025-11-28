@@ -1726,4 +1726,23 @@ contract Engine is IEngine, MappingAllocator {
     function getMoveManager(bytes32 battleKey) external view returns (address) {
         return battleConfig[_getStorageKey(battleKey)].moveManager;
     }
+
+    function getBattleContext(bytes32 battleKey) external view returns (BattleContext memory ctx) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleData storage data = battleData[battleKey];
+        BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
+
+        ctx.startTimestamp = data.startTimestamp;
+        ctx.p0 = data.p0;
+        ctx.p1 = data.p1;
+        ctx.winnerIndex = state.winnerIndex;
+        ctx.turnId = state.turnId;
+        ctx.playerSwitchForTurnFlag = state.playerSwitchForTurnFlag;
+        ctx.prevPlayerSwitchForTurnFlag = state.prevPlayerSwitchForTurnFlag;
+        ctx.p0ActiveMonIndex = uint8(state.activeMonIndex & 0xFF);
+        ctx.p1ActiveMonIndex = uint8(state.activeMonIndex >> 8);
+        ctx.validator = address(config.validator);
+        ctx.moveManager = config.moveManager;
+    }
 }
