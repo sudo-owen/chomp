@@ -60,11 +60,11 @@ struct BattleData {
 // Stored by the Engine for a battle, is overwritten after a battle is over
 struct BattleConfig {
     IValidator validator;
+    uint96 packedP0EffectsCount; // 6 (PLAYER_EFFECT_BITS) bits for up to 16 mons for p0
     IRandomnessOracle rngOracle;
+    uint96 packedP1EffectsCount;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
     uint24 globalEffectsLength;
-    uint24 p0EffectsLength;
-    uint24 p1EffectsLength;
     uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
     bytes32 p0Salt;
     bytes32 p1Salt;
@@ -89,8 +89,8 @@ struct BattleConfigView {
     IRandomnessOracle rngOracle;
     address moveManager;
     uint24 globalEffectsLength;
-    uint24 p0EffectsLength;
-    uint24 p1EffectsLength;
+    uint96 packedP0EffectsCount; // 6 bits per mon (up to 16 mons)
+    uint96 packedP1EffectsCount;
     uint8 teamSizes;
     bytes32 p0Salt;
     bytes32 p1Salt;

@@ -214,8 +214,8 @@ contract EngineGasTest is Test, BattleHelper {
         // Check effects array after setup 2
         (BattleConfigView memory cfgAfterSetup2,) = engine.getBattle(battleKey2);
         console.log("After setup 2 - globalEffectsLength:", cfgAfterSetup2.globalEffectsLength);
-        console.log("After setup 2 - p0EffectsLength:", cfgAfterSetup2.p0EffectsLength);
-        console.log("After setup 2 - p1EffectsLength:", cfgAfterSetup2.p1EffectsLength);
+        console.log("After setup 2 - packedP0EffectsCount:", cfgAfterSetup2.packedP0EffectsCount);
+        console.log("After setup 2 - packedP1EffectsCount:", cfgAfterSetup2.packedP1EffectsCount);
 
         // - Both players send in mon 0
         vm.startSnapshotGas("SecondBattle");
@@ -254,24 +254,84 @@ contract EngineGasTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey2, 0, NO_OP_MOVE_INDEX, "", "");
         uint256 secondBattleGas = vm.stopSnapshotGas("SecondBattle");
 
+        // Battle 3: Repeat exact sequence of Battle 1 to test warm storage slots
+        // Restore original move order (same as battle 1)
+        mon.moves[0] = burnMove;
+        mon.moves[1] = frostbiteMove;
+        mon.moves[2] = statBoostMove;
+        mon.moves[3] = damageMove;
+        for (uint256 i = 0; i < team.length; i++) {
+            team[i] = mon;
+        }
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        vm.startSnapshotGas("Setup 3");
+        bytes32 battleKey3 = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), IRuleset(address(ruleset)), address(commitManager));
+        uint256 setup3Gas = vm.stopSnapshotGas("Setup 3");
+
+        // Battle 3: Exact same sequence as Battle 1
+        vm.startSnapshotGas("ThirdBattle");
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
+        // Alice uses burn, Bob uses frostbite
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, 0, 1, "", "");
+        // Bob is mon index 0, we boost attack by 90%
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, SWITCH_MOVE_INDEX, 2, abi.encode(1), abi.encode(1, 0, uint256(MonStateIndexName.Attack), int32(90)));
+        // Alice is now mon index 1, Bob is mon index 0
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, 2, 3, abi.encode(0, 1, uint256(MonStateIndexName.Attack), int32(90)), "");
+        // Alice swaps in mon index 0
+        vm.startPrank(ALICE);
+        commitManager.revealMove(battleKey3, SWITCH_MOVE_INDEX, "", abi.encode(0), true);
+        // Alice is now mon index 0, Bob rests
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, 2, NO_OP_MOVE_INDEX, abi.encode(0, 0, uint256(MonStateIndexName.Attack), int32(90)), "");
+        // Alice KOs Bob
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, 3, NO_OP_MOVE_INDEX, "", "");
+        // Bob sends in mon index 1
+        vm.startPrank(BOB);
+        commitManager.revealMove(battleKey3, SWITCH_MOVE_INDEX, "", abi.encode(1), true);
+        // Alice rests, Bob uses self-stat boost
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, NO_OP_MOVE_INDEX, 2, "", abi.encode(1, 1, uint256(MonStateIndexName.Attack), int32(90)));
+        // Alice rests, Bob KOs
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, NO_OP_MOVE_INDEX, 3, "", "");
+        // Alice swaps in mon index 2
+        vm.startPrank(ALICE);
+        commitManager.revealMove(battleKey3, SWITCH_MOVE_INDEX, "", abi.encode(2), true);
+        // Alice rests, Bob KOs
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, NO_OP_MOVE_INDEX, 3, "", "");
+        // Alice swaps in mon index 3
+        vm.startPrank(ALICE);
+        commitManager.revealMove(battleKey3, SWITCH_MOVE_INDEX, "", abi.encode(3), true);
+        // Alice rests, Bob KOs
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey3, NO_OP_MOVE_INDEX, 3, "", "");
+        uint256 thirdBattleGas = vm.stopSnapshotGas("ThirdBattle");
+
         // Log the values
+        console.log("=== Gas Results ===");
         console.log("Setup 1 Gas:", setup1Gas);
         console.log("Setup 2 Gas:", setup2Gas);
-        console.log("First Battle Gas:", firstBattleGas);
-        console.log("Second Battle Gas:", secondBattleGas);
+        console.log("Setup 3 Gas:", setup3Gas);
+        console.log("Battle 1 Gas:", firstBattleGas);
+        console.log("Battle 2 Gas:", secondBattleGas);
+        console.log("Battle 3 Gas:", thirdBattleGas);
 
         // Setup comparison - this SHOULD pass (reusing storage keys)
         assertLt(setup2Gas, setup1Gas, "Setup 2 should be cheaper (storage reuse)");
+        assertLt(setup3Gas, setup1Gas, "Setup 3 should be cheaper (storage reuse)");
 
-        // Battle comparison - this may or may not pass depending on operations
-        // For now just log the difference
+        // Battle comparison
+        console.log("=== Battle Comparisons ===");
         if (secondBattleGas > firstBattleGas) {
-            console.log("Second battle is MORE expensive by:", secondBattleGas - firstBattleGas);
+            console.log("Battle 2 vs 1: MORE expensive by:", secondBattleGas - firstBattleGas);
         } else {
-            console.log("Second battle is LESS expensive by:", firstBattleGas - secondBattleGas);
+            console.log("Battle 2 vs 1: LESS expensive by:", firstBattleGas - secondBattleGas);
         }
-        // Comment out the assertion for now since battles have different operations
-        // assertLt(secondBattleGas, firstBattleGas);
+        if (thirdBattleGas > firstBattleGas) {
+            console.log("Battle 3 vs 1: MORE expensive by:", thirdBattleGas - firstBattleGas);
+        } else {
+            console.log("Battle 3 vs 1: LESS expensive by:", firstBattleGas - thirdBattleGas);
+        }
+        // Battle 3 should be cheaper than Battle 1 since it hits the same storage slots
+        console.log("Battle 3 savings vs Battle 1:", firstBattleGas > thirdBattleGas ? firstBattleGas - thirdBattleGas : 0);
      }
 
     // Simpler test: run identical battles back-to-back and measure only the execute calls
@@ -390,8 +450,8 @@ contract EngineGasTest is Test, BattleHelper {
         // Check after switch
         (BattleConfigView memory cfgAfterSwitch,) = engine.getBattle(battleKey1);
         console.log("After B1 switch - globalEffectsLength:", cfgAfterSwitch.globalEffectsLength);
-        console.log("After B1 switch - p0EffectsLength:", cfgAfterSwitch.p0EffectsLength);
-        console.log("After B1 switch - p1EffectsLength:", cfgAfterSwitch.p1EffectsLength);
+        console.log("After B1 switch - packedP0EffectsCount:", cfgAfterSwitch.packedP0EffectsCount);
+        console.log("After B1 switch - packedP1EffectsCount:", cfgAfterSwitch.packedP1EffectsCount);
 
         // Both apply effect to each other (adds 2 effects)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, 0, 0, "", "");
@@ -399,8 +459,8 @@ contract EngineGasTest is Test, BattleHelper {
         // Check after effects applied
         (BattleConfigView memory cfgAfterEffects,) = engine.getBattle(battleKey1);
         console.log("After B1 effects - globalEffectsLength:", cfgAfterEffects.globalEffectsLength);
-        console.log("After B1 effects - p0EffectsLength:", cfgAfterEffects.p0EffectsLength);
-        console.log("After B1 effects - p1EffectsLength:", cfgAfterEffects.p1EffectsLength);
+        console.log("After B1 effects - packedP0EffectsCount:", cfgAfterEffects.packedP0EffectsCount);
+        console.log("After B1 effects - packedP1EffectsCount:", cfgAfterEffects.packedP1EffectsCount);
 
         // Both attack - should KO
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, 1, 1, "", "");
@@ -419,8 +479,8 @@ contract EngineGasTest is Test, BattleHelper {
         // Check if effects array was reused
         (BattleConfigView memory cfg2,) = engine.getBattle(battleKey2);
         console.log("After B2 setup - globalEffectsLength:", cfg2.globalEffectsLength);
-        console.log("After B2 setup - p0EffectsLength:", cfg2.p0EffectsLength);
-        console.log("After B2 setup - p1EffectsLength:", cfg2.p1EffectsLength);
+        console.log("After B2 setup - packedP0EffectsCount:", cfg2.packedP0EffectsCount);
+        console.log("After B2 setup - packedP1EffectsCount:", cfg2.packedP1EffectsCount);
 
         vm.startSnapshotGas("B2_Execute");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey2, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
