@@ -52,9 +52,7 @@ struct MoveDecision {
 // Stored by the Engine, tracks immutable battle data
 struct BattleData {
     address p1;
-    uint96 startTimestamp;
     address p0;
-    IEngineHook[] engineHooks;
 }
 
 // Stored by the Engine for a battle, is overwritten after a battle is over
@@ -64,8 +62,10 @@ struct BattleConfig {
     IRandomnessOracle rngOracle;
     uint96 packedP1EffectsCount;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
-    uint24 globalEffectsLength;
+    uint8 globalEffectsLength;
     uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
+    uint8 engineHooksLength;
+    uint64 startTimestamp;
     bytes32 p0Salt;
     bytes32 p1Salt;
     MoveDecision p0Move;
@@ -75,6 +75,7 @@ struct BattleConfig {
     mapping(uint256 => EffectInstance) globalEffects;
     mapping(uint256 => EffectInstance) p0Effects;
     mapping(uint256 => EffectInstance) p1Effects;
+    mapping(uint256 => IEngineHook) engineHooks;
 }
 
 struct EffectInstance {
@@ -168,7 +169,7 @@ struct StatBoostUpdate {
     uint32 newStat;
 }
 
-// Batch context for external callers to avoid multiple SLOADs
+// Batch context for external callers (e.g. DefaultValidator) to avoid multiple SLOADs
 struct BattleContext {
     uint96 startTimestamp;
     address p0;

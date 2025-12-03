@@ -33,6 +33,7 @@ contract Engine is IEngine, MappingAllocator {
     error MovesNotSet();
     error InvalidBattleConfig();
     error GameAlreadyOver();
+    error GameStartsAndEndsSameBlock();
 
     // Events
     event BattleStart(bytes32 indexed battleKey, address p0, address p1);
@@ -135,7 +136,7 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[battleConfigKey];
 
         // Clear previous battle's mon states by setting non-zero values to sentinel
-        for (uint256 i = 0; i < config.monStates.length; i++) {
+        for (uint256 i = 0; i < config.monStates.length; ++i) {
             for (uint256 j = 0; j < config.monStates[i].length; j++) {
                 MonState storage monState = config.monStates[i][j];
 
@@ -165,16 +166,13 @@ contract Engine is IEngine, MappingAllocator {
             config.moveManager = battle.moveManager;
         }
         // Reset effects lengths to 0 for the new battle
-        config.globalEffectsLength = 0;
         config.packedP0EffectsCount = 0;
         config.packedP1EffectsCount = 0;
 
         // Store the battle data
         battleData[battleKey] = BattleData({
             p0: battle.p0,
-            p1: battle.p1,
-            startTimestamp: uint96(block.timestamp),
-            engineHooks: battle.engineHooks
+            p1: battle.p1        
         });
 
         // Set the team for p0 and p1 in the reusable config storage
@@ -191,7 +189,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Overwrite/resize team arrays for each player
-        for (uint256 i = 0; i < 2; i++) {
+        for (uint256 i = 0; i < 2; ++i) {
             Mon[] memory newTeam = (i == 0) ? p0Team : p1Team;
 
             // Resize if needed by overwriting existing slots or pushing new ones
@@ -217,13 +215,13 @@ contract Engine is IEngine, MappingAllocator {
         // Note: activeMonIndex is a packed uint16 that defaults to 0 (both players start with mon index 0)
         if (config.monStates.length < 2) {
             // Need to create the player arrays
-            for (uint256 i = config.monStates.length; i < 2; i++) {
+            for (uint256 i = config.monStates.length; i < 2; ++i) {
                 config.monStates.push();
             }
         }
 
         // For each player, ensure we have enough mon state slots
-        for (uint256 i = 0; i < 2; i++) {
+        for (uint256 i = 0; i < 2; ++i) {
             uint256 teamSize = (i == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
             uint256 existingSlots = config.monStates[i].length;
 
@@ -233,21 +231,35 @@ contract Engine is IEngine, MappingAllocator {
             }
         }
 
-        // Get the global effects and data to start the game if any
+        // Set the global effects and data to start the game if any
         if (address(battle.ruleset) != address(0)) {
             (IEffect[] memory effects, bytes32[] memory data) = battle.ruleset.getInitialGlobalEffects();
-            if (effects.length > 0) {
-                bytes32 storageKey = battleConfigKey;
-                BattleConfig storage cfg = battleConfig[storageKey];
-                for (uint256 i = 0; i < effects.length; i++) {
-                    uint256 effectIndex = cfg.globalEffectsLength;
-                    EffectInstance storage effectSlot = cfg.globalEffects[effectIndex];
-                    effectSlot.effect = effects[i];
-                    effectSlot.data = data[i];
-                    cfg.globalEffectsLength = uint24(effectIndex + 1);
+            uint256 numEffects = effects.length;
+            if (numEffects > 0) {
+                for (uint i = 0; i < numEffects; ++i) {
+                    config.globalEffects[i].effect = effects[i];
+                    config.globalEffects[i].data = data[i];
                 }
+                config.globalEffectsLength = uint8(effects.length);
             }
+        } else {
+            config.globalEffectsLength = 0;
         }
+
+        // Set the engine hooks to start the game if any
+        uint256 numHooks = battle.engineHooks.length;
+        if (numHooks > 0) {
+            for (uint i; i < numHooks; ++i) {
+                config.engineHooks[i] = battle.engineHooks[i];
+            }
+            config.engineHooksLength = uint8(numHooks);
+        }
+        else {
+            config.engineHooksLength = 0;
+        }
+
+        // Set start timestamp
+        config.startTimestamp = uint64(block.timestamp);
 
         // Validate the battle config
         if (!battle.validator
@@ -262,7 +274,7 @@ contract Engine is IEngine, MappingAllocator {
         // Initialize winnerIndex to 2 (uninitialized/no winner)
         battleStates[battleKey].winnerIndex = 2;
 
-        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
+        for (uint256 i = 0; i < battle.engineHooks.length; ++i) {
             battle.engineHooks[i].onBattleStart(battleKey);
         }
 
@@ -298,8 +310,8 @@ contract Engine is IEngine, MappingAllocator {
         // (gets cleared at the end of the transaction)
         battleKeyForWrite = battleKey;
 
-        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            battle.engineHooks[i].onRoundStart(battleKey);
+        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+            config.engineHooks[i].onRoundStart(battleKey);
         }
 
         // If only a single player has a move to submit, then we don't trigger any effects
@@ -475,8 +487,8 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Run the round end hooks
-        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            battle.engineHooks[i].onRoundEnd(battleKey);
+        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+            config.engineHooks[i].onRoundEnd(battleKey);
         }
 
         // End of turn cleanup:
@@ -511,8 +523,9 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function _handleGameOver(bytes32 battleKey, address winner) internal {
-        for (uint256 i = 0; i < battleData[battleKey].engineHooks.length; i++) {
-            battleData[battleKey].engineHooks[i].onBattleEnd(battleKey);
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+            config.engineHooks[i].onBattleEnd(battleKey);
         }
 
         // Free the key used for battle configs so other battles can use it
@@ -611,7 +624,7 @@ contract Engine is IEngine, MappingAllocator {
                     EffectInstance storage effectSlot = config.globalEffects[effectIndex];
                     effectSlot.effect = effect;
                     effectSlot.data = extraDataToUse;
-                    config.globalEffectsLength = uint24(effectIndex + 1);
+                    config.globalEffectsLength = uint8(effectIndex + 1);
                 } else if (targetIndex == 0) {
                     // Player effects use per-mon indexing: slot = MAX_EFFECTS_PER_MON * monIndex + count[monIndex]
                     uint256 monEffectCount = _getMonEffectCount(config.packedP0EffectsCount, monIndex);
@@ -741,7 +754,7 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
         bytes32 storageKey = _getStorageKey(battleKey);
-        uint64 timestamp = uint64(battleData[battleKey].startTimestamp);
+        uint64 timestamp = battleConfig[storageKey].startTimestamp;
         // Pack timestamp (upper 64 bits) with value (lower 192 bits)
         bytes32 packed = bytes32((uint256(timestamp) << 192) | uint256(value));
         globalKV[storageKey][key] = packed;
@@ -866,11 +879,11 @@ contract Engine is IEngine, MappingAllocator {
         // A game is over if all of a player's mons are KOed
         uint256 newWinnerIndex = 2;
         uint256[2] memory playerIndices = [uint256(0), uint256(1)];
-        for (uint256 i = 0; i < 2; i++) {
+        for (uint256 i = 0; i < 2; ++i) {
             uint256 monsKOed = 0;
             uint256 playerIndex = playerIndices[i];
             uint256 teamSize = (playerIndex == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
-            for (uint256 j = 0; j < teamSize; j++) {
+            for (uint256 j = 0; j < teamSize; ++j) {
                 if (config.monStates[playerIndex][j].isKnockedOut) {
                     monsKOed++;
                 }
@@ -1123,7 +1136,6 @@ contract Engine is IEngine, MappingAllocator {
             return;
         }
 
-        // Update current step
         currentStep = uint256(round);
 
         // Emit event first, then handle side effects (use transient battleKeyForWrite)
@@ -1315,8 +1327,6 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
-
-
     // Helper functions for per-mon effect count packing
     function _getMonEffectCount(uint96 packedCounts, uint256 monIndex) private pure returns (uint256) {
         return (uint256(packedCounts) >> (monIndex * PLAYER_EFFECT_BITS)) & EFFECT_COUNT_MASK;
@@ -1346,7 +1356,7 @@ contract Engine is IEngine, MappingAllocator {
             // Global query - count non-tombstoned effects first
             uint256 globalEffectsLength = config.globalEffectsLength;
             uint256 globalActiveCount = 0;
-            for (uint256 i = 0; i < globalEffectsLength; i++) {
+            for (uint256 i = 0; i < globalEffectsLength; ++i) {
                 if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
                     globalActiveCount++;
                 }
@@ -1355,7 +1365,7 @@ contract Engine is IEngine, MappingAllocator {
             EffectInstance[] memory globalResult = new EffectInstance[](globalActiveCount);
             uint256[] memory globalIndices = new uint256[](globalActiveCount);
             uint256 globalIdx = 0;
-            for (uint256 i = 0; i < globalEffectsLength; i++) {
+            for (uint256 i = 0; i < globalEffectsLength; ++i) {
                 if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
                     globalResult[globalIdx] = config.globalEffects[i];
                     globalIndices[globalIdx] = i;
@@ -1372,7 +1382,7 @@ contract Engine is IEngine, MappingAllocator {
         mapping(uint256 => EffectInstance) storage effects = targetIndex == 0 ? config.p0Effects : config.p1Effects;
 
         uint256 activeCount = 0;
-        for (uint256 i = 0; i < monEffectCount; i++) {
+        for (uint256 i = 0; i < monEffectCount; ++i) {
             if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
                 activeCount++;
             }
@@ -1381,7 +1391,7 @@ contract Engine is IEngine, MappingAllocator {
         EffectInstance[] memory result = new EffectInstance[](activeCount);
         uint256[] memory indices = new uint256[](activeCount);
         uint256 idx = 0;
-        for (uint256 i = 0; i < monEffectCount; i++) {
+        for (uint256 i = 0; i < monEffectCount; ++i) {
             uint256 slotIndex = baseSlot + i;
             if (address(effects[slotIndex].effect) != TOMBSTONE_ADDRESS) {
                 result[idx] = effects[slotIndex];
@@ -1404,14 +1414,14 @@ contract Engine is IEngine, MappingAllocator {
         // Build global effects array (skip tombstones)
         uint256 globalLen = config.globalEffectsLength;
         uint256 activeGlobalCount = 0;
-        for (uint256 i = 0; i < globalLen; i++) {
+        for (uint256 i = 0; i < globalLen; ++i) {
             if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
                 activeGlobalCount++;
             }
         }
         EffectInstance[] memory globalEffects = new EffectInstance[](activeGlobalCount);
         uint256 gIdx = 0;
-        for (uint256 i = 0; i < globalLen; i++) {
+        for (uint256 i = 0; i < globalLen; ++i) {
             if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
                 globalEffects[gIdx] = config.globalEffects[i];
                 gIdx++;
@@ -1458,7 +1468,7 @@ contract Engine is IEngine, MappingAllocator {
         for (uint256 m = 0; m < teamSize; m++) {
             uint256 monCount = _getMonEffectCount(packedCounts, m);
             uint256 baseSlot = _getEffectSlotIndex(m, 0);
-            for (uint256 i = 0; i < monCount; i++) {
+            for (uint256 i = 0; i < monCount; ++i) {
                 if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
                     totalCount++;
                 }
@@ -1471,7 +1481,7 @@ contract Engine is IEngine, MappingAllocator {
         for (uint256 m = 0; m < teamSize; m++) {
             uint256 monCount = _getMonEffectCount(packedCounts, m);
             uint256 baseSlot = _getEffectSlotIndex(m, 0);
-            for (uint256 i = 0; i < monCount; i++) {
+            for (uint256 i = 0; i < monCount; ++i) {
                 if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
                     result[idx] = effects[baseSlot + i];
                     idx++;
@@ -1647,7 +1657,7 @@ contract Engine is IEngine, MappingAllocator {
         bytes32 packed = globalKV[storageKey][key];
         // Extract timestamp (upper 64 bits) and value (lower 192 bits)
         uint64 storedTimestamp = uint64(uint256(packed) >> 192);
-        uint64 currentTimestamp = uint64(battleData[battleKey].startTimestamp);
+        uint64 currentTimestamp = battleConfig[storageKey].startTimestamp;
         // If timestamps don't match, return 0 (stale value from different battle)
         if (storedTimestamp != currentTimestamp) {
             return 0;
@@ -1673,7 +1683,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256) {
-        return battleData[battleKey].startTimestamp;
+        return battleConfig[_getStorageKey(battleKey)].startTimestamp;
     }
 
     function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
@@ -1690,7 +1700,7 @@ contract Engine is IEngine, MappingAllocator {
         BattleState storage state = battleStates[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
 
-        ctx.startTimestamp = data.startTimestamp;
+        ctx.startTimestamp = config.startTimestamp;
         ctx.p0 = data.p0;
         ctx.p1 = data.p1;
         ctx.winnerIndex = state.winnerIndex;
