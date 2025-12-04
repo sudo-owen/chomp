@@ -39,28 +39,28 @@ contract DefaultCommitManager is ICommitManager {
      *     - UNLESS there is a player switch for turn flag, in which case, no commits at all
      */
     function commitMove(bytes32 battleKey, bytes32 moveHash) external {
-        // Can only commit moves to battles with nonzero timestamp and address(0) winner
-        uint256 startTimestamp = ENGINE.getStartTimestamp(battleKey);
-        if (startTimestamp == 0) {
+        // Get all battle context in one call
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+
+        // Can only commit moves to battles with nonzero timestamp and no winner
+        if (ctx.startTimestamp == 0) {
             revert BattleNotYetStarted();
         }
 
-        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
         address caller = msg.sender;
-        uint256 playerIndex = (caller == p0AndP1[0]) ? 0 : 1;
+        uint256 playerIndex = (caller == ctx.p0) ? 0 : 1;
 
         // Only battle participants can commit
-        if (caller != p0AndP1[0] && caller != p0AndP1[1]) {
+        if (caller != ctx.p0 && caller != ctx.p1) {
             revert NotP0OrP1();
         }
 
-        address winner = ENGINE.getWinner(battleKey);
-        if (winner != address(0)) {
+        if (ctx.winnerIndex != 2) {
             revert BattleAlreadyComplete();
         }
 
         // 3) Validate no commitment already exists for this turn:
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
+        uint64 turnId = ctx.turnId;
 
         // If it's the zeroth turn, require that no hash is set for the player
         // otherwise, just check if the turn id (which we overwrite each turn) is in sync
@@ -74,16 +74,15 @@ contract DefaultCommitManager is ICommitManager {
         }
 
         // 5) Cannot commit if the battle state says it's only for one player
-        uint256 playerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
-        if (playerSwitchForTurnFlag != 2) {
+        if (ctx.playerSwitchForTurnFlag != 2) {
             revert PlayerNotAllowed();
         }
 
         // 6) Can only commit if the turn index % lines up with the player index
         // (Otherwise, just go straight to revealing)
-        if (caller == p0AndP1[0] && turnId % 2 == 1) {
+        if (caller == ctx.p0 && turnId % 2 == 1) {
             revert PlayerNotAllowed();
-        } else if (caller == p0AndP1[1] && turnId % 2 == 0) {
+        } else if (caller == ctx.p1 && turnId % 2 == 0) {
             revert PlayerNotAllowed();
         }
 
@@ -98,35 +97,35 @@ contract DefaultCommitManager is ICommitManager {
     function revealMove(bytes32 battleKey, uint128 moveIndex, bytes32 salt, bytes calldata extraData, bool autoExecute)
         external
     {
-        // Can only commit moves to battles with nonzero timestamp and address(0) winner
-        uint256 startTimestamp = ENGINE.getStartTimestamp(battleKey);
-        if (startTimestamp == 0) {
+        // Get all battle context in one call
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+
+        // Can only reveal moves to battles with nonzero timestamp and no winner
+        if (ctx.startTimestamp == 0) {
             revert BattleNotYetStarted();
         }
 
         // Only battle participants can reveal
-        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
-        if (msg.sender != p0AndP1[0] && msg.sender != p0AndP1[1]) {
+        if (msg.sender != ctx.p0 && msg.sender != ctx.p1) {
             revert NotP0OrP1();
         }
 
         // Set current and other player based on the caller
         uint256 currentPlayerIndex;
         uint256 otherPlayerIndex;
-        if (msg.sender == p0AndP1[0]) {
+        if (msg.sender == ctx.p0) {
             otherPlayerIndex = 1;
         } else {
             currentPlayerIndex = 1;
         }
 
-        address winner = ENGINE.getWinner(battleKey);
-        if (winner != address(0)) {
+        if (ctx.winnerIndex != 2) {
             revert BattleAlreadyComplete();
         }
 
-        // Get turn id and switch for turn flag
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        uint256 playerSwitchForTurnFlag = ENGINE.getPlayerSwitchForTurnFlagForBattleState(battleKey);
+        // Use turn id and switch for turn flag from context
+        uint64 turnId = ctx.turnId;
+        uint8 playerSwitchForTurnFlag = ctx.playerSwitchForTurnFlag;
 
         // 2) If the turn index does NOT line up with the player index
         // OR it's a turn with only one player, and that player is us:
@@ -192,8 +191,8 @@ contract DefaultCommitManager is ICommitManager {
 
         // 5) Validate that the commited moves are legal
         // (e.g. there is enough stamina, move is not disabled, etc.)
-        if (!ENGINE.getBattleValidator(battleKey)
-                .validatePlayerMove(battleKey, moveIndex, currentPlayerIndex, extraData)) {
+        // Use validator from context instead of calling getBattleValidator
+        if (!IValidator(ctx.validator).validatePlayerMove(battleKey, moveIndex, currentPlayerIndex, extraData)) {
             revert InvalidMove(msg.sender);
         }
 
@@ -225,8 +224,8 @@ contract DefaultCommitManager is ICommitManager {
     }
 
     function getCommitment(bytes32 battleKey, address player) external view returns (bytes32 moveHash, uint256 turnId) {
-        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
-        uint256 playerIndex = (player == p0AndP1[0]) ? 0 : 1;
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
         return (
             playerData[battleKey][playerIndex].moveHash,
             playerData[battleKey][playerIndex].lastCommitmentTurnId
@@ -234,14 +233,14 @@ contract DefaultCommitManager is ICommitManager {
     }
 
     function getMoveCountForBattleState(bytes32 battleKey, address player) external view returns (uint256) {
-        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
-        uint256 playerIndex = (player == p0AndP1[0]) ? 0 : 1;
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
         return playerData[battleKey][playerIndex].numMovesRevealed;
     }
 
     function getLastMoveTimestampForPlayer(bytes32 battleKey, address player) external view returns (uint256) {
-        address[] memory p0AndP1 = ENGINE.getPlayersForBattle(battleKey);
-        uint256 playerIndex = (player == p0AndP1[0]) ? 0 : 1;
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
         return playerData[battleKey][playerIndex].lastMoveTimestamp;
     }
 }

@@ -34,16 +34,15 @@ contract Initialize is IMoveSet, BasicEffect {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
         // Check if global KV is set
-        bytes32 flag = ENGINE.getGlobalKV(battleKey, _initializeKey(attackerPlayerIndex, activeMonIndex));
-        if (flag == bytes32(0)) {
+        uint192 flag = ENGINE.getGlobalKV(battleKey, _initializeKey(attackerPlayerIndex, activeMonIndex));
+        if (flag == 0) {
             // Apply the buffs
             _applyBuff(attackerPlayerIndex, activeMonIndex);
 
             // Apply effect globally
             ENGINE.addEffect(2, 2, this, _encodeState(attackerPlayerIndex, activeMonIndex));
             // Set global KV to prevent this move doing anything until Inutia swaps out
-            uint256 newFlag = 1;
-            ENGINE.setGlobalKV(_initializeKey(attackerPlayerIndex, activeMonIndex), bytes32(newFlag));
+            ENGINE.setGlobalKV(_initializeKey(attackerPlayerIndex, activeMonIndex), 1);
         }
         // Otherwise we don't do anything
     }
@@ -86,22 +85,23 @@ contract Initialize is IMoveSet, BasicEffect {
     /**
      *  Effect implementation
      */
-    function _encodeState(uint256 playerIndex, uint256 monIndex) internal pure returns (bytes memory) {
-        return abi.encode(playerIndex, monIndex);
+    function _encodeState(uint256 playerIndex, uint256 monIndex) internal pure returns (bytes32) {
+        return bytes32((playerIndex << 128) | monIndex);
     }
 
-    function _decodeState(bytes memory data) internal pure returns (uint256 playerIndex, uint256 monIndex) {
-        return abi.decode(data, (uint256, uint256));
+    function _decodeState(bytes32 data) internal pure returns (uint256 playerIndex, uint256 monIndex) {
+        playerIndex = uint256(data) >> 128;
+        monIndex = uint256(data) & type(uint128).max;
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.OnMonSwitchIn || step == EffectStep.OnMonSwitchOut);
     }
 
-    function onMonSwitchOut(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchOut(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         // Clear the initialize lock, but do not remove effect
         (uint256 attackerPlayerIndex, uint256 attackingMonIndex) = _decodeState(extraData);
@@ -111,10 +111,10 @@ contract Initialize is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onMonSwitchIn(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchIn(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         (uint256 attackerPlayerIndex,) = _decodeState(extraData);
         if (attackerPlayerIndex == targetIndex) {

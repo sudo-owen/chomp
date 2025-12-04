@@ -12,6 +12,7 @@ import {MappingAllocator} from "./lib/MappingAllocator.sol";
 import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 
 contract Engine is IEngine, MappingAllocator {
+
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
     mapping(bytes32 => uint256) public pairHashNonces; // imposes a global ordering across all matches
     mapping(address player => mapping(address maker => bool)) public isMatchmakerFor; // tracks approvals for matchmakers
@@ -19,7 +20,7 @@ contract Engine is IEngine, MappingAllocator {
     mapping(bytes32 => BattleData) private battleData; // These are immutable after a battle begins
     mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle, we reuse these storage slots for subsequent battles
     mapping(bytes32 battleKey => BattleState) private battleStates;
-    mapping(bytes32 battleKey => mapping(bytes32 => bytes32)) private globalKV;
+    mapping(bytes32 storageKey => mapping(bytes32 => bytes32)) private globalKV; // Value layout: [64 bits timestamp | 192 bits value]
     uint256 public transient tempRNG; // Used to provide RNG during execute() tx
     uint256 private transient currentStep; // Used to bubble up step data for events
     address private transient upstreamCaller; // Used to bubble up caller data for events
@@ -32,6 +33,7 @@ contract Engine is IEngine, MappingAllocator {
     error MovesNotSet();
     error InvalidBattleConfig();
     error GameAlreadyOver();
+    error GameStartsAndEndsSameBlock();
 
     // Events
     event BattleStart(bytes32 indexed battleKey, address p0, address p1);
@@ -69,7 +71,16 @@ contract Engine is IEngine, MappingAllocator {
         uint256 effectIndex,
         uint256 monIndex,
         address effectAddress,
-        bytes extraData,
+        bytes32 extraData,
+        address source,
+        uint256 step
+    );
+    event EffectRun(
+        bytes32 indexed battleKey,
+        uint256 effectIndex,
+        uint256 monIndex,
+        address effectAddress,
+        bytes32 extraData,
         address source,
         uint256 step
     );
@@ -78,7 +89,7 @@ contract Engine is IEngine, MappingAllocator {
         uint256 effectIndex,
         uint256 monIndex,
         address effectAddress,
-        bytes extraData,
+        bytes32 extraData,
         address source,
         uint256 step
     );
@@ -124,52 +135,135 @@ contract Engine is IEngine, MappingAllocator {
         bytes32 battleConfigKey = _initializeStorageKey(battleKey);
         BattleConfig storage config = battleConfig[battleConfigKey];
 
-        // Store the battle config
-        battleConfig[battleConfigKey] = BattleConfig({
-            validator: battle.validator,
-            rngOracle: battle.rngOracle,
-            moveManager: battle.moveManager,
-            p0Salt: config.p0Salt,
-            p1Salt: config.p1Salt
-        });
+        // Clear previous battle's mon states by setting non-zero values to sentinel
+        for (uint256 i = 0; i < config.monStates.length; ++i) {
+            for (uint256 j = 0; j < config.monStates[i].length; j++) {
+                MonState storage monState = config.monStates[i][j];
+
+                // Set all non-zero int32 fields to sentinel value
+                if (monState.hpDelta != 0) monState.hpDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.staminaDelta != 0) monState.staminaDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.speedDelta != 0) monState.speedDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.attackDelta != 0) monState.attackDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.defenceDelta != 0) monState.defenceDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.specialAttackDelta != 0) monState.specialAttackDelta = CLEARED_MON_STATE_SENTINEL;
+                if (monState.specialDefenceDelta != 0) monState.specialDefenceDelta = CLEARED_MON_STATE_SENTINEL;
+
+                // Reset bools to false
+                monState.isKnockedOut = false;
+                monState.shouldSkipTurn = false;
+            }
+        }
+
+        // Store the battle config (update fields individually to preserve effects mapping slots)
+        if (config.validator != battle.validator) {
+            config.validator = battle.validator;
+        }
+        if (config.rngOracle != battle.rngOracle) {
+            config.rngOracle = battle.rngOracle;
+        }
+        if (config.moveManager != battle.moveManager) {
+            config.moveManager = battle.moveManager;
+        }
+        // Reset effects lengths to 0 for the new battle
+        config.packedP0EffectsCount = 0;
+        config.packedP1EffectsCount = 0;
 
         // Store the battle data
         battleData[battleKey] = BattleData({
             p0: battle.p0,
-            p1: battle.p1,
-            startTimestamp: uint96(block.timestamp),
-            engineHooks: battle.engineHooks,
-            teams: new Mon[][](2)
+            p1: battle.p1        
         });
 
-        // Set the team for p0 and p1
-        battleData[battleKey].teams[0] = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
-        battleData[battleKey].teams[1] = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
+        // Set the team for p0 and p1 in the reusable config storage
+        // Reuse existing storage slots to keep them warm
+        Mon[] memory p0Team = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
+        Mon[] memory p1Team = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
 
-        // Initialize empty mon state for each team
-        // Note: activeMonIndex is a packed uint16 that defaults to 0 (both players start with mon index 0)
-        for (uint256 i; i < 2; ++i) {
-            battleStates[battleKey].monStates.push();
+        // Store actual team sizes (packed: lower 4 bits = p0, upper 4 bits = p1)
+        config.teamSizes = uint8(p0Team.length) | (uint8(p1Team.length) << 4);
 
-            // Initialize empty mon delta states for each mon on the team
-            for (uint256 j; j < battleData[battleKey].teams[i].length; ++j) {
-                battleStates[battleKey].monStates[i].push();
-            }
+        // Ensure teams array has 2 player slots
+        if (config.teams.length < 2) {
+            config.teams = new Mon[][](2);
         }
 
-        // Get the global effects and data to start the game if any
-        if (address(battle.ruleset) != address(0)) {
-            (IEffect[] memory effects, bytes[] memory data) = battle.ruleset.getInitialGlobalEffects();
-            if (effects.length > 0) {
-                for (uint256 i = 0; i < effects.length; i++) {
-                    battleStates[battleKey].globalEffects.push(EffectInstance({effect: effects[i], data: data[i]}));
+        // Overwrite/resize team arrays for each player
+        for (uint256 i = 0; i < 2; ++i) {
+            Mon[] memory newTeam = (i == 0) ? p0Team : p1Team;
+
+            // Resize if needed by overwriting existing slots or pushing new ones
+            if (config.teams[i].length > newTeam.length) {
+                // Shrink by overwriting excess slots (we keep them allocated)
+                for (uint256 j = 0; j < newTeam.length; j++) {
+                    config.teams[i][j] = newTeam[j];
+                }
+                // Note: We don't pop the excess, just leave them (they'll be ignored based on teamSizes)
+            } else {
+                // Overwrite existing slots
+                for (uint256 j = 0; j < config.teams[i].length; j++) {
+                    config.teams[i][j] = newTeam[j];
+                }
+                // Push new slots if needed
+                for (uint256 j = config.teams[i].length; j < newTeam.length; j++) {
+                    config.teams[i].push(newTeam[j]);
                 }
             }
         }
 
+        // Reuse or initialize mon state arrays
+        // Note: activeMonIndex is a packed uint16 that defaults to 0 (both players start with mon index 0)
+        if (config.monStates.length < 2) {
+            // Need to create the player arrays
+            for (uint256 i = config.monStates.length; i < 2; ++i) {
+                config.monStates.push();
+            }
+        }
+
+        // For each player, ensure we have enough mon state slots
+        for (uint256 i = 0; i < 2; ++i) {
+            uint256 teamSize = (i == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
+            uint256 existingSlots = config.monStates[i].length;
+
+            // Add new slots if needed (existing slots will be reused as-is)
+            for (uint256 j = existingSlots; j < teamSize; j++) {
+                config.monStates[i].push();
+            }
+        }
+
+        // Set the global effects and data to start the game if any
+        if (address(battle.ruleset) != address(0)) {
+            (IEffect[] memory effects, bytes32[] memory data) = battle.ruleset.getInitialGlobalEffects();
+            uint256 numEffects = effects.length;
+            if (numEffects > 0) {
+                for (uint i = 0; i < numEffects; ++i) {
+                    config.globalEffects[i].effect = effects[i];
+                    config.globalEffects[i].data = data[i];
+                }
+                config.globalEffectsLength = uint8(effects.length);
+            }
+        } else {
+            config.globalEffectsLength = 0;
+        }
+
+        // Set the engine hooks to start the game if any
+        uint256 numHooks = battle.engineHooks.length;
+        if (numHooks > 0) {
+            for (uint i; i < numHooks; ++i) {
+                config.engineHooks[i] = battle.engineHooks[i];
+            }
+            config.engineHooksLength = uint8(numHooks);
+        }
+        else {
+            config.engineHooksLength = 0;
+        }
+
+        // Set start timestamp
+        config.startTimestamp = uint64(block.timestamp);
+
         // Validate the battle config
         if (!battle.validator
-                .validateGameStart(battleData[battleKey], battle.teamRegistry, battle.p0TeamIndex, battle.p1TeamIndex))
+                .validateGameStart(battle.p0, battle.p1, config.teams, battle.teamRegistry, battle.p0TeamIndex, battle.p1TeamIndex))
         {
             revert InvalidBattleConfig();
         }
@@ -180,13 +274,7 @@ contract Engine is IEngine, MappingAllocator {
         // Initialize winnerIndex to 2 (uninitialized/no winner)
         battleStates[battleKey].winnerIndex = 2;
 
-        // Initialize storage for moves
-        battleStates[battleKey].playerMoves.push();
-        battleStates[battleKey].playerMoves.push();
-        battleStates[battleKey].playerMoves[0].push();
-        battleStates[battleKey].playerMoves[1].push();
-
-        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
+        for (uint256 i = 0; i < battle.engineHooks.length; ++i) {
             battle.engineHooks[i].onBattleStart(battleKey);
         }
 
@@ -205,6 +293,11 @@ contract Engine is IEngine, MappingAllocator {
             revert GameAlreadyOver();
         }
 
+        // Check that at least one move has been set
+        if (config.p0Move.isRealTurn != 1 && config.p1Move.isRealTurn != 1) {
+            revert MovesNotSet();
+        }
+
         // Set up turn / player vars
         uint256 turnId = state.turnId;
         uint256 playerSwitchForTurnFlag = 2;
@@ -217,8 +310,8 @@ contract Engine is IEngine, MappingAllocator {
         // (gets cleared at the end of the transaction)
         battleKeyForWrite = battleKey;
 
-        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            battle.engineHooks[i].onRoundStart(battleKey);
+        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+            config.engineHooks[i].onRoundStart(battleKey);
         }
 
         // If only a single player has a move to submit, then we don't trigger any effects
@@ -258,11 +351,6 @@ contract Engine is IEngine, MappingAllocator {
             - Set player switch for turn flag
         */
         else {
-            // Validate both moves have been revealed for the current turn
-            // (accessing the values will revert if they haven't been set)
-            if ((state.playerMoves[0].length < (turnId + 1)) || (state.playerMoves[1].length < (turnId + 1))) {
-                revert MovesNotSet();
-            }
 
             // Update the temporary RNG to the newest value
             uint256 rng = config.rngOracle.getRNG(config.p0Salt, config.p1Salt);
@@ -330,12 +418,12 @@ contract Engine is IEngine, MappingAllocator {
             // Happens immediately after both mons are sent in, before any other effects
             if (turnId == 0) {
                 uint256 priorityMonIndex = _unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex);
-                Mon memory priorityMon = battle.teams[priorityPlayerIndex][priorityMonIndex];
+                Mon memory priorityMon = config.teams[priorityPlayerIndex][priorityMonIndex];
                 if (address(priorityMon.ability) != address(0)) {
                     priorityMon.ability.activateOnSwitch(battleKey, priorityPlayerIndex, priorityMonIndex);
                 }
                 uint256 otherMonIndex = _unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex);
-                Mon memory otherMon = battle.teams[otherPlayerIndex][otherMonIndex];
+                Mon memory otherMon = config.teams[otherPlayerIndex][otherMonIndex];
                 if (address(otherMon.ability) != address(0)) {
                     otherMon.ability.activateOnSwitch(battleKey, otherPlayerIndex, otherMonIndex);
                 }
@@ -399,16 +487,18 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Run the round end hooks
-        for (uint256 i = 0; i < battle.engineHooks.length; i++) {
-            battle.engineHooks[i].onRoundEnd(battleKey);
+        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+            config.engineHooks[i].onRoundEnd(battleKey);
         }
 
         // End of turn cleanup:
         // - Progress turn index
         // - Set the player switch for turn flag on state
-        // - Set up storage for moves next turn
+        // - Clear move flags for next turn (set to 2 = fake/not set)
         state.turnId += 1;
         state.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
+        config.p0Move.isRealTurn = 2;
+        config.p1Move.isRealTurn = 2;
 
         // Emits switch for turn flag for the next turn, but the priority index for this current turn
         emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
@@ -433,9 +523,11 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function _handleGameOver(bytes32 battleKey, address winner) internal {
-        for (uint256 i = 0; i < battleData[battleKey].engineHooks.length; i++) {
-            battleData[battleKey].engineHooks[i].onBattleEnd(battleKey);
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+            config.engineHooks[i].onBattleEnd(battleKey);
         }
+
         // Free the key used for battle configs so other battles can use it
         _freeStorageKey(battleKey);
         emit BattleComplete(battleKey, winner);
@@ -451,22 +543,23 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        BattleState storage state = battleStates[battleKey];
-        MonState storage monState = state.monStates[playerIndex][monIndex];
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        MonState storage monState = config.monStates[playerIndex][monIndex];
         if (stateVarIndex == MonStateIndexName.Hp) {
-            monState.hpDelta += valueToAdd;
+            monState.hpDelta = (monState.hpDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.hpDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Stamina) {
-            monState.staminaDelta += valueToAdd;
+            monState.staminaDelta = (monState.staminaDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.staminaDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Speed) {
-            monState.speedDelta += valueToAdd;
+            monState.speedDelta = (monState.speedDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.speedDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Attack) {
-            monState.attackDelta += valueToAdd;
+            monState.attackDelta = (monState.attackDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.attackDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.Defense) {
-            monState.defenceDelta += valueToAdd;
+            monState.defenceDelta = (monState.defenceDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.defenceDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
-            monState.specialAttackDelta += valueToAdd;
+            monState.specialAttackDelta = (monState.specialAttackDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.specialAttackDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
-            monState.specialDefenceDelta += valueToAdd;
+            monState.specialDefenceDelta = (monState.specialDefenceDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.specialDefenceDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
             monState.isKnockedOut = (valueToAdd % 2) == 1;
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
@@ -495,14 +588,13 @@ contract Engine is IEngine, MappingAllocator {
         );
     }
 
-    function addEffect(uint256 targetIndex, uint256 monIndex, IEffect effect, bytes memory extraData) external {
+    function addEffect(uint256 targetIndex, uint256 monIndex, IEffect effect, bytes32 extraData) external {
         bytes32 battleKey = battleKeyForWrite;
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
         if (effect.shouldApply(extraData, targetIndex, monIndex)) {
-            BattleState storage state = battleStates[battleKey];
-            bytes memory extraDataToUse = extraData;
+            bytes32 extraDataToUse = extraData;
             bool removeAfterRun = false;
 
             // Emit event first, then handle side effects
@@ -522,38 +614,63 @@ contract Engine is IEngine, MappingAllocator {
                 (extraDataToUse, removeAfterRun) = effect.onApply(tempRNG, extraData, targetIndex, monIndex);
             }
             if (!removeAfterRun) {
+                // Add to the appropriate effects mapping based on targetIndex
+                bytes32 storageKey = _getStorageKey(battleKey);
+                BattleConfig storage config = battleConfig[storageKey];
+
                 if (targetIndex == 2) {
-                    state.globalEffects.push(EffectInstance({effect: effect, data: extraDataToUse}));
+                    // Global effects use simple sequential indexing
+                    uint256 effectIndex = config.globalEffectsLength;
+                    EffectInstance storage effectSlot = config.globalEffects[effectIndex];
+                    effectSlot.effect = effect;
+                    effectSlot.data = extraDataToUse;
+                    config.globalEffectsLength = uint8(effectIndex + 1);
+                } else if (targetIndex == 0) {
+                    // Player effects use per-mon indexing: slot = MAX_EFFECTS_PER_MON * monIndex + count[monIndex]
+                    uint256 monEffectCount = _getMonEffectCount(config.packedP0EffectsCount, monIndex);
+                    uint256 slotIndex = _getEffectSlotIndex(monIndex, monEffectCount);
+                    EffectInstance storage effectSlot = config.p0Effects[slotIndex];
+                    effectSlot.effect = effect;
+                    effectSlot.data = extraDataToUse;
+                    config.packedP0EffectsCount = _setMonEffectCount(config.packedP0EffectsCount, monIndex, monEffectCount + 1);
                 } else {
-                    state.monStates[targetIndex][monIndex].targetedEffects
-                        .push(EffectInstance({effect: effect, data: extraDataToUse}));
+                    uint256 monEffectCount = _getMonEffectCount(config.packedP1EffectsCount, monIndex);
+                    uint256 slotIndex = _getEffectSlotIndex(monIndex, monEffectCount);
+                    EffectInstance storage effectSlot = config.p1Effects[slotIndex];
+                    effectSlot.effect = effect;
+                    effectSlot.data = extraDataToUse;
+                    config.packedP1EffectsCount = _setMonEffectCount(config.packedP1EffectsCount, monIndex, monEffectCount + 1);
                 }
             }
         }
     }
 
-    function editEffect(uint256 targetIndex, uint256 monIndex, uint256 effectIndex, bytes memory newExtraData)
+    function editEffect(uint256 targetIndex, uint256 monIndex, uint256 effectIndex, bytes32 newExtraData)
         external
     {
         bytes32 battleKey = battleKeyForWrite;
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        BattleState storage state = battleStates[battleKey];
 
-        // Set the appropriate effects array from storage
-        EffectInstance[] storage effects;
+        // Access the appropriate effects mapping based on targetIndex
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        EffectInstance storage effectInstance;
         if (targetIndex == 2) {
-            effects = state.globalEffects;
+            effectInstance = config.globalEffects[effectIndex];
+        } else if (targetIndex == 0) {
+            effectInstance = config.p0Effects[effectIndex];
         } else {
-            effects = state.monStates[targetIndex][monIndex].targetedEffects;
+            effectInstance = config.p1Effects[effectIndex];
         }
-        effects[effectIndex].data = newExtraData;
+
+        effectInstance.data = newExtraData;
         emit EffectEdit(
             battleKey,
             targetIndex,
             monIndex,
-            address(effects[effectIndex].effect),
+            address(effectInstance.effect),
             newExtraData,
             _getUpstreamCallerAndResetValue(),
             currentStep
@@ -565,37 +682,82 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        BattleState storage state = battleStates[battleKey];
 
-        // Set the appropriate effects array from storage
-        EffectInstance[] storage effects;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+
         if (targetIndex == 2) {
-            effects = state.globalEffects;
+            // Global effects use simple sequential indexing
+            _removeGlobalEffect(config, battleKey, monIndex, indexToRemove);
         } else {
-            effects = state.monStates[targetIndex][monIndex].targetedEffects;
+            // Player effects use per-mon indexing
+            _removePlayerEffect(config, battleKey, targetIndex, monIndex, indexToRemove);
         }
-
-        // One last check to see if we should run the final lifecycle hook
-        IEffect effect = effects[indexToRemove].effect;
-        if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
-            effect.onRemove(effects[indexToRemove].data, targetIndex, monIndex);
-        }
-
-        // Remove effect instance
-        uint256 numEffects = effects.length;
-        effects[indexToRemove] = effects[numEffects - 1];
-        effects.pop();
-        emit EffectRemove(
-            battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep
-        );
     }
 
-    function setGlobalKV(bytes32 key, bytes32 value) external {
+    function _removeGlobalEffect(
+        BattleConfig storage config,
+        bytes32 battleKey,
+        uint256 monIndex,
+        uint256 indexToRemove
+    ) private {
+        EffectInstance storage effectToRemove = config.globalEffects[indexToRemove];
+        IEffect effect = effectToRemove.effect;
+        bytes32 data = effectToRemove.data;
+
+        // Skip if already tombstoned
+        if (address(effect) == TOMBSTONE_ADDRESS) {
+            return;
+        }
+
+        if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
+            effect.onRemove(data, 2, monIndex);
+        }
+
+        // Tombstone the effect (indices are stable, no need to re-find)
+        effectToRemove.effect = IEffect(TOMBSTONE_ADDRESS);
+
+        emit EffectRemove(battleKey, 2, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
+    }
+
+    function _removePlayerEffect(
+        BattleConfig storage config,
+        bytes32 battleKey,
+        uint256 targetIndex,
+        uint256 monIndex,
+        uint256 indexToRemove
+    ) private {
+        mapping(uint256 => EffectInstance) storage effects = targetIndex == 0 ? config.p0Effects : config.p1Effects;
+
+        EffectInstance storage effectToRemove = effects[indexToRemove];
+        IEffect effect = effectToRemove.effect;
+        bytes32 data = effectToRemove.data;
+
+        // Skip if already tombstoned
+        if (address(effect) == TOMBSTONE_ADDRESS) {
+            return;
+        }
+
+        if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
+            effect.onRemove(data, targetIndex, monIndex);
+        }
+
+        // Tombstone the effect (indices are stable, no need to re-find)
+        effectToRemove.effect = IEffect(TOMBSTONE_ADDRESS);
+
+        emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
+    }
+
+    function setGlobalKV(bytes32 key, uint192 value) external {
         bytes32 battleKey = battleKeyForWrite;
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        globalKV[battleKey][key] = value;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        uint64 timestamp = battleConfig[storageKey].startTimestamp;
+        // Pack timestamp (upper 64 bits) with value (lower 192 bits)
+        bytes32 packed = bytes32((uint256(timestamp) << 192) | uint256(value));
+        globalKV[storageKey][key] = packed;
     }
 
     function dealDamage(uint256 playerIndex, uint256 monIndex, int32 damage) external {
@@ -603,10 +765,15 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        MonState storage monState = battleStates[battleKey].monStates[playerIndex][monIndex];
-        monState.hpDelta -= damage;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        MonState storage monState = config.monStates[playerIndex][monIndex];
+
+        // If sentinel, replace with -damage; otherwise subtract damage
+        monState.hpDelta = (monState.hpDelta == CLEARED_MON_STATE_SENTINEL) ? -damage : monState.hpDelta - damage;
+
         // Set KO flag if the total hpDelta is greater than the original mon HP
-        uint32 baseHp = battleData[battleKey].teams[playerIndex][monIndex].stats.hp;
+        uint32 baseHp = config.teams[playerIndex][monIndex].stats.hp;
         if (monState.hpDelta + int32(baseHp) <= 0) {
             monState.isKnockedOut = true;
         }
@@ -652,21 +819,15 @@ contract Engine is IEngine, MappingAllocator {
         if (!isMoveManager && !isForCurrentBattle) {
             revert NoWriteAllowed();
         }
-        BattleState storage state = battleStates[battleKey];
-        uint64 turnId = state.turnId;
 
-        // If there isn't enough space, add to the moves array
-        if (state.playerMoves[0].length < (turnId + 1)) {
-            state.playerMoves[0].push();
-            state.playerMoves[1].push();
-        }
-
-        battleStates[battleKey].playerMoves[playerIndex][turnId] =
-            MoveDecision({moveIndex: moveIndex, isRealTurn: true, extraData: extraData});
+        // Simply overwrite the move for this player (isRealTurn = 1 means real turn)
+        MoveDecision memory newMove = MoveDecision({moveIndex: moveIndex, isRealTurn: 1, extraData: extraData});
 
         if (playerIndex == 0) {
+            battleConfig[_getStorageKey(battleKey)].p0Move = newMove;
             battleConfig[_getStorageKey(battleKey)].p0Salt = salt;
         } else {
+            battleConfig[_getStorageKey(battleKey)].p1Move = newMove;
             battleConfig[_getStorageKey(battleKey)].p1Salt = salt;
         }
     }
@@ -699,7 +860,7 @@ contract Engine is IEngine, MappingAllocator {
         )
     {
         BattleState storage state = battleStates[battleKey];
-        BattleData storage data = battleData[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
         uint8 existingWinnerIndex = state.winnerIndex;
 
@@ -718,15 +879,16 @@ contract Engine is IEngine, MappingAllocator {
         // A game is over if all of a player's mons are KOed
         uint256 newWinnerIndex = 2;
         uint256[2] memory playerIndices = [uint256(0), uint256(1)];
-        for (uint256 i = 0; i < 2; i++) {
+        for (uint256 i = 0; i < 2; ++i) {
             uint256 monsKOed = 0;
             uint256 playerIndex = playerIndices[i];
-            for (uint256 j = 0; j < data.teams[playerIndex].length; j++) {
-                if (state.monStates[playerIndex][j].isKnockedOut) {
+            uint256 teamSize = (playerIndex == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
+            for (uint256 j = 0; j < teamSize; ++j) {
+                if (config.monStates[playerIndex][j].isKnockedOut) {
                     monsKOed++;
                 }
             }
-            if (monsKOed == data.teams[playerIndex].length) {
+            if (monsKOed == teamSize) {
                 newWinnerIndex = uint8((playerIndex + 1) % 2); // winner is the other player
                 break;
             }
@@ -748,11 +910,11 @@ contract Engine is IEngine, MappingAllocator {
             playerSwitchForTurnFlag = 2;
 
             isPriorityPlayerActiveMonKnockedOut =
-            state.monStates[priorityPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex)]
+            config.monStates[priorityPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex)]
             .isKnockedOut;
 
             isNonPriorityPlayerActiveMonKnockedOut =
-            state.monStates[otherPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex)]
+            config.monStates[otherPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex)]
             .isKnockedOut;
 
             // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
@@ -773,9 +935,11 @@ contract Engine is IEngine, MappingAllocator {
         // will all resolve before checking for KOs or winners
         // (could break this up even more, but that's for a later version / PR)
 
+        bytes32 storageKey = _getStorageKey(battleKey);
         BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
         uint256 currentActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
-        MonState storage currentMonState = state.monStates[playerIndex][currentActiveMonIndex];
+        MonState storage currentMonState = config.monStates[playerIndex][currentActiveMonIndex];
 
         // Emit event first, then run effects
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
@@ -800,10 +964,10 @@ contract Engine is IEngine, MappingAllocator {
         _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
         // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
-        Mon memory mon = battleData[battleKey].teams[playerIndex][monToSwitchIndex];
+        Mon memory mon = config.teams[playerIndex][monToSwitchIndex];
         if (
             address(mon.ability) != address(0) && state.turnId != 0
-                && !state.monStates[playerIndex][monToSwitchIndex].isKnockedOut
+                && !config.monStates[playerIndex][monToSwitchIndex].isKnockedOut
         ) {
             mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
         }
@@ -813,16 +977,16 @@ contract Engine is IEngine, MappingAllocator {
         internal
         returns (uint256 playerSwitchForTurnFlag)
     {
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
-        BattleData storage data = battleData[battleKey];
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
         BattleState storage state = battleStates[battleKey];
-        MoveDecision memory move = state.playerMoves[playerIndex][state.turnId];
+        MoveDecision memory move = (playerIndex == 0) ? config.p0Move : config.p1Move;
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
         // Handle shouldSkipTurn flag first and toggle it off if set
         uint256 activeMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
-        MonState storage currentMonState = state.monStates[playerIndex][activeMonIndex];
+        MonState storage currentMonState = config.monStates[playerIndex][activeMonIndex];
         if (currentMonState.shouldSkipTurn) {
             currentMonState.shouldSkipTurn = false;
             return playerSwitchForTurnFlag;
@@ -853,11 +1017,13 @@ contract Engine is IEngine, MappingAllocator {
                 return playerSwitchForTurnFlag;
             }
 
-            IMoveSet moveSet = data.teams[playerIndex][activeMonIndex].moves[move.moveIndex];
+            IMoveSet moveSet = config.teams[playerIndex][activeMonIndex].moves[move.moveIndex];
 
             // Update the mon state directly to account for the stamina cost of the move
             staminaCost = int32(moveSet.stamina(battleKey, playerIndex, activeMonIndex));
-            state.monStates[playerIndex][activeMonIndex].staminaDelta -= staminaCost;
+            MonState storage monState = config.monStates[playerIndex][activeMonIndex];
+            monState.staminaDelta =
+                (monState.staminaDelta == CLEARED_MON_STATE_SENTINEL) ? -staminaCost : monState.staminaDelta - staminaCost;
 
             // Emit event and then run the move
             emit MonMove(battleKey, playerIndex, activeMonIndex, move.moveIndex, move.extraData, staminaCost);
@@ -875,7 +1041,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     /**
-     * effect index: the index to grab the relevant effect array
+     * effect index: the target index to filter effects for (0/1/2)
      * player index: the player to pass into the effects args
      */
     function _runEffects(
@@ -887,76 +1053,156 @@ contract Engine is IEngine, MappingAllocator {
         bytes memory extraEffectsData
     ) internal {
         BattleState storage state = battleStates[battleKey];
-        EffectInstance[] storage effects;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+
         uint256 monIndex;
-        // Switch between global or targeted effects array depending on the args
+        // Determine the mon index for the target
         if (effectIndex == 2) {
-            effects = state.globalEffects;
+            // Global effects - monIndex doesn't matter for filtering
+            monIndex = 0;
         } else {
             monIndex = _unpackActiveMonIndex(state.activeMonIndex, effectIndex);
-            effects = state.monStates[effectIndex][monIndex].targetedEffects;
         }
+
         // Grab the active mon (global effect won't know which player index to get, so we set it here)
         if (playerIndex != 2) {
             monIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
         }
-        uint256 i;
-        while (i < effects.length) {
-            bool currentStepUpdated;
-            if (effects[i].effect.shouldRunAtStep(round)) {
-                // Only update the current step if we need to run any effects, and only update it once per step
-                if (!currentStepUpdated) {
-                    currentStep = uint256(round);
-                    currentStepUpdated = true;
-                }
 
-                // Run the effects (depending on which round stage we are on)
-                bytes memory updatedExtraData;
-                bool removeAfterRun;
-                if (round == EffectStep.RoundStart) {
-                    (updatedExtraData, removeAfterRun) =
-                        effects[i].effect.onRoundStart(rng, effects[i].data, playerIndex, monIndex);
-                } else if (round == EffectStep.RoundEnd) {
-                    (updatedExtraData, removeAfterRun) =
-                        effects[i].effect.onRoundEnd(rng, effects[i].data, playerIndex, monIndex);
-                } else if (round == EffectStep.OnMonSwitchIn) {
-                    (updatedExtraData, removeAfterRun) =
-                        effects[i].effect.onMonSwitchIn(rng, effects[i].data, playerIndex, monIndex);
-                } else if (round == EffectStep.OnMonSwitchOut) {
-                    (updatedExtraData, removeAfterRun) =
-                        effects[i].effect.onMonSwitchOut(rng, effects[i].data, playerIndex, monIndex);
-                } else if (round == EffectStep.AfterDamage) {
-                    (updatedExtraData, removeAfterRun) = effects[i].effect
-                        .onAfterDamage(
-                            rng, effects[i].data, playerIndex, monIndex, abi.decode(extraEffectsData, (int32))
-                        );
-                } else if (round == EffectStep.AfterMove) {
-                    (updatedExtraData, removeAfterRun) =
-                        effects[i].effect.onAfterMove(rng, effects[i].data, playerIndex, monIndex);
-                } else if (round == EffectStep.OnUpdateMonState) {
-                    (
-                        uint256 statePlayerIndex,
-                        uint256 stateMonIndex,
-                        MonStateIndexName stateVarIndex,
-                        int32 valueToAdd
-                    ) = abi.decode(extraEffectsData, (uint256, uint256, MonStateIndexName, int32));
-                    (updatedExtraData, removeAfterRun) = effects[i].effect
-                        .onUpdateMonState(
-                            rng, effects[i].data, statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd
-                        );
-                }
+        // Iterate directly over storage, skipping tombstones
+        // With tombstones, indices are stable so no snapshot needed
+        uint256 baseSlot;
+        if (effectIndex == 0) {
+            baseSlot = _getEffectSlotIndex(monIndex, 0);
+        } else if (effectIndex == 1) {
+            baseSlot = _getEffectSlotIndex(monIndex, 0);
+        }
 
-                // If we remove the effect after doing it, then we clear and update the array
-                if (removeAfterRun) {
-                    removeEffect(effectIndex, monIndex, i);
-                }
-                // Otherwise, we update the extra data if e.g. the effect needs to modify its own storage
-                else {
-                    effects[i].data = updatedExtraData;
-                    ++i;
-                }
+        // Use a loop index that reads current length each iteration (allows processing newly added effects)
+        uint256 i = 0;
+        while (true) {
+            // Get current length (may grow if effects add new effects)
+            uint256 effectsCount;
+            if (effectIndex == 2) {
+                effectsCount = config.globalEffectsLength;
+            } else if (effectIndex == 0) {
+                effectsCount = _getMonEffectCount(config.packedP0EffectsCount, monIndex);
             } else {
-                ++i;
+                effectsCount = _getMonEffectCount(config.packedP1EffectsCount, monIndex);
+            }
+
+            if (i >= effectsCount) break;
+
+            // Read effect directly from storage
+            EffectInstance storage eff;
+            uint256 slotIndex;
+            if (effectIndex == 2) {
+                eff = config.globalEffects[i];
+                slotIndex = i;
+            } else if (effectIndex == 0) {
+                slotIndex = baseSlot + i;
+                eff = config.p0Effects[slotIndex];
+            } else {
+                slotIndex = baseSlot + i;
+                eff = config.p1Effects[slotIndex];
+            }
+
+            // Skip tombstoned effects
+            if (address(eff.effect) != TOMBSTONE_ADDRESS) {
+                _runSingleEffect(
+                    config, rng, effectIndex, playerIndex, monIndex, round, extraEffectsData,
+                    eff.effect, eff.data, uint96(slotIndex)
+                );
+            }
+
+            ++i;
+        }
+    }
+
+    function _runSingleEffect(
+        BattleConfig storage config,
+        uint256 rng,
+        uint256 effectIndex,
+        uint256 playerIndex,
+        uint256 monIndex,
+        EffectStep round,
+        bytes memory extraEffectsData,
+        IEffect effect,
+        bytes32 data,
+        uint96 slotIndex
+    ) private {
+        if (!effect.shouldRunAtStep(round)) {
+            return;
+        }
+
+        currentStep = uint256(round);
+
+        // Emit event first, then handle side effects (use transient battleKeyForWrite)
+        emit EffectRun(
+            battleKeyForWrite, effectIndex, monIndex, address(effect), data, _getUpstreamCallerAndResetValue(), currentStep
+        );
+
+        // Run the effect and get result
+        (bytes32 updatedExtraData, bool removeAfterRun) = _executeEffectHook(
+            effect, rng, data, playerIndex, monIndex, round, extraEffectsData
+        );
+
+        // If we need to remove or update the effect
+        if (removeAfterRun || updatedExtraData != data) {
+            _updateOrRemoveEffect(config, effectIndex, monIndex, effect, data, slotIndex, updatedExtraData, removeAfterRun);
+        }
+    }
+
+    function _executeEffectHook(
+        IEffect effect,
+        uint256 rng,
+        bytes32 data,
+        uint256 playerIndex,
+        uint256 monIndex,
+        EffectStep round,
+        bytes memory extraEffectsData
+    ) private returns (bytes32 updatedExtraData, bool removeAfterRun) {
+        if (round == EffectStep.RoundStart) {
+            return effect.onRoundStart(rng, data, playerIndex, monIndex);
+        } else if (round == EffectStep.RoundEnd) {
+            return effect.onRoundEnd(rng, data, playerIndex, monIndex);
+        } else if (round == EffectStep.OnMonSwitchIn) {
+            return effect.onMonSwitchIn(rng, data, playerIndex, monIndex);
+        } else if (round == EffectStep.OnMonSwitchOut) {
+            return effect.onMonSwitchOut(rng, data, playerIndex, monIndex);
+        } else if (round == EffectStep.AfterDamage) {
+            return effect.onAfterDamage(rng, data, playerIndex, monIndex, abi.decode(extraEffectsData, (int32)));
+        } else if (round == EffectStep.AfterMove) {
+            return effect.onAfterMove(rng, data, playerIndex, monIndex);
+        } else if (round == EffectStep.OnUpdateMonState) {
+            (uint256 statePlayerIndex, uint256 stateMonIndex, MonStateIndexName stateVarIndex, int32 valueToAdd) =
+                abi.decode(extraEffectsData, (uint256, uint256, MonStateIndexName, int32));
+            return effect.onUpdateMonState(rng, data, statePlayerIndex, stateMonIndex, stateVarIndex, valueToAdd);
+        }
+    }
+
+    function _updateOrRemoveEffect(
+        BattleConfig storage config,
+        uint256 effectIndex,
+        uint256 monIndex,
+        IEffect, // effect - unused with tombstone approach
+        bytes32, // originalData - unused with tombstone approach
+        uint96 slotIndex,
+        bytes32 updatedExtraData,
+        bool removeAfterRun
+    ) private {
+        // With tombstones, indices are stable - use slot index directly for all effect types
+        if (removeAfterRun) {
+            removeEffect(effectIndex, monIndex, uint256(slotIndex));
+        } else {
+            // Update the data at the slot
+            if (effectIndex == 2) {
+                config.globalEffects[slotIndex].data = updatedExtraData;
+            } else if (effectIndex == 0) {
+                config.p0Effects[slotIndex].data = updatedExtraData;
+            } else {
+                config.p1Effects[slotIndex].data = updatedExtraData;
             }
         }
     }
@@ -971,7 +1217,9 @@ contract Engine is IEngine, MappingAllocator {
         uint256 prevPlayerSwitchForTurnFlag
     ) private returns (uint256 playerSwitchForTurnFlag) {
         // Check for Game Over and return early if so
+        bytes32 storageKey = _getStorageKey(battleKey);
         BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
         if (state.winnerIndex != 2) {
             return playerSwitchForTurnFlag;
@@ -979,7 +1227,7 @@ contract Engine is IEngine, MappingAllocator {
         // If non-global effect, check if we should still run if mon is KOed
         if (effectIndex != 2) {
             bool isMonKOed =
-                state.monStates[playerIndex][_unpackActiveMonIndex(state.activeMonIndex, playerIndex)].isKnockedOut;
+                config.monStates[playerIndex][_unpackActiveMonIndex(state.activeMonIndex, playerIndex)].isKnockedOut;
             if (isMonKOed && condition == EffectRunCondition.SkipIfGameOverOrMonKO) {
                 return playerSwitchForTurnFlag;
             }
@@ -996,10 +1244,10 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
-        BattleData storage data = battleData[battleKey];
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleState storage state = battleStates[battleKey];
-        MoveDecision memory p0Move = state.playerMoves[0][state.turnId];
-        MoveDecision memory p1Move = state.playerMoves[1][state.turnId];
+        MoveDecision memory p0Move = config.p0Move;
+        MoveDecision memory p1Move = config.p1Move;
         uint256 p0ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 0);
         uint256 p1ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 1);
         uint256 p0Priority;
@@ -1010,14 +1258,14 @@ contract Engine is IEngine, MappingAllocator {
             if (p0Move.moveIndex == SWITCH_MOVE_INDEX || p0Move.moveIndex == NO_OP_MOVE_INDEX) {
                 p0Priority = SWITCH_PRIORITY;
             } else {
-                IMoveSet p0MoveSet = data.teams[0][p0ActiveMonIndex].moves[p0Move.moveIndex];
+                IMoveSet p0MoveSet = config.teams[0][p0ActiveMonIndex].moves[p0Move.moveIndex];
                 p0Priority = p0MoveSet.priority(battleKey, 0);
             }
 
             if (p1Move.moveIndex == SWITCH_MOVE_INDEX || p1Move.moveIndex == NO_OP_MOVE_INDEX) {
                 p1Priority = SWITCH_PRIORITY;
             } else {
-                IMoveSet p1MoveSet = data.teams[1][p1ActiveMonIndex].moves[p1Move.moveIndex];
+                IMoveSet p1MoveSet = config.teams[1][p1ActiveMonIndex].moves[p1Move.moveIndex];
                 p1Priority = p1MoveSet.priority(battleKey, 1);
             }
         }
@@ -1033,10 +1281,10 @@ contract Engine is IEngine, MappingAllocator {
         } else {
             // Calculate speeds by combining base stats with deltas
             uint32 p0MonSpeed = uint32(
-                int32(data.teams[0][p0ActiveMonIndex].stats.speed) + state.monStates[0][p0ActiveMonIndex].speedDelta
+                int32(config.teams[0][p0ActiveMonIndex].stats.speed) + config.monStates[0][p0ActiveMonIndex].speedDelta
             );
             uint32 p1MonSpeed = uint32(
-                int32(data.teams[1][p1ActiveMonIndex].stats.speed) + state.monStates[1][p1ActiveMonIndex].speedDelta
+                int32(config.teams[1][p1ActiveMonIndex].stats.speed) + config.monStates[1][p1ActiveMonIndex].speedDelta
             );
             if (p0MonSpeed > p1MonSpeed) {
                 return 0;
@@ -1079,13 +1327,168 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
+    // Helper functions for per-mon effect count packing
+    function _getMonEffectCount(uint96 packedCounts, uint256 monIndex) private pure returns (uint256) {
+        return (uint256(packedCounts) >> (monIndex * PLAYER_EFFECT_BITS)) & EFFECT_COUNT_MASK;
+    }
+
+    function _setMonEffectCount(uint96 packedCounts, uint256 monIndex, uint256 count) private pure returns (uint96) {
+        uint256 shift = monIndex * PLAYER_EFFECT_BITS;
+        uint256 cleared = uint256(packedCounts) & ~(EFFECT_COUNT_MASK << shift);
+        return uint96(cleared | (count << shift));
+    }
+
+    function _getEffectSlotIndex(uint256 monIndex, uint256 effectIndex) private pure returns (uint256) {
+        return EFFECT_SLOTS_PER_MON * monIndex + effectIndex;
+    }
+
+    /**
+     * - Effect filtering helper
+     */
+    function _getEffectsForTarget(bytes32 storageKey, uint256 targetIndex, uint256 monIndex)
+        internal
+        view
+        returns (EffectInstance[] memory, uint256[] memory)
+    {
+        BattleConfig storage config = battleConfig[storageKey];
+        
+        if (targetIndex == 2) {
+            // Global query - count non-tombstoned effects first
+            uint256 globalEffectsLength = config.globalEffectsLength;
+            uint256 globalActiveCount = 0;
+            for (uint256 i = 0; i < globalEffectsLength; ++i) {
+                if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+                    globalActiveCount++;
+                }
+            }
+            // Allocate and populate with only active effects
+            EffectInstance[] memory globalResult = new EffectInstance[](globalActiveCount);
+            uint256[] memory globalIndices = new uint256[](globalActiveCount);
+            uint256 globalIdx = 0;
+            for (uint256 i = 0; i < globalEffectsLength; ++i) {
+                if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+                    globalResult[globalIdx] = config.globalEffects[i];
+                    globalIndices[globalIdx] = i;
+                    globalIdx++;
+                }
+            }
+            return (globalResult, globalIndices);
+        }
+
+        // Player query - count non-tombstoned effects first
+        uint96 packedCounts = targetIndex == 0 ? config.packedP0EffectsCount : config.packedP1EffectsCount;
+        uint256 monEffectCount = _getMonEffectCount(packedCounts, monIndex);
+        uint256 baseSlot = _getEffectSlotIndex(monIndex, 0);
+        mapping(uint256 => EffectInstance) storage effects = targetIndex == 0 ? config.p0Effects : config.p1Effects;
+
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < monEffectCount; ++i) {
+            if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
+                activeCount++;
+            }
+        }
+
+        EffectInstance[] memory result = new EffectInstance[](activeCount);
+        uint256[] memory indices = new uint256[](activeCount);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < monEffectCount; ++i) {
+            uint256 slotIndex = baseSlot + i;
+            if (address(effects[slotIndex].effect) != TOMBSTONE_ADDRESS) {
+                result[idx] = effects[slotIndex];
+                indices[idx] = slotIndex;
+                idx++;
+            }
+        }
+
+        return (result, indices);
+    }
+
     /**
      * - Getters to simplify read access for other components
      */
-    function getBattle(bytes32 battleKey) external view returns (BattleConfig memory, BattleData memory) {
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+    function getBattle(bytes32 battleKey) external view returns (BattleConfigView memory, BattleData memory) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
         BattleData storage data = battleData[battleKey];
-        return (config, data);
+
+        // Build global effects array (skip tombstones)
+        uint256 globalLen = config.globalEffectsLength;
+        uint256 activeGlobalCount = 0;
+        for (uint256 i = 0; i < globalLen; ++i) {
+            if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+                activeGlobalCount++;
+            }
+        }
+        EffectInstance[] memory globalEffects = new EffectInstance[](activeGlobalCount);
+        uint256 gIdx = 0;
+        for (uint256 i = 0; i < globalLen; ++i) {
+            if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+                globalEffects[gIdx] = config.globalEffects[i];
+                gIdx++;
+            }
+        }
+
+        // Build player effects arrays by iterating through all mons
+        uint8 teamSizes = config.teamSizes;
+        uint256 p0TeamSize = teamSizes & 0xF;
+        uint256 p1TeamSize = (teamSizes >> 4) & 0xF;
+
+        EffectInstance[] memory p0Effects = _buildPlayerEffectsArray(config.p0Effects, config.packedP0EffectsCount, p0TeamSize);
+        EffectInstance[] memory p1Effects = _buildPlayerEffectsArray(config.p1Effects, config.packedP1EffectsCount, p1TeamSize);
+
+        BattleConfigView memory configView = BattleConfigView({
+            validator: config.validator,
+            rngOracle: config.rngOracle,
+            moveManager: config.moveManager,
+            globalEffectsLength: config.globalEffectsLength,
+            packedP0EffectsCount: config.packedP0EffectsCount,
+            packedP1EffectsCount: config.packedP1EffectsCount,
+            teamSizes: config.teamSizes,
+            p0Salt: config.p0Salt,
+            p1Salt: config.p1Salt,
+            p0Move: config.p0Move,
+            p1Move: config.p1Move,
+            globalEffects: globalEffects,
+            p0Effects: p0Effects,
+            p1Effects: p1Effects,
+            teams: config.teams,
+            monStates: config.monStates
+        });
+
+        return (configView, data);
+    }
+
+    function _buildPlayerEffectsArray(
+        mapping(uint256 => EffectInstance) storage effects,
+        uint96 packedCounts,
+        uint256 teamSize
+    ) private view returns (EffectInstance[] memory) {
+        // Count total non-tombstoned effects across all mons
+        uint256 totalCount = 0;
+        for (uint256 m = 0; m < teamSize; m++) {
+            uint256 monCount = _getMonEffectCount(packedCounts, m);
+            uint256 baseSlot = _getEffectSlotIndex(m, 0);
+            for (uint256 i = 0; i < monCount; ++i) {
+                if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
+                    totalCount++;
+                }
+            }
+        }
+
+        // Allocate and populate (skip tombstones)
+        EffectInstance[] memory result = new EffectInstance[](totalCount);
+        uint256 idx = 0;
+        for (uint256 m = 0; m < teamSize; m++) {
+            uint256 monCount = _getMonEffectCount(packedCounts, m);
+            uint256 baseSlot = _getEffectSlotIndex(m, 0);
+            for (uint256 i = 0; i < monCount; ++i) {
+                if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
+                    result[idx] = effects[baseSlot + i];
+                    idx++;
+                }
+            }
+        }
+        return result;
     }
 
     function getBattleState(bytes32 battleKey) external view returns (BattleState memory) {
@@ -1102,31 +1505,34 @@ contract Engine is IEngine, MappingAllocator {
         uint256 monIndex,
         MonStateIndexName stateVarIndex
     ) external view returns (uint32) {
+        bytes32 storageKey = _getStorageKey(battleKey);
         if (stateVarIndex == MonStateIndexName.Hp) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.hp;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.hp;
         } else if (stateVarIndex == MonStateIndexName.Stamina) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.stamina;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.stamina;
         } else if (stateVarIndex == MonStateIndexName.Speed) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.speed;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.speed;
         } else if (stateVarIndex == MonStateIndexName.Attack) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.attack;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.attack;
         } else if (stateVarIndex == MonStateIndexName.Defense) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.defense;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.defense;
         } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.specialAttack;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.specialAttack;
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
-            return battleData[battleKey].teams[playerIndex][monIndex].stats.specialDefense;
+            return battleConfig[storageKey].teams[playerIndex][monIndex].stats.specialDefense;
         } else if (stateVarIndex == MonStateIndexName.Type1) {
-            return uint32(battleData[battleKey].teams[playerIndex][monIndex].stats.type1);
+            return uint32(battleConfig[storageKey].teams[playerIndex][monIndex].stats.type1);
         } else if (stateVarIndex == MonStateIndexName.Type2) {
-            return uint32(battleData[battleKey].teams[playerIndex][monIndex].stats.type2);
+            return uint32(battleConfig[storageKey].teams[playerIndex][monIndex].stats.type2);
         } else {
             return 0;
         }
     }
 
     function getTeamSize(bytes32 battleKey, uint256 playerIndex) external view returns (uint256) {
-        return battleData[battleKey].teams[playerIndex].length;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        uint8 teamSizes = battleConfig[storageKey].teamSizes;
+        return (playerIndex == 0) ? (teamSizes & 0x0F) : (teamSizes >> 4);
     }
 
     function getMoveForMonForBattle(bytes32 battleKey, uint256 playerIndex, uint256 monIndex, uint256 moveIndex)
@@ -1134,16 +1540,17 @@ contract Engine is IEngine, MappingAllocator {
         view
         returns (IMoveSet)
     {
-        return battleData[battleKey].teams[playerIndex][monIndex].moves[moveIndex];
+        bytes32 storageKey = _getStorageKey(battleKey);
+        return battleConfig[storageKey].teams[playerIndex][monIndex].moves[moveIndex];
     }
 
-    function getMoveDecisionForBattleStateForTurn(bytes32 battleKey, uint256 playerIndex, uint256 turn)
+    function getMoveDecisionForBattleState(bytes32 battleKey, uint256 playerIndex)
         external
         view
         returns (MoveDecision memory)
     {
-        MoveDecision memory moveDecision = battleStates[battleKey].playerMoves[playerIndex][turn];
-        return moveDecision;
+        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        return (playerIndex == 0) ? config.p0Move : config.p1Move;
     }
 
     function getPlayersForBattle(bytes32 battleKey) external view returns (address[] memory) {
@@ -1158,7 +1565,8 @@ contract Engine is IEngine, MappingAllocator {
         view
         returns (MonStats memory)
     {
-        return battleData[battleKey].teams[playerIndex][monIndex].stats;
+        bytes32 storageKey = _getStorageKey(battleKey);
+        return battleConfig[storageKey].teams[playerIndex][monIndex].stats;
     }
 
     function getMonStateForBattle(
@@ -1167,34 +1575,64 @@ contract Engine is IEngine, MappingAllocator {
         uint256 monIndex,
         MonStateIndexName stateVarIndex
     ) external view returns (int32) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        int32 value;
+
         if (stateVarIndex == MonStateIndexName.Hp) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].hpDelta;
+            value = config.monStates[playerIndex][monIndex].hpDelta;
         } else if (stateVarIndex == MonStateIndexName.Stamina) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].staminaDelta;
+            value = config.monStates[playerIndex][monIndex].staminaDelta;
         } else if (stateVarIndex == MonStateIndexName.Speed) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].speedDelta;
+            value = config.monStates[playerIndex][monIndex].speedDelta;
         } else if (stateVarIndex == MonStateIndexName.Attack) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].attackDelta;
+            value = config.monStates[playerIndex][monIndex].attackDelta;
         } else if (stateVarIndex == MonStateIndexName.Defense) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].defenceDelta;
+            value = config.monStates[playerIndex][monIndex].defenceDelta;
         } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].specialAttackDelta;
+            value = config.monStates[playerIndex][monIndex].specialAttackDelta;
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
-            return battleStates[battleKey].monStates[playerIndex][monIndex].specialDefenceDelta;
+            value = config.monStates[playerIndex][monIndex].specialDefenceDelta;
         } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
-            if (battleStates[battleKey].monStates[playerIndex][monIndex].isKnockedOut) {
-                return 1;
-            } else {
-                return 0;
-            }
+            return config.monStates[playerIndex][monIndex].isKnockedOut ? int32(1) : int32(0);
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
-            if (battleStates[battleKey].monStates[playerIndex][monIndex].shouldSkipTurn) {
-                return 1;
-            } else {
-                return 0;
-            }
+            return config.monStates[playerIndex][monIndex].shouldSkipTurn ? int32(1) : int32(0);
         } else {
-            return 0;
+            return int32(0);
+        }
+
+        // Return 0 if sentinel value is encountered
+        return (value == CLEARED_MON_STATE_SENTINEL) ? int32(0) : value;
+    }
+
+    function getMonStateForStorageKey(
+        bytes32 storageKey,
+        uint256 playerIndex,
+        uint256 monIndex,
+        MonStateIndexName stateVarIndex
+    ) external view returns (int32) {
+        BattleConfig storage config = battleConfig[storageKey];
+
+        if (stateVarIndex == MonStateIndexName.Hp) {
+            return config.monStates[playerIndex][monIndex].hpDelta;
+        } else if (stateVarIndex == MonStateIndexName.Stamina) {
+            return config.monStates[playerIndex][monIndex].staminaDelta;
+        } else if (stateVarIndex == MonStateIndexName.Speed) {
+            return config.monStates[playerIndex][monIndex].speedDelta;
+        } else if (stateVarIndex == MonStateIndexName.Attack) {
+            return config.monStates[playerIndex][monIndex].attackDelta;
+        } else if (stateVarIndex == MonStateIndexName.Defense) {
+            return config.monStates[playerIndex][monIndex].defenceDelta;
+        } else if (stateVarIndex == MonStateIndexName.SpecialAttack) {
+            return config.monStates[playerIndex][monIndex].specialAttackDelta;
+        } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
+            return config.monStates[playerIndex][monIndex].specialDefenceDelta;
+        } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
+            return config.monStates[playerIndex][monIndex].isKnockedOut ? int32(1) : int32(0);
+        } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
+            return config.monStates[playerIndex][monIndex].shouldSkipTurn ? int32(1) : int32(0);
+        } else {
+            return int32(0);
         }
     }
 
@@ -1214,21 +1652,26 @@ contract Engine is IEngine, MappingAllocator {
         return battleStates[battleKey].playerSwitchForTurnFlag;
     }
 
-    function getGlobalKV(bytes32 battleKey, bytes32 key) external view returns (bytes32) {
-        return globalKV[battleKey][key];
+    function getGlobalKV(bytes32 battleKey, bytes32 key) external view returns (uint192) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        bytes32 packed = globalKV[storageKey][key];
+        // Extract timestamp (upper 64 bits) and value (lower 192 bits)
+        uint64 storedTimestamp = uint64(uint256(packed) >> 192);
+        uint64 currentTimestamp = battleConfig[storageKey].startTimestamp;
+        // If timestamps don't match, return 0 (stale value from different battle)
+        if (storedTimestamp != currentTimestamp) {
+            return 0;
+        }
+        return uint192(uint256(packed));
     }
 
     function getEffects(bytes32 battleKey, uint256 targetIndex, uint256 monIndex)
         external
         view
-        returns (EffectInstance[] memory)
+        returns (EffectInstance[] memory, uint256[] memory)
     {
-        BattleState storage state = battleStates[battleKey];
-        if (targetIndex == 2) {
-            return state.globalEffects;
-        } else {
-            return state.monStates[targetIndex][monIndex].targetedEffects;
-        }
+        bytes32 storageKey = _getStorageKey(battleKey);
+        return _getEffectsForTarget(storageKey, targetIndex, monIndex);
     }
 
     function getWinner(bytes32 battleKey) external view returns (address) {
@@ -1240,7 +1683,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getStartTimestamp(bytes32 battleKey) external view returns (uint256) {
-        return battleData[battleKey].startTimestamp;
+        return battleConfig[_getStorageKey(battleKey)].startTimestamp;
     }
 
     function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
@@ -1249,5 +1692,24 @@ contract Engine is IEngine, MappingAllocator {
 
     function getMoveManager(bytes32 battleKey) external view returns (address) {
         return battleConfig[_getStorageKey(battleKey)].moveManager;
+    }
+
+    function getBattleContext(bytes32 battleKey) external view returns (BattleContext memory ctx) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleData storage data = battleData[battleKey];
+        BattleState storage state = battleStates[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
+
+        ctx.startTimestamp = config.startTimestamp;
+        ctx.p0 = data.p0;
+        ctx.p1 = data.p1;
+        ctx.winnerIndex = state.winnerIndex;
+        ctx.turnId = state.turnId;
+        ctx.playerSwitchForTurnFlag = state.playerSwitchForTurnFlag;
+        ctx.prevPlayerSwitchForTurnFlag = state.prevPlayerSwitchForTurnFlag;
+        ctx.p0ActiveMonIndex = uint8(state.activeMonIndex & 0xFF);
+        ctx.p1ActiveMonIndex = uint8(state.activeMonIndex >> 8);
+        ctx.validator = address(config.validator);
+        ctx.moveManager = config.moveManager;
     }
 }

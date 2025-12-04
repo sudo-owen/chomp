@@ -23,12 +23,12 @@ contract PanicStatus is StatusEffect {
     }
 
     // At the start of the turn, check to see if we should apply stamina debuff or end early
-    function onRoundStart(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundStart(uint256 rng, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         pure
         override
-        returns (bytes memory, bool)
-    {   
+        returns (bytes32, bool)
+    {
         // Set rng to be unique to the target index and mon index
         rng = uint256(keccak256(abi.encode(rng, targetIndex, monIndex)));
         bool wakeEarly = rng % 3 == 0;
@@ -39,20 +39,20 @@ contract PanicStatus is StatusEffect {
     }
 
     // On apply, checks to apply the flag, and then sets the extraData to be the duration
-    function onApply(uint256 rng, bytes memory data, uint256 monIndex, uint256 playerIndex)
+    function onApply(uint256 rng, bytes32 data, uint256 monIndex, uint256 playerIndex)
         public
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         super.onApply(rng, data, monIndex, playerIndex);
-        return (abi.encode(DURATION), false);
+        return (bytes32(DURATION), false);
     }
 
     // Apply effect on end of turn, and then check how many turns are left
-    function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool removeAfterRun)
+        returns (bytes32, bool removeAfterRun)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
 
@@ -65,11 +65,11 @@ contract PanicStatus is StatusEffect {
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.Stamina, -1);
         }
 
-        uint256 turnsLeft = abi.decode(extraData, (uint256));
+        uint256 turnsLeft = uint256(extraData);
         if (turnsLeft == 1) {
             return (extraData, true);
         } else {
-            return (abi.encode(turnsLeft - 1), false);
+            return (bytes32(turnsLeft - 1), false);
         }
     }
 }

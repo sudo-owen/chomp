@@ -20,7 +20,7 @@ contract EditEffectAttack is IMoveSet {
 
     function move(bytes32, uint256, bytes memory extraData, uint256) external {
         (uint256 targetIndex, uint256 monIndex, uint256 effectIndex) = abi.decode(extraData, (uint256, uint256, uint256));
-        ENGINE.editEffect(targetIndex, monIndex, effectIndex, abi.encode(69));
+        ENGINE.editEffect(targetIndex, monIndex, effectIndex, bytes32(uint256(69)));
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {

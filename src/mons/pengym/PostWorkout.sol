@@ -24,38 +24,38 @@ contract PostWorkout is IAbility, BasicEffect {
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
         // Check if the effect has already been set for this mon
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
         return (step == EffectStep.OnMonSwitchOut);
     }
 
-    function onMonSwitchOut(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onMonSwitchOut(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 keyForMon = StatusEffectLib.getKeyForMonIndex(targetIndex, monIndex);
-        bytes32 statusAddress = ENGINE.getGlobalKV(battleKey, keyForMon);
+        uint192 statusAddress = ENGINE.getGlobalKV(battleKey, keyForMon);
 
         // Check if a status exists
-        if (statusAddress != bytes32(0)) {
-            IEffect statusEffect = IEffect(address(uint160(uint256(statusAddress))));
+        if (statusAddress != 0) {
+            IEffect statusEffect = IEffect(address(uint160(statusAddress)));
 
             // Get the index of the effect and remove it
             uint256 effectIndex;
-            EffectInstance[] memory effects = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+            (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
             for (uint256 i; i < effects.length; i++) {
                 if (effects[i].effect == statusEffect) {
-                    effectIndex = i;
+                    effectIndex = indices[i];
                     break;
                 }
             }
@@ -64,6 +64,6 @@ contract PostWorkout is IAbility, BasicEffect {
             // Boost stamina by 1
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.Stamina, 1);
         }
-        return ("", false);
+        return (bytes32(0), false);
     }
 }

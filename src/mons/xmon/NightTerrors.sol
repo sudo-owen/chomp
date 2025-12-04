@@ -37,7 +37,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
 
         // Check if the effect is already applied to the attacker
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, attackerPlayerIndex, attackerMonIndex);
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, attackerPlayerIndex, attackerMonIndex);
         bool found = false;
         uint256 effectIndex = 0;
         uint64 currentTerrorCount = 0;
@@ -45,9 +45,9 @@ contract NightTerrors is IMoveSet, BasicEffect {
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 found = true;
-                effectIndex = i;
+                effectIndex = indices[i];
                 // Decode existing extraData
-                (, uint64 storedTerrorCount) = abi.decode(effects[i].data, (uint64, uint64));
+                (, uint64 storedTerrorCount) = _unpackExtraData(effects[i].data);
                 currentTerrorCount = storedTerrorCount;
                 break;
             }
@@ -55,7 +55,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
 
         // Increment terror count
         uint64 newTerrorCount = currentTerrorCount + 1;
-        bytes memory newExtraData = abi.encode(uint64(defenderPlayerIndex), newTerrorCount);
+        bytes32 newExtraData = _packExtraData(uint64(defenderPlayerIndex), newTerrorCount);
 
         if (found) {
             // Edit existing effect
@@ -64,6 +64,15 @@ contract NightTerrors is IMoveSet, BasicEffect {
             // Add new effect
             ENGINE.addEffect(attackerPlayerIndex, attackerMonIndex, this, newExtraData);
         }
+    }
+
+    function _packExtraData(uint64 defenderPlayerIndex, uint64 terrorCount) internal pure returns (bytes32) {
+        return bytes32((uint256(defenderPlayerIndex) << 64) | terrorCount);
+    }
+
+    function _unpackExtraData(bytes32 data) internal pure returns (uint64 defenderPlayerIndex, uint64 terrorCount) {
+        defenderPlayerIndex = uint64(uint256(data) >> 64);
+        terrorCount = uint64(uint256(data) & type(uint64).max);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -95,14 +104,14 @@ contract NightTerrors is IMoveSet, BasicEffect {
         return (step == EffectStep.RoundEnd || step == EffectStep.OnMonSwitchOut);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         // targetIndex/monIndex is the attacker (who has the effect)
         // defenderPlayerIndex is stored in extraData (who should take damage)
-        (uint64 defenderPlayerIndex, uint64 terrorCount) = abi.decode(extraData, (uint64, uint64));
+        (uint64 defenderPlayerIndex, uint64 terrorCount) = _unpackExtraData(extraData);
 
         bytes32 battleKey = ENGINE.battleKeyForWrite();
 
@@ -122,7 +131,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
         uint256 defenderMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[defenderPlayerIndex];
 
         // Check if opponent (defender) is asleep by iterating through their effects
-        EffectInstance[] memory defenderEffects = ENGINE.getEffects(battleKey, defenderPlayerIndex, defenderMonIndex);
+        (EffectInstance[] memory defenderEffects, ) = ENGINE.getEffects(battleKey, defenderPlayerIndex, defenderMonIndex);
         bool isAsleep = false;
         for (uint256 i = 0; i < defenderEffects.length; i++) {
             if (address(defenderEffects[i].effect) == address(SLEEP_STATUS)) {
@@ -155,11 +164,11 @@ contract NightTerrors is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onMonSwitchOut(uint256, bytes memory extraData, uint256, uint256)
+    function onMonSwitchOut(uint256, bytes32 extraData, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         // Clear effect on switch out
         return (extraData, true);

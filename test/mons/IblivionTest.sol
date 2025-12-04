@@ -136,7 +136,7 @@ contract IblivionTest is Test, BattleHelper {
         );
 
         // Check that Alice's mon has the IntrinsicValue effect
-        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
         bool hasIntrinsicValueEffect = false;
         for (uint256 i = 0; i < aliceEffects.length; i++) {
             if (aliceEffects[i].effect == IEffect(address(intrinsicValue))) {

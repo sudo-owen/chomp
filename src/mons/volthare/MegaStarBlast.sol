@@ -36,10 +36,10 @@ contract MegaStarBlast is IMoveSet {
 
     function _checkForOverclock(bytes32 battleKey) internal view returns (int32) {
         // Check all global effects to see if Storm is active
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, 2, 2);
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, 2, 2);
         for (uint256 i; i < effects.length; i++) {
             if (address(effects[i].effect) == address(STORM)) {
-                return int32(int256(i));
+                return int32(int256(indices[i]));
             }
         }
         return -1;

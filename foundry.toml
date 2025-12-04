@@ -4,7 +4,7 @@ src = 'src'
 out = 'out'
 libs = ['lib']
 optimizer = true
-optimizer_runs = 64
+optimizer_runs = 4294967295
 # @see {@link https://github.com/foundry-rs/foundry/issues/4060}
 auto_detect_remappings = false
 bytecode_hash = "none"

@@ -28,13 +28,13 @@ contract IntrinsicValue is IAbility, BasicEffect {
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
         // Check if the effect has already been set for this mon
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // Should run at end of round
@@ -42,10 +42,10 @@ contract IntrinsicValue is IAbility, BasicEffect {
         return (step == EffectStep.RoundEnd);
     }
 
-    function onRoundEnd(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         bool statsReset = false;
 
@@ -64,6 +64,6 @@ contract IntrinsicValue is IAbility, BasicEffect {
             // Increase baselight level if we reset any stats
             BASELIGHT.increaseBaselightLevel(targetIndex, monIndex);
         }
-        return ("", false);
+        return (bytes32(0), false);
     }
 }

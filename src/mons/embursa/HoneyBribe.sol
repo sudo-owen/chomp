@@ -35,7 +35,7 @@ contract HoneyBribe is IMoveSet {
     function _increaseBribeLevel(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) internal {
         uint256 bribeLevel = _getBribeLevel(battleKey, playerIndex, monIndex);
         if (bribeLevel < MAX_DIVISOR) {
-            ENGINE.setGlobalKV(keccak256(abi.encode(playerIndex, monIndex, name())), bytes32(bribeLevel + 1));
+            ENGINE.setGlobalKV(keccak256(abi.encode(playerIndex, monIndex, name())), uint192(bribeLevel + 1));
         }
     }
 

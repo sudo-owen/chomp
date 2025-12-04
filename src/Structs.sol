@@ -43,27 +43,64 @@ struct Battle {
     IEngineHook[] engineHooks;
 }
 
+struct MoveDecision {
+    uint128 moveIndex;
+    uint8 isRealTurn; // 1 = real turn, 2 = fake/not set (packed with moveIndex for gas efficiency)
+    bytes extraData;
+}
+
 // Stored by the Engine, tracks immutable battle data
 struct BattleData {
     address p1;
-    uint96 startTimestamp;
     address p0;
-    IEngineHook[] engineHooks;
-    Mon[][] teams;
 }
 
 // Stored by the Engine for a battle, is overwritten after a battle is over
 struct BattleConfig {
     IValidator validator;
+    uint96 packedP0EffectsCount; // 6 (PLAYER_EFFECT_BITS) bits for up to 16 mons for p0
     IRandomnessOracle rngOracle;
+    uint96 packedP1EffectsCount;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
+    uint8 globalEffectsLength;
+    uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
+    uint8 engineHooksLength;
+    uint64 startTimestamp;
     bytes32 p0Salt;
     bytes32 p1Salt;
+    MoveDecision p0Move;
+    MoveDecision p1Move;
+    Mon[][] teams;
+    MonState[][] monStates;
+    mapping(uint256 => EffectInstance) globalEffects;
+    mapping(uint256 => EffectInstance) p0Effects;
+    mapping(uint256 => EffectInstance) p1Effects;
+    mapping(uint256 => IEngineHook) engineHooks;
 }
 
 struct EffectInstance {
     IEffect effect;
-    bytes data;
+    bytes32 data;
+}
+
+// View struct for getBattle - contains array instead of mapping for memory return
+struct BattleConfigView {
+    IValidator validator;
+    IRandomnessOracle rngOracle;
+    address moveManager;
+    uint24 globalEffectsLength;
+    uint96 packedP0EffectsCount; // 6 bits per mon (up to 16 mons)
+    uint96 packedP1EffectsCount;
+    uint8 teamSizes;
+    bytes32 p0Salt;
+    bytes32 p1Salt;
+    MoveDecision p0Move;
+    MoveDecision p1Move;
+    EffectInstance[] globalEffects;
+    EffectInstance[] p0Effects;
+    EffectInstance[] p1Effects;
+    Mon[][] teams;
+    MonState[][] monStates;
 }
 
 // Stored by the Engine for a battle, tracks mutable battle data
@@ -73,9 +110,6 @@ struct BattleState {
     uint8 playerSwitchForTurnFlag;
     uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
     uint64 turnId;
-    EffectInstance[] globalEffects;
-    MonState[][] monStates;
-    MoveDecision[][] playerMoves;
 }
 
 struct MonStats {
@@ -106,13 +140,6 @@ struct MonState {
     int32 specialDefenceDelta;
     bool isKnockedOut; // Is either 0 or 1
     bool shouldSkipTurn; // Used for effects to skip turn, or when moves become invalid (outside of user control)
-    EffectInstance[] targetedEffects;
-}
-
-struct MoveDecision {
-    uint128 moveIndex;
-    bool isRealTurn; // This indicates a non-decision, e.g. a turn where the player made no decision (i.e. only the other player moved)
-    bytes extraData;
 }
 
 // Used for Commit manager
@@ -140,4 +167,19 @@ struct StatBoostUpdate {
     MonStateIndexName stat;
     uint32 oldStat;
     uint32 newStat;
+}
+
+// Batch context for external callers (e.g. DefaultValidator) to avoid multiple SLOADs
+struct BattleContext {
+    uint96 startTimestamp;
+    address p0;
+    address p1;
+    uint8 winnerIndex; // 2 = uninitialized (no winner), 0 = p0 winner, 1 = p1 winner
+    uint64 turnId;
+    uint8 playerSwitchForTurnFlag;
+    uint8 prevPlayerSwitchForTurnFlag;
+    uint8 p0ActiveMonIndex;
+    uint8 p1ActiveMonIndex;
+    address validator;
+    address moveManager;
 }

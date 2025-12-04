@@ -29,12 +29,12 @@ contract OnUpdateMonStateHealEffect is BasicEffect {
     // This effect is safe because it only heals HP, it doesn't trigger state updates that would recurse
     function onUpdateMonState(
         uint256,
-        bytes memory extraData,
+        bytes32 extraData,
         uint256 playerIndex,
         uint256 monIndex,
         MonStateIndexName stateVarIndex,
         int32 valueToAdd
-    ) external override returns (bytes memory, bool) {
+    ) external override returns (bytes32, bool) {
         // Only trigger if SpecialAttack is being reduced (negative valueToAdd)
         if (stateVarIndex == MonStateIndexName.SpecialAttack && valueToAdd < 0) {
             // Heal the mon by HEAL_AMOUNT

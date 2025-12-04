@@ -28,9 +28,18 @@ contract Q5 is IMoveSet, BasicEffect {
         return "Q5";
     }
 
+    function _packExtraData(uint256 turnCount, uint256 attackerPlayerIndex) internal pure returns (bytes32) {
+        return bytes32((turnCount << 128) | attackerPlayerIndex);
+    }
+
+    function _unpackExtraData(bytes32 data) internal pure returns (uint256 turnCount, uint256 attackerPlayerIndex) {
+        turnCount = uint256(data) >> 128;
+        attackerPlayerIndex = uint256(data) & type(uint128).max;
+    }
+
     function move(bytes32, uint256 attackerPlayerIndex, bytes calldata, uint256) external {
         // Add effect to global effects
-        ENGINE.addEffect(2, 2, this, abi.encode(1, attackerPlayerIndex));
+        ENGINE.addEffect(2, 2, this, _packExtraData(1, attackerPlayerIndex));
 
         // Clear the priority boost
         if (HeatBeaconLib._getPriorityBoost(ENGINE, attackerPlayerIndex) == 1) {
@@ -69,12 +78,12 @@ contract Q5 is IMoveSet, BasicEffect {
         return (step == EffectStep.RoundStart);
     }
 
-    function onRoundStart(uint256 rng, bytes memory extraData, uint256, uint256)
+    function onRoundStart(uint256 rng, bytes32 extraData, uint256, uint256)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
-        (uint256 turnCount, uint256 attackerPlayerIndex) = abi.decode(extraData, (uint256, uint256));
+        (uint256 turnCount, uint256 attackerPlayerIndex) = _unpackExtraData(extraData);
         if (turnCount == DELAY) {
             // Deal damage
             AttackCalculator._calculateDamage(
@@ -92,7 +101,7 @@ contract Q5 is IMoveSet, BasicEffect {
             );
             return (extraData, true);
         } else {
-            return (abi.encode((turnCount + 1), attackerPlayerIndex), false);
+            return (_packExtraData(turnCount + 1, attackerPlayerIndex), false);
         }
     }
 }

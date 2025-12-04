@@ -24,12 +24,12 @@ contract InstantDeathEffect is BasicEffect {
         return r == EffectStep.RoundEnd;
     }
 
-    function onRoundEnd(uint256, bytes memory, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.IsKnockedOut, 1);
-        return ("", true);
+        return (bytes32(0), true);
     }
 }

@@ -154,36 +154,37 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Check that both mons have an effect length of 2 (including stat boost)
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 2);
-        assertEq(state.monStates[1][0].targetedEffects.length, 2);
+        (EffectInstance[] memory effects0, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory effects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects0.length, 2);
+        assertEq(effects1.length, 2);
 
         // Check that both mons took 1 damage (we should round down)
-        assertEq(state.monStates[0][0].hpDelta, -1);
-        assertEq(state.monStates[1][0].hpDelta, -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -1);
 
         // Check that the special attack of both mons was reduced by 50%
-        assertEq(state.monStates[0][0].specialAttackDelta, -10);
-        assertEq(state.monStates[1][0].specialAttackDelta, -10);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialAttack), -10);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack), -10);
 
         // Alice and Bob both select attacks, both of them are move index 0 (do frostbite damage)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Check that both mons still have an effect length of 2 (including stat boost)
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 2);
-        assertEq(state.monStates[1][0].targetedEffects.length, 2);
+        (effects0, ) = engine.getEffects(battleKey, 0, 0);
+        (effects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects0.length, 2);
+        assertEq(effects1.length, 2);
 
-        assertEq(state.monStates[0][0].hpDelta, -2);
-        assertEq(state.monStates[1][0].hpDelta, -2);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -2);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -2);
 
         // Alice and Bob both select to do a no op
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // Check that health was reduced
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].hpDelta, -3);
-        assertEq(state.monStates[1][0].hpDelta, -3);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -3);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -3);
     }
 
     function test_another_frostbite() public {
@@ -244,8 +245,7 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 0, abi.encode(1), "");
 
         // Check that Alice's new mon at index 0 has taken damage
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][1].hpDelta, -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Hp), -1);
     }
 
     function test_sleep() public {
@@ -399,22 +399,21 @@ contract EffectTest is Test, BattleHelper {
         // Alice and Bob both select attacks, both of them are move index 0 (inflict panic)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
-        // Get newest state
-        BattleState memory state = engine.getBattleState(battleKey);
-
         // Both mons have inflicted panic
-        assertEq(state.monStates[0][0].targetedEffects.length, 1);
-        assertEq(state.monStates[1][0].targetedEffects.length, 1);
+        (EffectInstance[] memory panicEffects0, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory panicEffects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(panicEffects0.length, 1);
+        assertEq(panicEffects1.length, 1);
 
         // Assert that both mons took 1 damage
-        assertEq(state.monStates[1][0].hpDelta, -1);
-        assertEq(state.monStates[0][0].hpDelta, -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -1);
 
         // Assert that Alice's mon has a stamina delta of -2 (max stamina of 5)
-        assertEq(state.monStates[0][0].staminaDelta, -2);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina), -2);
 
         // Assert that Bob's mon has a stamina delta of -1 (max stamina of 1)
-        assertEq(state.monStates[1][0].staminaDelta, -1);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Stamina), -1);
 
         // Set the oracle to report back 1 for the next turn (we do not exit panic early)
         mockOracle.setRNG(1);
@@ -426,8 +425,8 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // The panic effect should be over now
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[1][0].targetedEffects.length, 0);
+        (EffectInstance[] memory panicEffectsAfter, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(panicEffectsAfter.length, 0);
     }
 
     function test_burn() public {
@@ -486,56 +485,60 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Check that both mons have an effect length of 2 (including stat boost)
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 2);
-        assertEq(state.monStates[1][0].targetedEffects.length, 2);
+        (EffectInstance[] memory burnEffects0, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory burnEffects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(burnEffects0.length, 2);
+        assertEq(burnEffects1.length, 2);
 
         // Check that the attack of both mons was reduced by 50% (32/2 = 16)
-        assertEq(state.monStates[0][0].attackDelta, -16);
-        assertEq(state.monStates[1][0].attackDelta, -16);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack), -16);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Attack), -16);
 
         // Check that both mons took 1/16 damage at end of round (256/16 = 16)
-        assertEq(state.monStates[0][0].hpDelta, -16);
-        assertEq(state.monStates[1][0].hpDelta, -16);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -16);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -16);
 
         // Alice and Bob both select attacks again to increase burn degree
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Check that both mons still have an effect length of 2 (including stat boost)
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 2);
-        assertEq(state.monStates[1][0].targetedEffects.length, 2);
+        (EffectInstance[] memory effects0, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory effects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects0.length, 2);
+        assertEq(effects1.length, 2);
 
         // Check that both mons took additional 1/8 damage (256/8 = 32)
         // Total damage should be 16 (first round) + 32 (second round) = 48
-        assertEq(state.monStates[0][0].hpDelta, -48);
-        assertEq(state.monStates[1][0].hpDelta, -48);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -48);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -48);
 
         // Alice and Bob both select attacks again to increase burn degree to maximum
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
-        // Check that both mons still have an effect length of 1
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 2);
-        assertEq(state.monStates[1][0].targetedEffects.length, 2);
+        // Check that both mons still have an effect length of 2
+        (effects0, ) = engine.getEffects(battleKey, 0, 0);
+        (effects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects0.length, 2);
+        assertEq(effects1.length, 2);
 
         // Check that both mons took additional 1/4 damage (256/4 = 64)
         // Total damage should be 16 (first round) + 32 (second round) + 64 (third round) = 112
-        assertEq(state.monStates[0][0].hpDelta, -112);
-        assertEq(state.monStates[1][0].hpDelta, -112);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -112);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -112);
 
         // Alice and Bob both select attacks again to increase burn degree to maximum
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
-        // Check that both mons still have an effect length of 1
-        state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[0][0].targetedEffects.length, 2);
-        assertEq(state.monStates[1][0].targetedEffects.length, 2);
+        // Check that both mons still have an effect length of 2
+        (effects0, ) = engine.getEffects(battleKey, 0, 0);
+        (effects1, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(effects0.length, 2);
+        assertEq(effects1.length, 2);
 
         // Check that both mons took another 1/4 damage (max burn degree)
         // Total damage should be 16 (first round) + 32 (second round) + 64 (third round) + 64 (fourth round) = 176
-        assertEq(state.monStates[0][0].hpDelta, -176);
-        assertEq(state.monStates[1][0].hpDelta, -176);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), -176);
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp), -176);
     }
 
     function test_zap() public {
@@ -651,8 +654,8 @@ contract EffectTest is Test, BattleHelper {
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
 
         // Bob's active mon should have the Zap effect
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 1, 1);
-        assertEq(effects.length, 1);
+        (EffectInstance[] memory zapEffects, ) = engine.getEffects(battleKey, 1, 1);
+        assertEq(zapEffects.length, 1);
 
         // Alice does nothing, Bob attempts to switch to mon index 1
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, "", abi.encode(0));
@@ -660,8 +663,8 @@ contract EffectTest is Test, BattleHelper {
         // Nothing happens because the Zap occurred
         // Check that Bob's active mon index is still 1 and the effect is removed
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 1);
-        effects = engine.getEffects(battleKey, 1, 1);
-        assertEq(effects.length, 0);
+        (EffectInstance[] memory zapEffectsAfter, ) = engine.getEffects(battleKey, 1, 1);
+        assertEq(zapEffectsAfter.length, 0);
     }
 
     function test_staminaRegen() public {
@@ -796,15 +799,15 @@ contract EffectTest is Test, BattleHelper {
         );
 
         // Verify Bob's mon has the heal effect applied (from ability on switch in)
-        BattleState memory state = engine.getBattleState(battleKey);
-        assertEq(state.monStates[1][0].targetedEffects.length, 1, "Bob should have 1 effect");
+        (EffectInstance[] memory bobEffects, ) = engine.getEffects(battleKey, 1, 0);
+        assertEq(bobEffects.length, 1, "Bob should have 1 effect");
 
         // Get Bob's initial HP (should be 0 delta since no damage dealt yet)
-        int32 bobHpBefore = state.monStates[1][0].hpDelta;
+        int32 bobHpBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
         assertEq(bobHpBefore, 0, "Bob should have 0 HP delta initially");
 
         // Get Bob's initial SpATK (should be 0 delta)
-        int32 bobSpAtkBefore = state.monStates[1][0].specialAttackDelta;
+        int32 bobSpAtkBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
         assertEq(bobSpAtkBefore, 0, "Bob should have 0 SpATK delta initially");
 
         // Alice uses ReduceSpAtkMove to reduce Bob's SpecialAttack
@@ -812,9 +815,8 @@ contract EffectTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Get Bob's state after the move
-        state = engine.getBattleState(battleKey);
-        int32 bobHpAfter = state.monStates[1][0].hpDelta;
-        int32 bobSpAtkAfter = state.monStates[1][0].specialAttackDelta;
+        int32 bobHpAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        int32 bobSpAtkAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialAttack);
 
         // Verify that Bob's SpecialAttack was reduced by 1
         assertEq(bobSpAtkAfter, -1, "Bob's SpATK should be reduced by 1");

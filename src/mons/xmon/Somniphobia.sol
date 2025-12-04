@@ -26,13 +26,13 @@ contract Somniphobia is IMoveSet, BasicEffect {
 
     function move(bytes32 battleKey, uint256, bytes calldata, uint256) external {
         // Add effect globally for 6 turns (only if it's not already in global effects)
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, 2, 2);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, 2, 2);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
             }
         }
-        ENGINE.addEffect(2, 2, this, abi.encode(DURATION));
+        ENGINE.addEffect(2, 2, this, bytes32(DURATION));
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -64,14 +64,13 @@ contract Somniphobia is IMoveSet, BasicEffect {
         return (step == EffectStep.AfterMove || step == EffectStep.RoundEnd);
     }
 
-    function onAfterMove(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onAfterMove(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory, bool)
+        returns (bytes32, bool)
     {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint256 turnId = ENGINE.getTurnIdForBattleState(battleKey);
-        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleStateForTurn(battleKey, targetIndex, turnId);
+        MoveDecision memory moveDecision = ENGINE.getMoveDecisionForBattleState(battleKey, targetIndex);
 
         // If this player rested (NO_OP), deal damage
         if (moveDecision.moveIndex == NO_OP_MOVE_INDEX) {
@@ -86,17 +85,17 @@ contract Somniphobia is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256, uint256)
+    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
         external
         pure
         override
-        returns (bytes memory, bool removeAfterRun)
+        returns (bytes32, bool removeAfterRun)
     {
-        uint256 turnsLeft = abi.decode(extraData, (uint256));
+        uint256 turnsLeft = uint256(extraData);
         if (turnsLeft == 1) {
             return (extraData, true);
         } else {
-            return (abi.encode(turnsLeft - 1), false);
+            return (bytes32(turnsLeft - 1), false);
         }
     }
 }

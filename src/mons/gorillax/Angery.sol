@@ -29,13 +29,13 @@ contract Angery is IAbility, BasicEffect {
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
         // Check if the effect has already been set for this mon
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), abi.encode(0));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // IEffect implementation
@@ -43,12 +43,12 @@ contract Angery is IAbility, BasicEffect {
         return (step == EffectStep.RoundEnd || step == EffectStep.AfterDamage);
     }
 
-    function onRoundEnd(uint256, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        uint256 numCharges = abi.decode(extraData, (uint256));
+        uint256 numCharges = uint256(extraData);
         if (numCharges == CHARGE_COUNT) {
             // Heal
             int32 healAmount =
@@ -57,19 +57,19 @@ contract Angery is IAbility, BasicEffect {
                 ) / MAX_HP_DENOM;
             ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.Hp, healAmount);
             // Reset the charges
-            return (abi.encode(numCharges - CHARGE_COUNT), false);
+            return (bytes32(numCharges - CHARGE_COUNT), false);
         } else {
             return (extraData, false);
         }
     }
 
-    function onAfterDamage(uint256, bytes memory extraData, uint256, uint256, int32)
+    function onAfterDamage(uint256, bytes32 extraData, uint256, uint256, int32)
         external
         pure
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        uint256 numCharges = abi.decode(extraData, (uint256));
-        return (abi.encode(numCharges + 1), false);
+        uint256 numCharges = uint256(extraData);
+        return (bytes32(numCharges + 1), false);
     }
 }

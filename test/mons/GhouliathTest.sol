@@ -157,7 +157,7 @@ contract GhouliathTest is Test, BattleHelper {
         assertEq(isKnockedOut, 1);
 
         // Verify the effect is added to the global effects list
-        EffectInstance[] memory effects = engine.getEffects(battleKey, 2, 0);
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 2, 0);
         assertEq(
             address(effects[0].effect),
             address(riseFromTheGrave),
@@ -348,8 +348,8 @@ contract GhouliathTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, "", "");
 
         // Verify that both mons have the PanicStatus effect applied
-        EffectInstance[] memory aliceEffects = engine.getEffects(battleKey, 0, 0);
-        EffectInstance[] memory bobEffects = engine.getEffects(battleKey, 1, 0);
+        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
+        (EffectInstance[] memory bobEffects, ) = engine.getEffects(battleKey, 1, 0);
 
         // Check that both mons have at least one effect
         assertGt(aliceEffects.length, 0, "Alice's mon should have at least one effect");

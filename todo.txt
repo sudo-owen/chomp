@@ -1,18 +1,17 @@
 # TODO
 
-1) add description to moves in the editor, new tab, add cleaner info [ ]
-4) add xmon moveset
-5) add xmon tests
+1) Add tests / fix test to ensure battles cannot start/end on same timestamp
+2) Move double team array into mapping as well (we already cache the length) to save on gas
+    - p0Team/p1
+    - p0TeamState/p1
+3) remove tombstone and instead use transient mapping to mark for deletion, and then fix all removals in 1 pass at the very end
+4) combine battle data and battle state
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES
 
 0) fix the rng issue in the way StandardAttack decides which effects to apply (rn if an attack is only X% accurate, and an effect has a Y% chance, the lower X is, the higher Y should be (they shld be independent but we use the same rng source currently))
 - should fix this, but am afraid of tests needing to be rewritten.
-
-1) allow modifying any battle value (e.g. power/stamina/accuracy etc) on some sort of stack, fully generalize it
-3) Add a OnBeforeDamage hook to the Engine, add tests for it as well, allow editing of damage on the stack, also put the damage source on the stack
-4) right now, _handleSwitch runs a bunch of effects before handling control flow back. in some future edge cases this will mess things up, just don't worry about it for now. we'll need more fine grained control later on though.
 
 ---------------------------------------------------------------------------------------------
 

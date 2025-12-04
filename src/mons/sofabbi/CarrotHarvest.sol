@@ -28,13 +28,13 @@ contract CarrotHarvest is IAbility, BasicEffect {
 
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external override {
         // Check if the effect has already been set for this mon
-        EffectInstance[] memory effects = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 return;
             }
         }
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), "");
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // IEffect implementation
@@ -43,10 +43,10 @@ contract CarrotHarvest is IAbility, BasicEffect {
     }
 
     // Regain stamina on round end, this can overheal stamina
-    function onRoundEnd(uint256 rng, bytes memory extraData, uint256 targetIndex, uint256 monIndex)
+    function onRoundEnd(uint256 rng, bytes32 extraData, uint256 targetIndex, uint256 monIndex)
         external
         override
-        returns (bytes memory updatedExtraData, bool removeAfterRun)
+        returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         if (rng % CHANCE == 1) {
             // Update the stamina of the mon
