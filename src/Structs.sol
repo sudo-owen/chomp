@@ -68,15 +68,17 @@ struct BattleConfig {
     uint96 packedP1EffectsCount;
     address moveManager; // Privileged role that can set moves for players outside of execute() call
     uint8 globalEffectsLength;
-    uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size (teams arrays may have extra allocated slots)
+    uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size
     uint8 engineHooksLength;
     uint64 startTimestamp;
     bytes32 p0Salt;
     bytes32 p1Salt;
     MoveDecision p0Move;
     MoveDecision p1Move;
-    Mon[][] teams;
-    MonState[][] monStates;
+    mapping(uint256 index => Mon) p0Team;
+    mapping(uint256 index => Mon) p1Team;
+    mapping(uint256 index => MonState) p0States;
+    mapping(uint256 index => MonState) p1States;
     mapping(uint256 => EffectInstance) globalEffects;
     mapping(uint256 => EffectInstance) p0Effects;
     mapping(uint256 => EffectInstance) p1Effects;
