@@ -49,10 +49,15 @@ struct MoveDecision {
     bytes extraData;
 }
 
-// Stored by the Engine, tracks immutable battle data
+// Stored by the Engine, tracks immutable battle data and battle state
 struct BattleData {
     address p1;
     address p0;
+    uint8 winnerIndex; // 2 = uninitialized (no winner), 0 = p0 winner, 1 = p1 winner
+    uint8 prevPlayerSwitchForTurnFlag;
+    uint8 playerSwitchForTurnFlag;
+    uint16 activeMonIndex; // Packed: lower 8 bits = player0, upper 8 bits = player1
+    uint64 turnId;
 }
 
 // Stored by the Engine for a battle, is overwritten after a battle is over

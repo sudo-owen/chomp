@@ -467,7 +467,7 @@ contract EngineGasTest is Test, BattleHelper {
         uint256 execute1 = vm.stopSnapshotGas("B1_Execute");
 
         // Verify battle 1 ended
-        BattleState memory state1 = engine.getBattleState(battleKey1);
+        (, BattleData memory state1) = engine.getBattle(battleKey1);
         console.log("Battle 1 winner index:", state1.winnerIndex);
         assertTrue(state1.winnerIndex != 2, "Battle 1 should have ended");
 
