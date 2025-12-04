@@ -126,7 +126,7 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, "", "");
 
         // Turn ID should now be 2
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.turnId, 2);
     }
 
@@ -355,7 +355,7 @@ contract EngineTest is Test, BattleHelper {
         bytes32 battleKey = _setup2v2FasterPriorityBattleAndForceSwitch();
 
         // Check that Alice (p0) now has the playerSwitch flag set
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Assert that Bob cannot commit anything because of the turn flag
@@ -384,7 +384,7 @@ contract EngineTest is Test, BattleHelper {
         bytes32 battleKey = _setup2v2FasterPriorityBattleAndForceSwitch();
 
         // Check that Alice (p0) now has the playerSwitch flag set
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Alice now switches (invalidly) to mon index 0
@@ -402,7 +402,7 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Assert Bob wins
-        state = engine.getBattleState(battleKey);
+        (, state) = engine.getBattle(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
     }
 
@@ -410,7 +410,7 @@ contract EngineTest is Test, BattleHelper {
         bytes32 battleKey = _setup2v2FasterPriorityBattleAndForceSwitch();
 
         // Check that Alice (p0) now has the playerSwitch flag set
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Attempt to forcibly advance the game state
@@ -425,7 +425,7 @@ contract EngineTest is Test, BattleHelper {
         engine.end(battleKey);
 
         // Assert Bob wins
-        state = engine.getBattleState(battleKey);
+        (, state) = engine.getBattle(battleKey);
         assertEq(engine.getWinner(battleKey), BOB);
     }
 
@@ -476,7 +476,7 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, "", "");
 
         // Both Alice and Bob's mons have the same speed, so the final priority player is rng % 2
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
 
         // Assert that the staminaDelta was set correctly (2 moves spent) for the winning mon
         assertEq(engine.getMonStateForStorageKey(battleKey, state.winnerIndex, 0, MonStateIndexName.Stamina), -2);
@@ -640,7 +640,7 @@ contract EngineTest is Test, BattleHelper {
 
         // Given that it's a KO (even though Alice chose switch),
         // check that now they have the priority flag again
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
     }
 
@@ -1843,7 +1843,7 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 0, abi.encode(0, 1), "");
 
         // Assert that the player switch for turn flag is now 0, indicating Alice has to switch
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Assert that Alice's new mon is now KOed
@@ -1913,7 +1913,7 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, 1, abi.encode(1, 1), "");
 
         // Assert that the player switch for turn flag is now 0, indicating Bob has to switch
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 1);
 
         // Assert that Bob's new mon is now KOed
@@ -1981,7 +1981,7 @@ contract EngineTest is Test, BattleHelper {
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, 0, abi.encode(1), "");
 
         // Assert that the player switch for turn flag is now 0, indicating Alice has to switch
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
 
         // Assert that Alice's new mon is now KOed
@@ -2150,7 +2150,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1);
 
         // Assert that player switch flag for turn is now 0, indicating Alice has to switch
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
     }
 
@@ -2251,7 +2251,7 @@ contract EngineTest is Test, BattleHelper {
         assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1);
 
         // Assert that player switch flag for turn is now 0, indicating Alice has to switch
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
     }
 
@@ -3021,7 +3021,7 @@ contract EngineTest is Test, BattleHelper {
         // Both players pick move index 0
         _commitRevealExecuteForAliceAndBob(battleKey, 0, 0, abi.encode(1), abi.encode(0));
         // Switch for turn flag should be 0, Bob's active mon index should now be 0
-        BattleState memory state = engine.getBattleState(battleKey);
+        (, BattleData memory state) = engine.getBattle(battleKey);
         assertEq(state.playerSwitchForTurnFlag, 0);
         assertEq(engine.getActiveMonIndexForBattleState(battleKey)[1], 0);
     }

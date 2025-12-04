@@ -17,9 +17,8 @@ contract Engine is IEngine, MappingAllocator {
     mapping(bytes32 => uint256) public pairHashNonces; // imposes a global ordering across all matches
     mapping(address player => mapping(address maker => bool)) public isMatchmakerFor; // tracks approvals for matchmakers
 
-    mapping(bytes32 => BattleData) private battleData; // These are immutable after a battle begins
+    mapping(bytes32 => BattleData) private battleData; // These contain immutable data and battle state
     mapping(bytes32 => BattleConfig) private battleConfig; // These exist only throughout the lifecycle of a battle, we reuse these storage slots for subsequent battles
-    mapping(bytes32 battleKey => BattleState) private battleStates;
     mapping(bytes32 storageKey => mapping(bytes32 => bytes32)) private globalKV; // Value layout: [64 bits timestamp | 192 bits value]
     uint256 public transient tempRNG; // Used to provide RNG during execute() tx
     uint256 private transient currentStep; // Used to bubble up step data for events
@@ -169,10 +168,15 @@ contract Engine is IEngine, MappingAllocator {
         config.packedP0EffectsCount = 0;
         config.packedP1EffectsCount = 0;
 
-        // Store the battle data
+        // Store the battle data with initial state
         battleData[battleKey] = BattleData({
             p0: battle.p0,
-            p1: battle.p1        
+            p1: battle.p1,
+            winnerIndex: 2, // Initialize to 2 (uninitialized/no winner)
+            prevPlayerSwitchForTurnFlag: 0,
+            playerSwitchForTurnFlag: 2, // Set flag to be 2 which means both players act
+            activeMonIndex: 0, // Defaults to 0 (both players start with mon index 0)
+            turnId: 0
         });
 
         // Set the team for p0 and p1 in the reusable config storage
@@ -268,12 +272,6 @@ contract Engine is IEngine, MappingAllocator {
             revert InvalidBattleConfig();
         }
 
-        // Set flag to be 2 which means both players act
-        battleStates[battleKey].playerSwitchForTurnFlag = 2;
-
-        // Initialize winnerIndex to 2 (uninitialized/no winner)
-        battleStates[battleKey].winnerIndex = 2;
-
         for (uint256 i = 0; i < battle.engineHooks.length; ++i) {
             battle.engineHooks[i].onBattleStart(battleKey);
         }
@@ -286,10 +284,9 @@ contract Engine is IEngine, MappingAllocator {
         // Load storage vars
         BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
-        BattleState storage state = battleStates[battleKey];
 
         // Check for game over
-        if (state.winnerIndex != 2) {
+        if (battle.winnerIndex != 2) {
             revert GameAlreadyOver();
         }
 
@@ -299,12 +296,12 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Set up turn / player vars
-        uint256 turnId = state.turnId;
+        uint256 turnId = battle.turnId;
         uint256 playerSwitchForTurnFlag = 2;
         uint256 priorityPlayerIndex;
 
         // Store the prev player switch for turn flag
-        state.prevPlayerSwitchForTurnFlag = state.playerSwitchForTurnFlag;
+        battle.prevPlayerSwitchForTurnFlag = battle.playerSwitchForTurnFlag;
 
         // Set the battle key for the stack frame
         // (gets cleared at the end of the transaction)
@@ -316,9 +313,9 @@ contract Engine is IEngine, MappingAllocator {
 
         // If only a single player has a move to submit, then we don't trigger any effects
         // (Basically this only handles switching mons for now)
-        if (state.playerSwitchForTurnFlag == 0 || state.playerSwitchForTurnFlag == 1) {
+        if (battle.playerSwitchForTurnFlag == 0 || battle.playerSwitchForTurnFlag == 1) {
             // Get the player index that needs to switch for this turn
-            uint256 playerIndex = state.playerSwitchForTurnFlag;
+            uint256 playerIndex = battle.playerSwitchForTurnFlag;
 
             // Run the move (trust that the validator only lets valid single player moves happen as a switch action)
             // Running the move will set the winner flag if valid
@@ -417,12 +414,12 @@ contract Engine is IEngine, MappingAllocator {
             // For turn 0 only: wait for both mons to be sent in, then handle the ability activateOnSwitch
             // Happens immediately after both mons are sent in, before any other effects
             if (turnId == 0) {
-                uint256 priorityMonIndex = _unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex);
+                uint256 priorityMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
                 Mon memory priorityMon = config.teams[priorityPlayerIndex][priorityMonIndex];
                 if (address(priorityMon.ability) != address(0)) {
                     priorityMon.ability.activateOnSwitch(battleKey, priorityPlayerIndex, priorityMonIndex);
                 }
-                uint256 otherMonIndex = _unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex);
+                uint256 otherMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
                 Mon memory otherMon = config.teams[otherPlayerIndex][otherMonIndex];
                 if (address(otherMon.ability) != address(0)) {
                     otherMon.ability.activateOnSwitch(battleKey, otherPlayerIndex, otherMonIndex);
@@ -480,8 +477,8 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // If a winner has been set, handle the game over
-        if (state.winnerIndex != 2) {
-            address winner = (state.winnerIndex == 0) ? battle.p0 : battle.p1;
+        if (battle.winnerIndex != 2) {
+            address winner = (battle.winnerIndex == 0) ? battle.p0 : battle.p1;
             _handleGameOver(battleKey, winner);
             return;
         }
@@ -493,10 +490,10 @@ contract Engine is IEngine, MappingAllocator {
 
         // End of turn cleanup:
         // - Progress turn index
-        // - Set the player switch for turn flag on state
+        // - Set the player switch for turn flag on battle data
         // - Clear move flags for next turn (set to 2 = fake/not set)
-        state.turnId += 1;
-        state.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
+        battle.turnId += 1;
+        battle.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
         config.p0Move.isRealTurn = 2;
         config.p1Move.isRealTurn = 2;
 
@@ -505,17 +502,16 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function end(bytes32 battleKey) external {
-        BattleState storage state = battleStates[battleKey];
         BattleData storage data = battleData[battleKey];
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
-        if (state.winnerIndex != 2) {
+        if (data.winnerIndex != 2) {
             revert GameAlreadyOver();
         }
         for (uint256 i; i < 2; ++i) {
             address potentialLoser = config.validator.validateTimeout(battleKey, i);
             if (potentialLoser != address(0)) {
                 address winner = potentialLoser == data.p0 ? data.p1 : data.p0;
-                state.winnerIndex = (winner == data.p0) ? 0 : 1;
+                data.winnerIndex = (winner == data.p0) ? 0 : 1;
                 _handleGameOver(battleKey, winner);
                 return;
             }
@@ -803,7 +799,7 @@ contract Engine is IEngine, MappingAllocator {
             if (isGameOver) return;
 
             // Set the player switch for turn flag
-            battleStates[battleKey].playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
+            battleData[battleKey].playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
 
             // TODO:
             // Also upstreaming more updates from `_handleSwitch` and change it to also add `_handleEffects`
@@ -859,10 +855,10 @@ contract Engine is IEngine, MappingAllocator {
             bool isGameOver
         )
     {
-        BattleState storage state = battleStates[battleKey];
+        BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
-        uint8 existingWinnerIndex = state.winnerIndex;
+        uint8 existingWinnerIndex = battle.winnerIndex;
 
         // First check if we already calculated a winner
         if (existingWinnerIndex != 2) {
@@ -893,9 +889,9 @@ contract Engine is IEngine, MappingAllocator {
                 break;
             }
         }
-        // If we found a winner, set it on the state and return
+        // If we found a winner, set it on the battle data and return
         if (newWinnerIndex != 2) {
-            state.winnerIndex = uint8(newWinnerIndex);
+            battle.winnerIndex = uint8(newWinnerIndex);
             isGameOver = true;
             return (
                 playerSwitchForTurnFlag,
@@ -910,11 +906,11 @@ contract Engine is IEngine, MappingAllocator {
             playerSwitchForTurnFlag = 2;
 
             isPriorityPlayerActiveMonKnockedOut =
-            config.monStates[priorityPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, priorityPlayerIndex)]
+            config.monStates[priorityPlayerIndex][_unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex)]
             .isKnockedOut;
 
             isNonPriorityPlayerActiveMonKnockedOut =
-            config.monStates[otherPlayerIndex][_unpackActiveMonIndex(state.activeMonIndex, otherPlayerIndex)]
+            config.monStates[otherPlayerIndex][_unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex)]
             .isKnockedOut;
 
             // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
@@ -936,9 +932,9 @@ contract Engine is IEngine, MappingAllocator {
         // (could break this up even more, but that's for a later version / PR)
 
         bytes32 storageKey = _getStorageKey(battleKey);
-        BattleState storage state = battleStates[battleKey];
+        BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
-        uint256 currentActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
+        uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         MonState storage currentMonState = config.monStates[playerIndex][currentActiveMonIndex];
 
         // Emit event first, then run effects
@@ -955,7 +951,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
-        state.activeMonIndex = _setActiveMonIndex(state.activeMonIndex, playerIndex, monToSwitchIndex);
+        battle.activeMonIndex = _setActiveMonIndex(battle.activeMonIndex, playerIndex, monToSwitchIndex);
 
         // Run onMonSwitchIn hook for local effects
         _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
@@ -966,7 +962,7 @@ contract Engine is IEngine, MappingAllocator {
         // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
         Mon memory mon = config.teams[playerIndex][monToSwitchIndex];
         if (
-            address(mon.ability) != address(0) && state.turnId != 0
+            address(mon.ability) != address(0) && battle.turnId != 0
                 && !config.monStates[playerIndex][monToSwitchIndex].isKnockedOut
         ) {
             mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
@@ -979,13 +975,13 @@ contract Engine is IEngine, MappingAllocator {
     {
         bytes32 storageKey = _getStorageKey(battleKey);
         BattleConfig storage config = battleConfig[storageKey];
-        BattleState storage state = battleStates[battleKey];
+        BattleData storage battle = battleData[battleKey];
         MoveDecision memory move = (playerIndex == 0) ? config.p0Move : config.p1Move;
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
 
         // Handle shouldSkipTurn flag first and toggle it off if set
-        uint256 activeMonIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
+        uint256 activeMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         MonState storage currentMonState = config.monStates[playerIndex][activeMonIndex];
         if (currentMonState.shouldSkipTurn) {
             currentMonState.shouldSkipTurn = false;
@@ -1052,7 +1048,7 @@ contract Engine is IEngine, MappingAllocator {
         EffectStep round,
         bytes memory extraEffectsData
     ) internal {
-        BattleState storage state = battleStates[battleKey];
+        BattleData storage battle = battleData[battleKey];
         bytes32 storageKey = _getStorageKey(battleKey);
         BattleConfig storage config = battleConfig[storageKey];
 
@@ -1062,12 +1058,12 @@ contract Engine is IEngine, MappingAllocator {
             // Global effects - monIndex doesn't matter for filtering
             monIndex = 0;
         } else {
-            monIndex = _unpackActiveMonIndex(state.activeMonIndex, effectIndex);
+            monIndex = _unpackActiveMonIndex(battle.activeMonIndex, effectIndex);
         }
 
         // Grab the active mon (global effect won't know which player index to get, so we set it here)
         if (playerIndex != 2) {
-            monIndex = _unpackActiveMonIndex(state.activeMonIndex, playerIndex);
+            monIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         }
 
         // Iterate directly over storage, skipping tombstones
@@ -1218,16 +1214,16 @@ contract Engine is IEngine, MappingAllocator {
     ) private returns (uint256 playerSwitchForTurnFlag) {
         // Check for Game Over and return early if so
         bytes32 storageKey = _getStorageKey(battleKey);
-        BattleState storage state = battleStates[battleKey];
+        BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
-        if (state.winnerIndex != 2) {
+        if (battle.winnerIndex != 2) {
             return playerSwitchForTurnFlag;
         }
         // If non-global effect, check if we should still run if mon is KOed
         if (effectIndex != 2) {
             bool isMonKOed =
-                config.monStates[playerIndex][_unpackActiveMonIndex(state.activeMonIndex, playerIndex)].isKnockedOut;
+                config.monStates[playerIndex][_unpackActiveMonIndex(battle.activeMonIndex, playerIndex)].isKnockedOut;
             if (isMonKOed && condition == EffectRunCondition.SkipIfGameOverOrMonKO) {
                 return playerSwitchForTurnFlag;
             }
@@ -1245,11 +1241,11 @@ contract Engine is IEngine, MappingAllocator {
 
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
-        BattleState storage state = battleStates[battleKey];
+        BattleData storage battle = battleData[battleKey];
         MoveDecision memory p0Move = config.p0Move;
         MoveDecision memory p1Move = config.p1Move;
-        uint256 p0ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 0);
-        uint256 p1ActiveMonIndex = _unpackActiveMonIndex(state.activeMonIndex, 1);
+        uint256 p0ActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, 0);
+        uint256 p1ActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, 1);
         uint256 p0Priority;
         uint256 p1Priority;
 
@@ -1491,10 +1487,6 @@ contract Engine is IEngine, MappingAllocator {
         return result;
     }
 
-    function getBattleState(bytes32 battleKey) external view returns (BattleState memory) {
-        return battleStates[battleKey];
-    }
-
     function getBattleValidator(bytes32 battleKey) external view returns (IValidator) {
         return battleConfig[_getStorageKey(battleKey)].validator;
     }
@@ -1637,11 +1629,11 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getTurnIdForBattleState(bytes32 battleKey) external view returns (uint256) {
-        return battleStates[battleKey].turnId;
+        return battleData[battleKey].turnId;
     }
 
     function getActiveMonIndexForBattleState(bytes32 battleKey) external view returns (uint256[] memory) {
-        uint16 packed = battleStates[battleKey].activeMonIndex;
+        uint16 packed = battleData[battleKey].activeMonIndex;
         uint256[] memory result = new uint256[](2);
         result[0] = _unpackActiveMonIndex(packed, 0);
         result[1] = _unpackActiveMonIndex(packed, 1);
@@ -1649,7 +1641,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
-        return battleStates[battleKey].playerSwitchForTurnFlag;
+        return battleData[battleKey].playerSwitchForTurnFlag;
     }
 
     function getGlobalKV(bytes32 battleKey, bytes32 key) external view returns (uint192) {
@@ -1675,7 +1667,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getWinner(bytes32 battleKey) external view returns (address) {
-        uint8 winnerIndex = battleStates[battleKey].winnerIndex;
+        uint8 winnerIndex = battleData[battleKey].winnerIndex;
         if (winnerIndex == 2) {
             return address(0);
         }
@@ -1687,7 +1679,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getPrevPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
-        return battleStates[battleKey].prevPlayerSwitchForTurnFlag;
+        return battleData[battleKey].prevPlayerSwitchForTurnFlag;
     }
 
     function getMoveManager(bytes32 battleKey) external view returns (address) {
@@ -1697,18 +1689,17 @@ contract Engine is IEngine, MappingAllocator {
     function getBattleContext(bytes32 battleKey) external view returns (BattleContext memory ctx) {
         bytes32 storageKey = _getStorageKey(battleKey);
         BattleData storage data = battleData[battleKey];
-        BattleState storage state = battleStates[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
 
         ctx.startTimestamp = config.startTimestamp;
         ctx.p0 = data.p0;
         ctx.p1 = data.p1;
-        ctx.winnerIndex = state.winnerIndex;
-        ctx.turnId = state.turnId;
-        ctx.playerSwitchForTurnFlag = state.playerSwitchForTurnFlag;
-        ctx.prevPlayerSwitchForTurnFlag = state.prevPlayerSwitchForTurnFlag;
-        ctx.p0ActiveMonIndex = uint8(state.activeMonIndex & 0xFF);
-        ctx.p1ActiveMonIndex = uint8(state.activeMonIndex >> 8);
+        ctx.winnerIndex = data.winnerIndex;
+        ctx.turnId = data.turnId;
+        ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
+        ctx.prevPlayerSwitchForTurnFlag = data.prevPlayerSwitchForTurnFlag;
+        ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & 0xFF);
+        ctx.p1ActiveMonIndex = uint8(data.activeMonIndex >> 8);
         ctx.validator = address(config.validator);
         ctx.moveManager = config.moveManager;
     }
