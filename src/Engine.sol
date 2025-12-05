@@ -139,37 +139,25 @@ contract Engine is IEngine, MappingAllocator {
         uint256 prevP1Size = config.teamSizes >> 4;
 
         // Clear previous battle's mon states by setting non-zero values to sentinel
+        // MonState packs into a single 256-bit slot (7 x int32 + 2 x bool = 240 bits)
+        // We use assembly to read/write the entire slot in one operation
         for (uint256 j = 0; j < prevP0Size; j++) {
             MonState storage monState = config.p0States[j];
-
-            // Set all non-zero int32 fields to sentinel value
-            if (monState.hpDelta != 0) monState.hpDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.staminaDelta != 0) monState.staminaDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.speedDelta != 0) monState.speedDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.attackDelta != 0) monState.attackDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.defenceDelta != 0) monState.defenceDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.specialAttackDelta != 0) monState.specialAttackDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.specialDefenceDelta != 0) monState.specialDefenceDelta = CLEARED_MON_STATE_SENTINEL;
-
-            // Reset bools to false
-            monState.isKnockedOut = false;
-            monState.shouldSkipTurn = false;
+            assembly {
+                let slot := monState.slot
+                if sload(slot) {
+                    sstore(slot, PACKED_CLEARED_MON_STATE)
+                }
+            }
         }
         for (uint256 j = 0; j < prevP1Size; j++) {
             MonState storage monState = config.p1States[j];
-
-            // Set all non-zero int32 fields to sentinel value
-            if (monState.hpDelta != 0) monState.hpDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.staminaDelta != 0) monState.staminaDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.speedDelta != 0) monState.speedDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.attackDelta != 0) monState.attackDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.defenceDelta != 0) monState.defenceDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.specialAttackDelta != 0) monState.specialAttackDelta = CLEARED_MON_STATE_SENTINEL;
-            if (monState.specialDefenceDelta != 0) monState.specialDefenceDelta = CLEARED_MON_STATE_SENTINEL;
-
-            // Reset bools to false
-            monState.isKnockedOut = false;
-            monState.shouldSkipTurn = false;
+            assembly {
+                let slot := monState.slot
+                if sload(slot) {
+                    sstore(slot, PACKED_CLEARED_MON_STATE)
+                }
+            }
         }
 
         // Store the battle config (update fields individually to preserve effects mapping slots)
@@ -1264,11 +1252,14 @@ contract Engine is IEngine, MappingAllocator {
             return 1;
         } else {
             // Calculate speeds by combining base stats with deltas
+            // Note: speedDelta may be sentinel value (CLEARED_MON_STATE_SENTINEL) which should be treated as 0
+            int32 p0SpeedDelta = _getMonState(config, 0, p0ActiveMonIndex).speedDelta;
+            int32 p1SpeedDelta = _getMonState(config, 1, p1ActiveMonIndex).speedDelta;
             uint32 p0MonSpeed = uint32(
-                int32(_getTeamMon(config, 0, p0ActiveMonIndex).stats.speed) + _getMonState(config, 0, p0ActiveMonIndex).speedDelta
+                int32(_getTeamMon(config, 0, p0ActiveMonIndex).stats.speed) + (p0SpeedDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : p0SpeedDelta)
             );
             uint32 p1MonSpeed = uint32(
-                int32(_getTeamMon(config, 1, p1ActiveMonIndex).stats.speed) + _getMonState(config, 1, p1ActiveMonIndex).speedDelta
+                int32(_getTeamMon(config, 1, p1ActiveMonIndex).stats.speed) + (p1SpeedDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : p1SpeedDelta)
             );
             if (p0MonSpeed > p1MonSpeed) {
                 return 0;
