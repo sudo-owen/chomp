@@ -34,4 +34,9 @@ abstract contract MappingAllocator {
         freeStorageKeys.push(storageKey);
         delete battleKeyToStorageKey[battleKey];
     }
+
+    function _freeStorageKey(bytes32 battleKey, bytes32 storageKey) internal {
+        freeStorageKeys.push(storageKey);
+        delete battleKeyToStorageKey[battleKey];
+    }
 }

@@ -14,6 +14,7 @@ import {IMatchmaker} from "./matchmaker/IMatchmaker.sol";
 contract Engine is IEngine, MappingAllocator {
 
     bytes32 public transient battleKeyForWrite; // intended to be used during call stack by other contracts
+    bytes32 private transient storageKeyForWrite; // cached storage key to avoid repeated lookups
     mapping(bytes32 => uint256) public pairHashNonces; // imposes a global ordering across all matches
     mapping(address player => mapping(address maker => bool)) public isMatchmakerFor; // tracks approvals for matchmakers
 
@@ -252,9 +253,13 @@ contract Engine is IEngine, MappingAllocator {
 
     // THE IMPORTANT FUNCTION
     function execute(bytes32 battleKey) external {
+        // Cache storage key in transient storage for the duration of the call
+        bytes32 storageKey = _getStorageKey(battleKey);
+        storageKeyForWrite = storageKey;
+
         // Load storage vars
         BattleData storage battle = battleData[battleKey];
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        BattleConfig storage config = battleConfig[storageKey];
 
         // Check for game over
         if (battle.winnerIndex != 2) {
@@ -490,7 +495,9 @@ contract Engine is IEngine, MappingAllocator {
 
     function end(bytes32 battleKey) external {
         BattleData storage data = battleData[battleKey];
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+        bytes32 storageKey = _getStorageKey(battleKey);
+        storageKeyForWrite = storageKey;
+        BattleConfig storage config = battleConfig[storageKey];
         if (data.winnerIndex != 2) {
             revert GameAlreadyOver();
         }
@@ -506,10 +513,9 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function _handleGameOver(bytes32 battleKey, address winner) internal {
-
-        bytes32 storageKey = _getStorageKey(battleKey);
+        bytes32 storageKey = storageKeyForWrite;
         BattleConfig storage config = battleConfig[storageKey];
-        
+
         if (block.timestamp == config.startTimestamp) {
             revert GameStartsAndEndsSameBlock();
         }
@@ -519,7 +525,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Free the key used for battle configs so other battles can use it
-        _freeStorageKey(battleKey);
+        _freeStorageKey(battleKey, storageKey);
         emit BattleComplete(battleKey, winner);
     }
 
@@ -533,8 +539,7 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
         MonState storage monState = _getMonState(config, playerIndex, monIndex);
         if (stateVarIndex == MonStateIndexName.Hp) {
             monState.hpDelta = (monState.hpDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.hpDelta + valueToAdd;
@@ -613,8 +618,7 @@ contract Engine is IEngine, MappingAllocator {
             }
             if (!removeAfterRun) {
                 // Add to the appropriate effects mapping based on targetIndex
-                bytes32 storageKey = _getStorageKey(battleKey);
-                BattleConfig storage config = battleConfig[storageKey];
+                BattleConfig storage config = battleConfig[storageKeyForWrite];
 
                 if (targetIndex == 2) {
                     // Global effects use simple sequential indexing
@@ -652,8 +656,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Access the appropriate effects mapping based on targetIndex
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
         EffectInstance storage effectInstance;
         if (targetIndex == 2) {
             effectInstance = config.globalEffects[effectIndex];
@@ -681,8 +684,7 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
 
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         if (targetIndex == 2) {
             // Global effects use simple sequential indexing
@@ -751,7 +753,7 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        bytes32 storageKey = _getStorageKey(battleKey);
+        bytes32 storageKey = storageKeyForWrite;
         uint64 timestamp = battleConfig[storageKey].startTimestamp;
         // Pack timestamp (upper 64 bits) with value (lower 192 bits)
         bytes32 packed = bytes32((uint256(timestamp) << 192) | uint256(value));
@@ -763,8 +765,7 @@ contract Engine is IEngine, MappingAllocator {
         if (battleKey == bytes32(0)) {
             revert NoWriteAllowed();
         }
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
         MonState storage monState = _getMonState(config, playerIndex, monIndex);
 
         // If sentinel, replace with -damage; otherwise subtract damage
@@ -787,8 +788,7 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
 
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
         BattleData storage battle = battleData[battleKey];
 
         // Use the validator to check if the switch is valid
@@ -818,9 +818,10 @@ contract Engine is IEngine, MappingAllocator {
     function setMove(bytes32 battleKey, uint256 playerIndex, uint128 moveIndex, bytes32 salt, bytes memory extraData)
         external
     {
-        bytes32 storageKey = _getStorageKey(battleKey);
-        bool isMoveManager = msg.sender == address(battleConfig[storageKey].moveManager);
+        // Use cached key if called during execute(), otherwise lookup
         bool isForCurrentBattle = battleKeyForWrite == battleKey;
+        bytes32 storageKey = isForCurrentBattle ? storageKeyForWrite : _getStorageKey(battleKey);
+        bool isMoveManager = msg.sender == address(battleConfig[storageKey].moveManager);
         if (!isMoveManager && !isForCurrentBattle) {
             revert NoWriteAllowed();
         }
@@ -940,9 +941,8 @@ contract Engine is IEngine, MappingAllocator {
         // will all resolve before checking for KOs or winners
         // (could break this up even more, but that's for a later version / PR)
 
-        bytes32 storageKey = _getStorageKey(battleKey);
         BattleData storage battle = battleData[battleKey];
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
         uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         MonState storage currentMonState = _getMonState(config, playerIndex, currentActiveMonIndex);
 
@@ -1058,8 +1058,7 @@ contract Engine is IEngine, MappingAllocator {
         bytes memory extraEffectsData
     ) internal {
         BattleData storage battle = battleData[battleKey];
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         uint256 monIndex;
         // Determine the mon index for the target
