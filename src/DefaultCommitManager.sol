@@ -59,6 +59,9 @@ contract DefaultCommitManager is ICommitManager {
             revert BattleAlreadyComplete();
         }
 
+        // Cache storage reference for player data
+        PlayerDecisionData storage pd = playerData[battleKey][playerIndex];
+
         // 3) Validate no commitment already exists for this turn:
         uint64 turnId = ctx.turnId;
 
@@ -66,10 +69,10 @@ contract DefaultCommitManager is ICommitManager {
         // otherwise, just check if the turn id (which we overwrite each turn) is in sync
         // (if we already committed this turn, then the turn id should match)
         if (turnId == 0) {
-            if (playerData[battleKey][playerIndex].moveHash != bytes32(0)) {
+            if (pd.moveHash != bytes32(0)) {
                 revert AlreadyCommited();
             }
-        } else if (playerData[battleKey][playerIndex].lastCommitmentTurnId == turnId) {
+        } else if (pd.lastCommitmentTurnId == turnId) {
             revert AlreadyCommited();
         }
 
@@ -87,9 +90,9 @@ contract DefaultCommitManager is ICommitManager {
         }
 
         // 7) Store the commitment
-        playerData[battleKey][playerIndex].lastCommitmentTurnId = uint16(turnId);
-        playerData[battleKey][playerIndex].moveHash = moveHash;
-        playerData[battleKey][playerIndex].lastMoveTimestamp = uint96(block.timestamp);
+        pd.lastCommitmentTurnId = uint16(turnId);
+        pd.moveHash = moveHash;
+        pd.lastMoveTimestamp = uint96(block.timestamp);
 
         emit MoveCommit(battleKey, caller);
     }
@@ -123,6 +126,10 @@ contract DefaultCommitManager is ICommitManager {
             revert BattleAlreadyComplete();
         }
 
+        // Cache storage references for both players' data
+        PlayerDecisionData storage currentPd = playerData[battleKey][currentPlayerIndex];
+        PlayerDecisionData storage otherPd = playerData[battleKey][otherPlayerIndex];
+
         // Use turn id and switch for turn flag from context
         uint64 turnId = ctx.turnId;
         uint8 playerSwitchForTurnFlag = ctx.playerSwitchForTurnFlag;
@@ -150,13 +157,13 @@ contract DefaultCommitManager is ICommitManager {
             if (playerSwitchForTurnFlag == 2) {
                 // If it's not the zeroth turn, make sure that player cannot reveal until other player has committed
                 if (turnId != 0) {
-                    if (playerData[battleKey][otherPlayerIndex].lastCommitmentTurnId != turnId) {
+                    if (otherPd.lastCommitmentTurnId != turnId) {
                         revert RevealBeforeOtherCommit();
                     }
                 }
                 // If it is the zeroth turn, do the same check, but check moveHash instead of turnId (which would be zero)
                 else {
-                    if (playerData[battleKey][otherPlayerIndex].moveHash == bytes32(0)) {
+                    if (otherPd.moveHash == bytes32(0)) {
                         revert RevealBeforeOtherCommit();
                     }
                 }
@@ -169,23 +176,23 @@ contract DefaultCommitManager is ICommitManager {
         // - the other player has already revealed
         else {
             // - validate preimage
-            if (keccak256(abi.encodePacked(moveIndex, salt, extraData)) != playerData[battleKey][currentPlayerIndex].moveHash) {
+            if (keccak256(abi.encodePacked(moveIndex, salt, extraData)) != currentPd.moveHash) {
                 revert WrongPreimage();
             }
 
             // - ensure reveal happens after caller commits
-            if (playerData[battleKey][currentPlayerIndex].lastCommitmentTurnId != turnId) {
+            if (currentPd.lastCommitmentTurnId != turnId) {
                 revert RevealBeforeSelfCommit();
             }
 
             // - check that other player has already revealed (i.e. a nonzero last move timestamp)
-            if (playerData[battleKey][otherPlayerIndex].numMovesRevealed < turnId || playerData[battleKey][otherPlayerIndex].lastMoveTimestamp == 0) {
+            if (otherPd.numMovesRevealed < turnId || otherPd.lastMoveTimestamp == 0) {
                 revert NotYetRevealed();
             }
         }
 
         // 4) Regardless, we still need to check there was no prior reveal (prevents double revealing)
-        if (playerData[battleKey][currentPlayerIndex].numMovesRevealed > turnId) {
+        if (currentPd.numMovesRevealed > turnId) {
             revert AlreadyRevealed();
         }
 
@@ -199,14 +206,14 @@ contract DefaultCommitManager is ICommitManager {
         // 6) Store revealed move and extra data for the current player
         // Update their last move timestamp and num moves revealed
         ENGINE.setMove(battleKey, currentPlayerIndex, moveIndex, salt, extraData);
-        playerData[battleKey][currentPlayerIndex].lastMoveTimestamp = uint96(block.timestamp);
-        playerData[battleKey][currentPlayerIndex].numMovesRevealed += 1;
+        currentPd.lastMoveTimestamp = uint96(block.timestamp);
+        currentPd.numMovesRevealed += 1;
 
         // 7) Store empty move for other player if it's a turn where only a single player has to make a move
         if (playerSwitchForTurnFlag == 0 || playerSwitchForTurnFlag == 1) {
             // TODO: add this later to mutate the engine directly
-            playerData[battleKey][otherPlayerIndex].lastMoveTimestamp = uint96(block.timestamp);
-            playerData[battleKey][otherPlayerIndex].numMovesRevealed += 1;
+            otherPd.lastMoveTimestamp = uint96(block.timestamp);
+            otherPd.numMovesRevealed += 1;
         }
 
         // 8) Emit move reveal event before game engine execution
@@ -226,10 +233,8 @@ contract DefaultCommitManager is ICommitManager {
     function getCommitment(bytes32 battleKey, address player) external view returns (bytes32 moveHash, uint256 turnId) {
         BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
         uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
-        return (
-            playerData[battleKey][playerIndex].moveHash,
-            playerData[battleKey][playerIndex].lastCommitmentTurnId
-        );
+        PlayerDecisionData storage pd = playerData[battleKey][playerIndex];
+        return (pd.moveHash, pd.lastCommitmentTurnId);
     }
 
     function getMoveCountForBattleState(bytes32 battleKey, address player) external view returns (uint256) {
