@@ -503,11 +503,12 @@ contract Engine is IEngine, MappingAllocator {
     function _handleGameOver(bytes32 battleKey, address winner) internal {
 
         bytes32 storageKey = _getStorageKey(battleKey);
-        if (block.timestamp == battleConfig[storageKey].startTimestamp) {
+        BattleConfig storage config = battleConfig[storageKey];
+        
+        if (block.timestamp == config.startTimestamp) {
             revert GameStartsAndEndsSameBlock();
         }
 
-        BattleConfig storage config = battleConfig[storageKey];
         for (uint256 i = 0; i < config.engineHooksLength; ++i) {
             config.engineHooks[i].onBattleEnd(battleKey);
         }
@@ -798,7 +799,8 @@ contract Engine is IEngine, MappingAllocator {
     function setMove(bytes32 battleKey, uint256 playerIndex, uint128 moveIndex, bytes32 salt, bytes memory extraData)
         external
     {
-        bool isMoveManager = msg.sender == address(battleConfig[_getStorageKey(battleKey)].moveManager);
+        bytes32 storageKey = _getStorageKey(battleKey);
+        bool isMoveManager = msg.sender == address(battleConfig[storageKey].moveManager);
         bool isForCurrentBattle = battleKeyForWrite == battleKey;
         if (!isMoveManager && !isForCurrentBattle) {
             revert NoWriteAllowed();
@@ -808,11 +810,11 @@ contract Engine is IEngine, MappingAllocator {
         MoveDecision memory newMove = MoveDecision({moveIndex: moveIndex, isRealTurn: 1, extraData: extraData});
 
         if (playerIndex == 0) {
-            battleConfig[_getStorageKey(battleKey)].p0Move = newMove;
-            battleConfig[_getStorageKey(battleKey)].p0Salt = salt;
+            battleConfig[storageKey].p0Move = newMove;
+            battleConfig[storageKey].p0Salt = salt;
         } else {
-            battleConfig[_getStorageKey(battleKey)].p1Move = newMove;
-            battleConfig[_getStorageKey(battleKey)].p1Salt = salt;
+            battleConfig[storageKey].p1Move = newMove;
+            battleConfig[storageKey].p1Salt = salt;
         }
     }
 
@@ -1344,19 +1346,12 @@ contract Engine is IEngine, MappingAllocator {
         returns (EffectInstance[] memory, uint256[] memory)
     {
         BattleConfig storage config = battleConfig[storageKey];
-        
+
         if (targetIndex == 2) {
-            // Global query - count non-tombstoned effects first
+            // Global query - allocate max size and populate in single pass
             uint256 globalEffectsLength = config.globalEffectsLength;
-            uint256 globalActiveCount = 0;
-            for (uint256 i = 0; i < globalEffectsLength; ++i) {
-                if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
-                    globalActiveCount++;
-                }
-            }
-            // Allocate and populate with only active effects
-            EffectInstance[] memory globalResult = new EffectInstance[](globalActiveCount);
-            uint256[] memory globalIndices = new uint256[](globalActiveCount);
+            EffectInstance[] memory globalResult = new EffectInstance[](globalEffectsLength);
+            uint256[] memory globalIndices = new uint256[](globalEffectsLength);
             uint256 globalIdx = 0;
             for (uint256 i = 0; i < globalEffectsLength; ++i) {
                 if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
@@ -1365,24 +1360,22 @@ contract Engine is IEngine, MappingAllocator {
                     globalIdx++;
                 }
             }
+            // Resize arrays to actual count
+            assembly ("memory-safe") {
+                mstore(globalResult, globalIdx)
+                mstore(globalIndices, globalIdx)
+            }
             return (globalResult, globalIndices);
         }
 
-        // Player query - count non-tombstoned effects first
+        // Player query - allocate max size and populate in single pass
         uint96 packedCounts = targetIndex == 0 ? config.packedP0EffectsCount : config.packedP1EffectsCount;
         uint256 monEffectCount = _getMonEffectCount(packedCounts, monIndex);
         uint256 baseSlot = _getEffectSlotIndex(monIndex, 0);
         mapping(uint256 => EffectInstance) storage effects = targetIndex == 0 ? config.p0Effects : config.p1Effects;
 
-        uint256 activeCount = 0;
-        for (uint256 i = 0; i < monEffectCount; ++i) {
-            if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
-                activeCount++;
-            }
-        }
-
-        EffectInstance[] memory result = new EffectInstance[](activeCount);
-        uint256[] memory indices = new uint256[](activeCount);
+        EffectInstance[] memory result = new EffectInstance[](monEffectCount);
+        uint256[] memory indices = new uint256[](monEffectCount);
         uint256 idx = 0;
         for (uint256 i = 0; i < monEffectCount; ++i) {
             uint256 slotIndex = baseSlot + i;
@@ -1393,6 +1386,11 @@ contract Engine is IEngine, MappingAllocator {
             }
         }
 
+        // Resize arrays to actual count
+        assembly ("memory-safe") {
+            mstore(result, idx)
+            mstore(indices, idx)
+        }
         return (result, indices);
     }
 
@@ -1404,21 +1402,19 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[storageKey];
         BattleData storage data = battleData[battleKey];
 
-        // Build global effects array (skip tombstones)
+        // Build global effects array (single pass, skip tombstones)
         uint256 globalLen = config.globalEffectsLength;
-        uint256 activeGlobalCount = 0;
-        for (uint256 i = 0; i < globalLen; ++i) {
-            if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
-                activeGlobalCount++;
-            }
-        }
-        EffectInstance[] memory globalEffects = new EffectInstance[](activeGlobalCount);
+        EffectInstance[] memory globalEffects = new EffectInstance[](globalLen);
         uint256 gIdx = 0;
         for (uint256 i = 0; i < globalLen; ++i) {
             if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
                 globalEffects[gIdx] = config.globalEffects[i];
                 gIdx++;
             }
+        }
+        // Resize array to actual count
+        assembly ("memory-safe") {
+            mstore(globalEffects, gIdx)
         }
 
         // Build player effects arrays by iterating through all mons
@@ -1478,20 +1474,14 @@ contract Engine is IEngine, MappingAllocator {
         uint96 packedCounts,
         uint256 teamSize
     ) private view returns (EffectInstance[] memory) {
-        // Count total non-tombstoned effects across all mons
-        uint256 totalCount = 0;
+        // Calculate max possible size from packed counts (no storage reads)
+        uint256 maxSize = 0;
         for (uint256 m = 0; m < teamSize; m++) {
-            uint256 monCount = _getMonEffectCount(packedCounts, m);
-            uint256 baseSlot = _getEffectSlotIndex(m, 0);
-            for (uint256 i = 0; i < monCount; ++i) {
-                if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
-                    totalCount++;
-                }
-            }
+            maxSize += _getMonEffectCount(packedCounts, m);
         }
 
-        // Allocate and populate (skip tombstones)
-        EffectInstance[] memory result = new EffectInstance[](totalCount);
+        // Allocate max size and populate in single pass
+        EffectInstance[] memory result = new EffectInstance[](maxSize);
         uint256 idx = 0;
         for (uint256 m = 0; m < teamSize; m++) {
             uint256 monCount = _getMonEffectCount(packedCounts, m);
@@ -1502,6 +1492,11 @@ contract Engine is IEngine, MappingAllocator {
                     idx++;
                 }
             }
+        }
+
+        // Resize array to actual count
+        assembly ("memory-safe") {
+            mstore(result, idx)
         }
         return result;
     }

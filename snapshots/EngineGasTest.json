@@ -1,17 +1,17 @@
 {
-  "B1_Execute": "1137621",
+  "B1_Execute": "1133451",
   "B1_Setup": "815463",
-  "B2_Execute": "908454",
-  "B2_Setup": "284541",
-  "Battle1_Execute": "626595",
+  "B2_Execute": "905409",
+  "B2_Setup": "283368",
+  "Battle1_Execute": "624854",
   "Battle1_Setup": "791877",
-  "Battle2_Execute": "533476",
+  "Battle2_Execute": "531703",
   "Battle2_Setup": "239662",
-  "FirstBattle": "4927482",
+  "FirstBattle": "4912363",
   "Intermediary stuff": "43997",
-  "SecondBattle": "5294092",
+  "SecondBattle": "5275021",
   "Setup 1": "1671501",
   "Setup 2": "303922",
   "Setup 3": "349113",
-  "ThirdBattle": "4316696"
+  "ThirdBattle": "4301385"
 }
