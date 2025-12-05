@@ -25,6 +25,8 @@ contract Engine is IEngine, MappingAllocator {
     address private transient upstreamCaller; // Used to bubble up caller data for events
 
     // Transient state for effect removal tracking (cleared automatically at end of tx)
+    // Key: (targetIndex << 248) | slotIndex, Value: true if marked for removal
+    mapping(uint256 => bool) private transient effectMarkedForRemoval;
     uint256 private transient globalEffectsRemovalCount;
     // Key: (playerIndex << 4) | monIndex, Value: count of effects to remove for that mon
     mapping(uint256 => uint256) private transient playerEffectRemovalCount;
@@ -693,23 +695,22 @@ contract Engine is IEngine, MappingAllocator {
         uint256 monIndex,
         uint256 indexToRemove
     ) private {
+        // Check transient mapping first (cheaper than SLOAD)
+        uint256 removalKey = (2 << 248) | indexToRemove;
+        if (effectMarkedForRemoval[removalKey]) {
+            return;
+        }
+
         EffectInstance storage effectToRemove = config.globalEffects[indexToRemove];
         IEffect effect = effectToRemove.effect;
         bytes32 data = effectToRemove.data;
-
-        // Skip if already tombstoned
-        if (address(effect) == TOMBSTONE_ADDRESS) {
-            return;
-        }
 
         if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
             effect.onRemove(data, 2, monIndex);
         }
 
-        // Tombstone the effect (for intra-turn correctness when iterating effects)
-        effectToRemove.effect = IEffect(TOMBSTONE_ADDRESS);
-
-        // Track removal count for end-of-turn compaction
+        // Mark for removal in transient storage (no SSTORE needed)
+        effectMarkedForRemoval[removalKey] = true;
         globalEffectsRemovalCount++;
 
         emit EffectRemove(battleKey, 2, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
@@ -722,34 +723,34 @@ contract Engine is IEngine, MappingAllocator {
         uint256 monIndex,
         uint256 indexToRemove
     ) private {
+        // Check transient mapping first (cheaper than SLOAD)
+        uint256 removalKey = (targetIndex << 248) | indexToRemove;
+        if (effectMarkedForRemoval[removalKey]) {
+            return;
+        }
+
         mapping(uint256 => EffectInstance) storage effects = targetIndex == 0 ? config.p0Effects : config.p1Effects;
 
         EffectInstance storage effectToRemove = effects[indexToRemove];
         IEffect effect = effectToRemove.effect;
         bytes32 data = effectToRemove.data;
 
-        // Skip if already tombstoned
-        if (address(effect) == TOMBSTONE_ADDRESS) {
-            return;
-        }
-
         if (effect.shouldRunAtStep(EffectStep.OnRemove)) {
             effect.onRemove(data, targetIndex, monIndex);
         }
 
-        // Tombstone the effect (for intra-turn correctness when iterating effects)
-        effectToRemove.effect = IEffect(TOMBSTONE_ADDRESS);
+        // Mark for removal in transient storage (no SSTORE needed)
+        effectMarkedForRemoval[removalKey] = true;
 
         // Track per-mon removal count for end-of-turn compaction
-        // Key: (playerIndex << 4) | monIndex
-        uint256 removalKey = (targetIndex << 4) | monIndex;
-        playerEffectRemovalCount[removalKey]++;
+        uint256 countKey = (targetIndex << 4) | monIndex;
+        playerEffectRemovalCount[countKey]++;
 
         emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
     }
 
     /**
-     * @dev Compacts global effects array by removing tombstoned entries.
+     * @dev Compacts global effects array by removing marked entries.
      * Uses 2-pointer algorithm for O(k) writes where k is the number of removals.
      */
     function _compactGlobalEffects(BattleConfig storage config) private {
@@ -764,11 +765,14 @@ contract Engine is IEngine, MappingAllocator {
         uint256 searchTail = currentLength - 1;
 
         while (head < targetLength) {
-            // Check if current head position has a tombstone (hole)
-            if (address(config.globalEffects[head].effect) == TOMBSTONE_ADDRESS) {
-                // Find a non-tombstoned element from the tail region
-                while (searchTail > head && address(config.globalEffects[searchTail].effect) == TOMBSTONE_ADDRESS) {
+            // Check if current head position is marked for removal (hole)
+            uint256 headKey = (2 << 248) | head;
+            if (effectMarkedForRemoval[headKey]) {
+                // Find an unmarked element from the tail region
+                uint256 tailKey = (2 << 248) | searchTail;
+                while (searchTail > head && effectMarkedForRemoval[tailKey]) {
                     searchTail--;
+                    tailKey = (2 << 248) | searchTail;
                 }
                 // Move the tail element to fill the hole
                 if (searchTail > head) {
@@ -784,7 +788,7 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     /**
-     * @dev Compacts player effects for all mons by removing tombstoned entries.
+     * @dev Compacts player effects for all mons by removing marked entries.
      * Uses 2-pointer algorithm for O(k) writes per mon where k is the number of removals.
      */
     function _compactPlayerEffects(BattleConfig storage config, uint256 playerIndex, uint256 teamSize) private {
@@ -793,8 +797,8 @@ contract Engine is IEngine, MappingAllocator {
 
         for (uint256 monIndex = 0; monIndex < teamSize; monIndex++) {
             // Get removal count for this mon
-            uint256 removalKey = (playerIndex << 4) | monIndex;
-            uint256 removalCount = playerEffectRemovalCount[removalKey];
+            uint256 countKey = (playerIndex << 4) | monIndex;
+            uint256 removalCount = playerEffectRemovalCount[countKey];
             if (removalCount == 0) continue;
 
             uint256 effectCount = _getMonEffectCount(packedCounts, monIndex);
@@ -807,15 +811,20 @@ contract Engine is IEngine, MappingAllocator {
 
             while (head < targetCount) {
                 uint256 headSlot = baseSlot + head;
-                // Check if current head position has a tombstone (hole)
-                if (address(effects[headSlot].effect) == TOMBSTONE_ADDRESS) {
-                    // Find a non-tombstoned element from the tail
-                    while (searchTail > head && address(effects[baseSlot + searchTail].effect) == TOMBSTONE_ADDRESS) {
+                // Check if current head position is marked for removal (hole)
+                uint256 headKey = (playerIndex << 248) | headSlot;
+                if (effectMarkedForRemoval[headKey]) {
+                    // Find an unmarked element from the tail
+                    uint256 tailSlot = baseSlot + searchTail;
+                    uint256 tailKey = (playerIndex << 248) | tailSlot;
+                    while (searchTail > head && effectMarkedForRemoval[tailKey]) {
                         searchTail--;
+                        tailSlot = baseSlot + searchTail;
+                        tailKey = (playerIndex << 248) | tailSlot;
                     }
                     // Move the tail element to fill the hole
                     if (searchTail > head) {
-                        effects[headSlot] = effects[baseSlot + searchTail];
+                        effects[headSlot] = effects[tailSlot];
                         searchTail--;
                     }
                 }
@@ -836,7 +845,7 @@ contract Engine is IEngine, MappingAllocator {
 
     /**
      * @dev Main cleanup function called at end of execute() to compact effect arrays.
-     * This removes tombstoned effects, reducing SLOADs in subsequent turns.
+     * This removes effects marked for removal, reducing SLOADs in subsequent turns.
      */
     function _cleanupRemovedEffects(bytes32 battleKey) private {
         bytes32 storageKey = _getStorageKey(battleKey);
@@ -1214,8 +1223,9 @@ contract Engine is IEngine, MappingAllocator {
                 eff = config.p1Effects[slotIndex];
             }
 
-            // Skip tombstoned effects
-            if (address(eff.effect) != TOMBSTONE_ADDRESS) {
+            // Skip effects marked for removal (check transient mapping - cheaper than SLOAD)
+            uint256 removalKey = (effectIndex << 248) | slotIndex;
+            if (!effectMarkedForRemoval[removalKey]) {
                 _runSingleEffect(
                     config, rng, effectIndex, playerIndex, monIndex, round, extraEffectsData,
                     eff.effect, eff.data, uint96(slotIndex)
@@ -1468,11 +1478,13 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[storageKey];
         
         if (targetIndex == 2) {
-            // Global query - count non-tombstoned effects first
+            // Global query - count active effects first
             uint256 globalEffectsLength = config.globalEffectsLength;
             uint256 globalActiveCount = 0;
             for (uint256 i = 0; i < globalEffectsLength; ++i) {
-                if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+                uint256 removalKey = (2 << 248) | i;
+                // Skip if marked for removal in transient storage
+                if (!effectMarkedForRemoval[removalKey]) {
                     globalActiveCount++;
                 }
             }
@@ -1481,7 +1493,8 @@ contract Engine is IEngine, MappingAllocator {
             uint256[] memory globalIndices = new uint256[](globalActiveCount);
             uint256 globalIdx = 0;
             for (uint256 i = 0; i < globalEffectsLength; ++i) {
-                if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+                uint256 removalKey = (2 << 248) | i;
+                if (!effectMarkedForRemoval[removalKey]) {
                     globalResult[globalIdx] = config.globalEffects[i];
                     globalIndices[globalIdx] = i;
                     globalIdx++;
@@ -1490,7 +1503,7 @@ contract Engine is IEngine, MappingAllocator {
             return (globalResult, globalIndices);
         }
 
-        // Player query - count non-tombstoned effects first
+        // Player query - count active effects first
         uint96 packedCounts = targetIndex == 0 ? config.packedP0EffectsCount : config.packedP1EffectsCount;
         uint256 monEffectCount = _getMonEffectCount(packedCounts, monIndex);
         uint256 baseSlot = _getEffectSlotIndex(monIndex, 0);
@@ -1498,7 +1511,9 @@ contract Engine is IEngine, MappingAllocator {
 
         uint256 activeCount = 0;
         for (uint256 i = 0; i < monEffectCount; ++i) {
-            if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
+            uint256 slotIndex = baseSlot + i;
+            uint256 removalKey = (targetIndex << 248) | slotIndex;
+            if (!effectMarkedForRemoval[removalKey]) {
                 activeCount++;
             }
         }
@@ -1508,7 +1523,8 @@ contract Engine is IEngine, MappingAllocator {
         uint256 idx = 0;
         for (uint256 i = 0; i < monEffectCount; ++i) {
             uint256 slotIndex = baseSlot + i;
-            if (address(effects[slotIndex].effect) != TOMBSTONE_ADDRESS) {
+            uint256 removalKey = (targetIndex << 248) | slotIndex;
+            if (!effectMarkedForRemoval[removalKey]) {
                 result[idx] = effects[slotIndex];
                 indices[idx] = slotIndex;
                 idx++;
@@ -1526,18 +1542,20 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[storageKey];
         BattleData storage data = battleData[battleKey];
 
-        // Build global effects array (skip tombstones)
+        // Build global effects array (skip removed effects)
         uint256 globalLen = config.globalEffectsLength;
         uint256 activeGlobalCount = 0;
         for (uint256 i = 0; i < globalLen; ++i) {
-            if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+            uint256 removalKey = (2 << 248) | i;
+            if (!effectMarkedForRemoval[removalKey]) {
                 activeGlobalCount++;
             }
         }
         EffectInstance[] memory globalEffects = new EffectInstance[](activeGlobalCount);
         uint256 gIdx = 0;
         for (uint256 i = 0; i < globalLen; ++i) {
-            if (address(config.globalEffects[i].effect) != TOMBSTONE_ADDRESS) {
+            uint256 removalKey = (2 << 248) | i;
+            if (!effectMarkedForRemoval[removalKey]) {
                 globalEffects[gIdx] = config.globalEffects[i];
                 gIdx++;
             }
@@ -1548,8 +1566,8 @@ contract Engine is IEngine, MappingAllocator {
         uint256 p0TeamSize = teamSizes & 0xF;
         uint256 p1TeamSize = (teamSizes >> 4) & 0xF;
 
-        EffectInstance[] memory p0Effects = _buildPlayerEffectsArray(config.p0Effects, config.packedP0EffectsCount, p0TeamSize);
-        EffectInstance[] memory p1Effects = _buildPlayerEffectsArray(config.p1Effects, config.packedP1EffectsCount, p1TeamSize);
+        EffectInstance[] memory p0Effects = _buildPlayerEffectsArray(config.p0Effects, config.packedP0EffectsCount, p0TeamSize, 0);
+        EffectInstance[] memory p1Effects = _buildPlayerEffectsArray(config.p1Effects, config.packedP1EffectsCount, p1TeamSize, 1);
 
         // Build teams array from mappings
         Mon[][] memory teams = new Mon[][](2);
@@ -1598,29 +1616,34 @@ contract Engine is IEngine, MappingAllocator {
     function _buildPlayerEffectsArray(
         mapping(uint256 => EffectInstance) storage effects,
         uint96 packedCounts,
-        uint256 teamSize
+        uint256 teamSize,
+        uint256 playerIndex
     ) private view returns (EffectInstance[] memory) {
-        // Count total non-tombstoned effects across all mons
+        // Count total active effects across all mons
         uint256 totalCount = 0;
         for (uint256 m = 0; m < teamSize; m++) {
             uint256 monCount = _getMonEffectCount(packedCounts, m);
             uint256 baseSlot = _getEffectSlotIndex(m, 0);
             for (uint256 i = 0; i < monCount; ++i) {
-                if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
+                uint256 slotIndex = baseSlot + i;
+                uint256 removalKey = (playerIndex << 248) | slotIndex;
+                if (!effectMarkedForRemoval[removalKey]) {
                     totalCount++;
                 }
             }
         }
 
-        // Allocate and populate (skip tombstones)
+        // Allocate and populate (skip removed effects)
         EffectInstance[] memory result = new EffectInstance[](totalCount);
         uint256 idx = 0;
         for (uint256 m = 0; m < teamSize; m++) {
             uint256 monCount = _getMonEffectCount(packedCounts, m);
             uint256 baseSlot = _getEffectSlotIndex(m, 0);
             for (uint256 i = 0; i < monCount; ++i) {
-                if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
-                    result[idx] = effects[baseSlot + i];
+                uint256 slotIndex = baseSlot + i;
+                uint256 removalKey = (playerIndex << 248) | slotIndex;
+                if (!effectMarkedForRemoval[removalKey]) {
+                    result[idx] = effects[slotIndex];
                     idx++;
                 }
             }
