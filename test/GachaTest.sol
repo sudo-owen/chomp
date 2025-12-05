@@ -195,6 +195,9 @@ contract GachaTest is Test, BattleHelper {
             bytes32 battleKey =
                 _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, address(commitManager));
 
+            // Advance time to avoid GameStartsAndEndsSameBlock error
+            vm.warp(vm.getBlockTimestamp() + 1);
+
             // Alice commits switching to mon index 0
             vm.startPrank(ALICE);
             commitManager.commitMove(battleKey, keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, "", abi.encode(0))));
@@ -276,6 +279,9 @@ contract GachaTest is Test, BattleHelper {
         hooks[0] = gachaRegistry;
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, address(commitManager));
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
 
@@ -325,6 +331,9 @@ contract GachaTest is Test, BattleHelper {
         hooks[0] = gachaRegistry;
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, address(commitManager));
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // Magic number to trigger the bonus points after all the hashing we do
         bytes32 salt = keccak256(abi.encode(11));
 
@@ -346,9 +355,13 @@ contract GachaTest is Test, BattleHelper {
         assertGt(alicePoints, 0);
         assertGt(bobPoints, 0);
 
-        // Start another battle
+        // Start another battle (within cooldown, so no points should be awarded)
         hooks[0] = gachaRegistry;
         battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error (but stay within cooldown)
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         aliceMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, abi.encode(0)));
         vm.startPrank(ALICE);
         commitManager.commitMove(battleKey, aliceMoveHash);

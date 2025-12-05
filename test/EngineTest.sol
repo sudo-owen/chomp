@@ -2612,6 +2612,44 @@ contract EngineTest is Test, BattleHelper {
         commitManager.commitMove(battleKey, bytes32(0));
     }
 
+    // Verifies that ending a battle in the same block it started reverts with GameStartsAndEndsSameBlock
+    function test_cannotEndBattleSameBlock() public {
+        // Create a validator with 0 timeout so we can trigger an immediate timeout
+        IMoveSet[] memory empty = new IMoveSet[](0);
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 10,
+                stamina: 2,
+                speed: 2,
+                attack: 1,
+                defense: 1,
+                specialAttack: 1,
+                specialDefense: 1,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: empty,
+            ability: IAbility(address(0))
+        });
+        Mon[] memory team = new Mon[](1);
+        team[0] = mon;
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+        DefaultValidator zeroTimeoutValidator =
+            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
+        bytes32 battleKey = _startBattle(zeroTimeoutValidator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Alice commits to switch to mon index 0
+        vm.startPrank(ALICE);
+        commitManager.commitMove(battleKey, keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, "", abi.encode(0))));
+
+        // Attempt to end the battle immediately (same block as start)
+        // Bob hasn't committed and timeout is 0, so Bob loses, but game should revert
+        // because we're still in the same block as battle start
+        vm.expectRevert(Engine.GameStartsAndEndsSameBlock.selector);
+        engine.end(battleKey);
+    }
+
     // Helper function, creates a battle with two mons each for Alice and Bob
     function _startDummyBattleWithTwoMons() internal returns (bytes32) {
         IMoveSet[] memory moves = new IMoveSet[](1);
