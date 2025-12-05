@@ -89,17 +89,22 @@ contract StatBoosts is BasicEffect {
         return bytes32(packed);
     }
 
+    // Extracts only isPerm and key without allocating arrays (for key matching)
+    function _unpackBoostHeader(bytes32 data) internal pure returns (bool isPerm, uint168 key) {
+        uint256 packed = uint256(data);
+        isPerm = uint8(packed >> PERM_FLAG_OFFSET) != 0;
+        key = uint168((packed >> KEY_OFFSET) & KEY_MASK);
+    }
+
+    // Full unpack with fixed-size arrays (no dynamic allocation)
     function _unpackBoostData(bytes32 data)
         internal
         pure
-        returns (bool isPerm, uint168 key, uint8[] memory boostPercents, uint8[] memory boostCounts, bool[] memory isMultiply)
+        returns (bool isPerm, uint168 key, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply)
     {
         uint256 packed = uint256(data);
         isPerm = uint8(packed >> PERM_FLAG_OFFSET) != 0;
         key = uint168((packed >> KEY_OFFSET) & KEY_MASK);
-        boostPercents = new uint8[](5);
-        boostCounts = new uint8[](5);
-        isMultiply = new bool[](5);
         for (uint256 i = 0; i < 5; i++) {
             uint256 offset = i * 16;
             uint256 boostInstance = (packed >> offset) & 0xFFFF;
@@ -123,10 +128,11 @@ contract StatBoosts is BasicEffect {
         view
         returns (bool found, uint256 effectIndex, bytes32 extraData)
     {
-        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(ENGINE.battleKeyForWrite(), targetIndex, monIndex);
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
-                (bool existingIsPerm, uint168 existingKey,,,) = _unpackBoostData(effects[i].data);
+                (bool existingIsPerm, uint168 existingKey) = _unpackBoostHeader(effects[i].data);
                 if (existingKey == key && existingIsPerm == isPerm) {
                     return (true, indices[i], effects[i].data);
                 }
@@ -135,7 +141,7 @@ contract StatBoosts is BasicEffect {
         return (false, 0, bytes32(0));
     }
 
-    function _packBoostSnapshot(uint32[] memory unpackedSnapshot) internal pure returns (uint192) {
+    function _packBoostSnapshot(uint32[5] memory unpackedSnapshot) internal pure returns (uint192) {
         return uint192(
             (uint256(unpackedSnapshot[0]) << 160) | (uint256(unpackedSnapshot[1]) << 128)
                 | (uint256(unpackedSnapshot[2]) << 96) | (uint256(unpackedSnapshot[3]) << 64)
@@ -143,86 +149,71 @@ contract StatBoosts is BasicEffect {
         );
     }
 
-    function _unpackBoostSnapshot(uint256 playerIndex, uint256 monIndex, uint192 boostSnapshot)
+    // Unpack snapshot, using provided base stats to fill in zeros (avoids redundant ENGINE call)
+    function _unpackBoostSnapshot(uint192 boostSnapshot, uint32[5] memory baseStats)
         internal
-        view
-        returns (uint32[] memory snapshotPerStat)
+        pure
+        returns (uint32[5] memory snapshotPerStat)
     {
-        snapshotPerStat = new uint32[](5);
         snapshotPerStat[0] = uint32((boostSnapshot >> 160) & 0xFFFFFFFF);
         snapshotPerStat[1] = uint32((boostSnapshot >> 128) & 0xFFFFFFFF);
         snapshotPerStat[2] = uint32((boostSnapshot >> 96) & 0xFFFFFFFF);
         snapshotPerStat[3] = uint32((boostSnapshot >> 64) & 0xFFFFFFFF);
         snapshotPerStat[4] = uint32((boostSnapshot >> 32) & 0xFFFFFFFF);
-        uint32[] memory stats = _getMonStatSubset(playerIndex, monIndex);
-        for (uint256 i; i < snapshotPerStat.length; i++) {
+        for (uint256 i; i < 5; i++) {
             if (snapshotPerStat[i] == 0) {
-                snapshotPerStat[i] = stats[i];
+                snapshotPerStat[i] = baseStats[i];
             }
         }
-        return snapshotPerStat;
     }
 
+    // Mapping: Attack(3)->0, Defense(4)->1, SpecialAttack(5)->2, SpecialDefense(6)->3, Speed(2)->4
+    // Uses arithmetic to calculate index
+    // WARNING: This assumes MonStateIndexName enum ordering: Hp(0), Stamina(1), Speed(2), Attack(3), Defense(4), SpecialAttack(5), SpecialDefense(6), ...
+    // If the enum is reordered, this function will break!
     function _monStateIndexToStatBoostIndex(MonStateIndexName statIndex) internal pure returns (uint256) {
-        if (statIndex == MonStateIndexName.Attack) {
-            return 0;
-        } else if (statIndex == MonStateIndexName.Defense) {
-            return 1;
-        } else if (statIndex == MonStateIndexName.SpecialAttack) {
-            return 2;
-        } else if (statIndex == MonStateIndexName.SpecialDefense) {
-            return 3;
-        } else if (statIndex == MonStateIndexName.Speed) {
-            return 4;
-        }
-        return 0;
+        uint256 idx = uint256(statIndex);
+        // Speed (2) maps to 4, Attack-SpecialDefense (3-6) map to 0-3
+        if (idx == 2) return 4;
+        return idx - 3; // Attack(3)->0, Defense(4)->1, SpAtk(5)->2, SpDef(6)->3
     }
 
+    // Reverse mapping: 0->Attack(3), 1->Defense(4), 2->SpecialAttack(5), 3->SpecialDefense(6), 4->Speed(2)
+    // WARNING: This assumes MonStateIndexName enum ordering (see above)
     function _statBoostIndexToMonStateIndex(uint256 statBoostIndex) internal pure returns (MonStateIndexName) {
-        if (statBoostIndex == 0) {
-            return MonStateIndexName.Attack;
-        } else if (statBoostIndex == 1) {
-            return MonStateIndexName.Defense;
-        } else if (statBoostIndex == 2) {
-            return MonStateIndexName.SpecialAttack;
-        } else if (statBoostIndex == 3) {
-            return MonStateIndexName.SpecialDefense;
-        } else if (statBoostIndex == 4) {
-            return MonStateIndexName.Speed;
-        }
-        return MonStateIndexName.Attack;
+        if (statBoostIndex == 4) return MonStateIndexName.Speed;
+        return MonStateIndexName(statBoostIndex + 3);
     }
 
-    function _getMonStatSubset(uint256 playerIndex, uint256 monIndex) internal view returns (uint32[] memory) {
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint32[] memory stats = new uint32[](5);
+    function _getMonStatSubset(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) internal view returns (uint32[5] memory stats) {
         MonStats memory monStats = ENGINE.getMonStatsForBattle(battleKey, playerIndex, monIndex);
         stats[0] = monStats.attack;
         stats[1] = monStats.defense;
         stats[2] = monStats.specialAttack;
         stats[3] = monStats.specialDefense;
         stats[4] = monStats.speed;
-        return stats;
     }
 
     // Recalculate stats by iterating through all StatBoosts effects
     // If excludeTempBoosts is true, skip temp boosts (used during onMonSwitchOut when temp boosts are being removed)
     function _recalculateAndApplyStats(uint256 targetIndex, uint256 monIndex, bool excludeTempBoosts) internal {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        uint192 prevSnapshot = ENGINE.getGlobalKV(battleKey, _snapshotKey(targetIndex, monIndex));
+        bytes32 snapshotKey = _snapshotKey(targetIndex, monIndex);
+        uint192 prevSnapshot = ENGINE.getGlobalKV(battleKey, snapshotKey);
 
         (EffectInstance[] memory effects,) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
 
-        uint32[] memory oldBoostedStats = _unpackBoostSnapshot(targetIndex, monIndex, prevSnapshot);
-        uint32[] memory stats = _getMonStatSubset(targetIndex, monIndex);
-        uint32[] memory newBoostedStats = new uint32[](5);
-        uint32[] memory numBoostsPerStat = new uint32[](5);
-        uint256[] memory accumulatedNumeratorPerStat = new uint256[](5);
+        // Get base stats once and pass to _unpackBoostSnapshot to avoid duplicate ENGINE call
+        uint32[5] memory stats = _getMonStatSubset(battleKey, targetIndex, monIndex);
+        uint32[5] memory oldBoostedStats = _unpackBoostSnapshot(prevSnapshot, stats);
+        uint32[5] memory newBoostedStats;
+        uint32[5] memory numBoostsPerStat;
+        uint256[5] memory accumulatedNumeratorPerStat;
 
         // Iterate through all StatBoosts effects and aggregate
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
-                (bool isPerm, , uint8[] memory boostPercents, uint8[] memory boostCounts, bool[] memory isMultiply) =
+                (bool isPerm, , uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
                     _unpackBoostData(effects[i].data);
                 // Skip temp boosts if excludeTempBoosts is true
                 if (excludeTempBoosts && !isPerm) continue;
@@ -253,19 +244,19 @@ contract StatBoosts is BasicEffect {
             }
         }
 
-        // Update snapshot in globalKV
-        ENGINE.setGlobalKV(_snapshotKey(targetIndex, monIndex), _packBoostSnapshot(newBoostedStats));
+        // Update snapshot in globalKV (reuse cached snapshotKey)
+        ENGINE.setGlobalKV(snapshotKey, _packBoostSnapshot(newBoostedStats));
     }
 
     function _mergeExistingAndNewBoosts(
-        uint8[] memory existingBoostPercents,
-        uint8[] memory existingBoostCounts,
-        bool[] memory existingIsMultiply,
+        uint8[5] memory existingBoostPercents,
+        uint8[5] memory existingBoostCounts,
+        bool[5] memory existingIsMultiply,
         StatBoostToApply[] memory newBoostsToApply
     )
         internal
         pure
-        returns (uint8[] memory mergedBoostPercents, uint8[] memory mergedBoostCounts, bool[] memory mergedIsMultiply)
+        returns (uint8[5] memory mergedBoostPercents, uint8[5] memory mergedBoostCounts, bool[5] memory mergedIsMultiply)
     {
         mergedBoostPercents = existingBoostPercents;
         mergedBoostCounts = existingBoostCounts;
@@ -283,7 +274,7 @@ contract StatBoosts is BasicEffect {
         return (mergedBoostPercents, mergedBoostCounts, mergedIsMultiply);
     }
 
-    function _packBoostDataWithArrays(uint168 key, bool isPerm, uint8[] memory boostPercents, uint8[] memory boostCounts, bool[] memory isMultiply)
+    function _packBoostDataWithArrays(uint168 key, bool isPerm, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply)
         internal
         pure
         returns (bytes32)
@@ -335,9 +326,9 @@ contract StatBoosts is BasicEffect {
         bytes32 newData;
         if (found) {
             // Merge with existing boost
-            (, , uint8[] memory existingBoostPercents, uint8[] memory existingBoostCounts, bool[] memory existingIsMultiply) =
+            (, , uint8[5] memory existingBoostPercents, uint8[5] memory existingBoostCounts, bool[5] memory existingIsMultiply) =
                 _unpackBoostData(existingData);
-            (uint8[] memory mergedPercents, uint8[] memory mergedCounts, bool[] memory mergedIsMultiply) =
+            (uint8[5] memory mergedPercents, uint8[5] memory mergedCounts, bool[5] memory mergedIsMultiply) =
                 _mergeExistingAndNewBoosts(existingBoostPercents, existingBoostCounts, existingIsMultiply, statBoostsToApply);
             newData = _packBoostDataWithArrays(key, isPerm, mergedPercents, mergedCounts, mergedIsMultiply);
             ENGINE.editEffect(targetIndex, monIndex, effectIndex, newData);
