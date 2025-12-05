@@ -170,9 +170,10 @@ contract Engine is IEngine, MappingAllocator {
         if (config.moveManager != battle.moveManager) {
             config.moveManager = battle.moveManager;
         }
-        // Reset effects lengths to 0 for the new battle
+        // Reset effects lengths and KO bitmaps to 0 for the new battle
         config.packedP0EffectsCount = 0;
         config.packedP1EffectsCount = 0;
+        config.koBitmaps = 0;
 
         // Store the battle data with initial state
         battleData[battleKey] = BattleData({
@@ -228,7 +229,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Set start timestamp
-        config.startTimestamp = uint64(block.timestamp);
+        config.startTimestamp = uint48(block.timestamp);
 
         // Build teams array for validation
         Mon[][] memory teams = new Mon[][](2);
@@ -289,7 +290,7 @@ contract Engine is IEngine, MappingAllocator {
 
             // Run the move (trust that the validator only lets valid single player moves happen as a switch action)
             // Running the move will set the winner flag if valid
-            playerSwitchForTurnFlag = _handleMove(battleKey, playerIndex, playerSwitchForTurnFlag);
+            playerSwitchForTurnFlag = _handleMove(battleKey, config, battle, playerIndex, playerSwitchForTurnFlag);
         }
         // Otherwise, we need to run priority calculations and update the game state for both players
         /*
@@ -332,10 +333,12 @@ contract Engine is IEngine, MappingAllocator {
 
             // Run beginning of round effects
             playerSwitchForTurnFlag = _handleEffects(
-                battleKey, rng, 2, 2, EffectStep.RoundStart, EffectRunCondition.SkipIfGameOver, playerSwitchForTurnFlag
+                battleKey, config, battle, rng, 2, 2, EffectStep.RoundStart, EffectRunCondition.SkipIfGameOver, playerSwitchForTurnFlag
             );
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 priorityPlayerIndex,
                 priorityPlayerIndex,
@@ -345,6 +348,8 @@ contract Engine is IEngine, MappingAllocator {
             );
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 otherPlayerIndex,
                 otherPlayerIndex,
@@ -354,11 +359,13 @@ contract Engine is IEngine, MappingAllocator {
             );
 
             // Run priority player's move (NOTE: moves won't run if either mon is KOed)
-            playerSwitchForTurnFlag = _handleMove(battleKey, priorityPlayerIndex, playerSwitchForTurnFlag);
+            playerSwitchForTurnFlag = _handleMove(battleKey, config, battle, priorityPlayerIndex, playerSwitchForTurnFlag);
 
             // If priority mons is not KO'ed, then run the priority player's mon's afterMove hook(s)
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 priorityPlayerIndex,
                 priorityPlayerIndex,
@@ -370,6 +377,8 @@ contract Engine is IEngine, MappingAllocator {
             // Always run the global effect's afterMove hook(s)
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 2,
                 priorityPlayerIndex,
@@ -379,7 +388,7 @@ contract Engine is IEngine, MappingAllocator {
             );
 
             // Run the non priority player's move
-            playerSwitchForTurnFlag = _handleMove(battleKey, otherPlayerIndex, playerSwitchForTurnFlag);
+            playerSwitchForTurnFlag = _handleMove(battleKey, config, battle, otherPlayerIndex, playerSwitchForTurnFlag);
 
             // For turn 0 only: wait for both mons to be sent in, then handle the ability activateOnSwitch
             // Happens immediately after both mons are sent in, before any other effects
@@ -399,6 +408,8 @@ contract Engine is IEngine, MappingAllocator {
             // If non priority mon is not KOed, then run the non priority player's mon's afterMove hook(s)
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 otherPlayerIndex,
                 otherPlayerIndex,
@@ -410,6 +421,8 @@ contract Engine is IEngine, MappingAllocator {
             // Always run the global effect's afterMove hook(s)
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 2,
                 otherPlayerIndex,
@@ -420,12 +433,14 @@ contract Engine is IEngine, MappingAllocator {
 
             // Always run global effects at the end of the round
             playerSwitchForTurnFlag = _handleEffects(
-                battleKey, rng, 2, 2, EffectStep.RoundEnd, EffectRunCondition.SkipIfGameOver, playerSwitchForTurnFlag
+                battleKey, config, battle, rng, 2, 2, EffectStep.RoundEnd, EffectRunCondition.SkipIfGameOver, playerSwitchForTurnFlag
             );
 
             // If priority mon is not KOed, run roundEnd effects for the priority mon
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 priorityPlayerIndex,
                 priorityPlayerIndex,
@@ -437,6 +452,8 @@ contract Engine is IEngine, MappingAllocator {
             // If non priority mon is not KOed, run roundEnd effects for the non priority mon
             playerSwitchForTurnFlag = _handleEffects(
                 battleKey,
+                config,
+                battle,
                 rng,
                 otherPlayerIndex,
                 otherPlayerIndex,
@@ -534,7 +551,15 @@ contract Engine is IEngine, MappingAllocator {
         } else if (stateVarIndex == MonStateIndexName.SpecialDefense) {
             monState.specialDefenceDelta = (monState.specialDefenceDelta == CLEARED_MON_STATE_SENTINEL) ? valueToAdd : monState.specialDefenceDelta + valueToAdd;
         } else if (stateVarIndex == MonStateIndexName.IsKnockedOut) {
-            monState.isKnockedOut = (valueToAdd % 2) == 1;
+            bool newKOState = (valueToAdd % 2) == 1;
+            bool wasKOed = monState.isKnockedOut;
+            monState.isKnockedOut = newKOState;
+            // Update KO bitmap if state changed
+            if (newKOState && !wasKOed) {
+                _setMonKO(config, playerIndex, monIndex);
+            } else if (!newKOState && wasKOed) {
+                _clearMonKO(config, playerIndex, monIndex);
+            }
         } else if (stateVarIndex == MonStateIndexName.ShouldSkipTurn) {
             monState.shouldSkipTurn = (valueToAdd % 2) == 1;
         }
@@ -747,8 +772,10 @@ contract Engine is IEngine, MappingAllocator {
 
         // Set KO flag if the total hpDelta is greater than the original mon HP
         uint32 baseHp = _getTeamMon(config, playerIndex, monIndex).stats.hp;
-        if (monState.hpDelta + int32(baseHp) <= 0) {
+        if (monState.hpDelta + int32(baseHp) <= 0 && !monState.isKnockedOut) {
             monState.isKnockedOut = true;
+            // Set KO bit for this mon
+            _setMonKO(config, playerIndex, monIndex);
         }
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCallerAndResetValue(), currentStep);
         _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage));
@@ -760,23 +787,27 @@ contract Engine is IEngine, MappingAllocator {
             revert NoWriteAllowed();
         }
 
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+        BattleData storage battle = battleData[battleKey];
+
         // Use the validator to check if the switch is valid
-        if (battleConfig[_getStorageKey(battleKey)].validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex))
+        if (config.validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex))
         {
             // Only call the internal switch function if the switch is valid
             _handleSwitch(battleKey, playerIndex, monToSwitchIndex, msg.sender);
 
             // Check for game over and/or KOs for the switching player
-            (uint256 playerSwitchForTurnFlag,,, bool isGameOver) = _checkForGameOverOrKO(battleKey, playerIndex);
+            (uint256 playerSwitchForTurnFlag,,, bool isGameOver) = _checkForGameOverOrKO(config, battle, playerIndex);
             if (isGameOver) return;
 
             // Check for game over and/or KOs for the other player
             uint256 otherPlayerIndex = (playerIndex + 1) % 2;
-            (playerSwitchForTurnFlag,,, isGameOver) = _checkForGameOverOrKO(battleKey, otherPlayerIndex);
+            (playerSwitchForTurnFlag,,, isGameOver) = _checkForGameOverOrKO(config, battle, otherPlayerIndex);
             if (isGameOver) return;
 
             // Set the player switch for turn flag
-            battleData[battleKey].playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
+            battle.playerSwitchForTurnFlag = uint8(playerSwitchForTurnFlag);
 
             // TODO:
             // Also upstreaming more updates from `_handleSwitch` and change it to also add `_handleEffects`
@@ -824,7 +855,11 @@ contract Engine is IEngine, MappingAllocator {
         battleKey = keccak256(abi.encode(pairHash, pairHashNonce));
     }
 
-    function _checkForGameOverOrKO(bytes32 battleKey, uint256 priorityPlayerIndex)
+    function _checkForGameOverOrKO(
+        BattleConfig storage config,
+        BattleData storage battle,
+        uint256 priorityPlayerIndex
+    )
         internal
         returns (
             uint256 playerSwitchForTurnFlag,
@@ -833,8 +868,6 @@ contract Engine is IEngine, MappingAllocator {
             bool isGameOver
         )
     {
-        BattleData storage battle = battleData[battleKey];
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
         uint8 existingWinnerIndex = battle.winnerIndex;
 
@@ -849,21 +882,21 @@ contract Engine is IEngine, MappingAllocator {
             );
         }
 
-        // Otherwise, we check the teams of both players
-        // A game is over if all of a player's mons are KOed
+        // Check for game over using KO bitmaps (O(1) instead of O(n) loop)
+        // A game is over if all of a player's mons are KOed (all bits set up to teamSize)
         uint256 newWinnerIndex = 2;
-        for (uint256 i = 0; i < 2; ++i) {
-            uint256 monsKOed = 0;
-            uint256 teamSize = (i == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
-            for (uint256 j = 0; j < teamSize; ++j) {
-                if (_getMonState(config, i, j).isKnockedOut) {
-                    monsKOed++;
-                }
-            }
-            if (monsKOed == teamSize) {
-                newWinnerIndex = uint8((i + 1) % 2); // winner is the other player
-                break;
-            }
+        uint256 p0TeamSize = config.teamSizes & 0x0F;
+        uint256 p1TeamSize = config.teamSizes >> 4;
+        uint256 p0KOBitmap = _getKOBitmap(config, 0);
+        uint256 p1KOBitmap = _getKOBitmap(config, 1);
+        // Full team mask: (1 << teamSize) - 1, e.g. teamSize=3 -> 0b111
+        uint256 p0FullMask = (1 << p0TeamSize) - 1;
+        uint256 p1FullMask = (1 << p1TeamSize) - 1;
+
+        if (p0KOBitmap == p0FullMask) {
+            newWinnerIndex = 1; // p1 wins
+        } else if (p1KOBitmap == p1FullMask) {
+            newWinnerIndex = 0; // p0 wins
         }
         // If we found a winner, set it on the battle data and return
         if (newWinnerIndex != 2) {
@@ -945,13 +978,13 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
-    function _handleMove(bytes32 battleKey, uint256 playerIndex, uint256 prevPlayerSwitchForTurnFlag)
-        internal
-        returns (uint256 playerSwitchForTurnFlag)
-    {
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleConfig storage config = battleConfig[storageKey];
-        BattleData storage battle = battleData[battleKey];
+    function _handleMove(
+        bytes32 battleKey,
+        BattleConfig storage config,
+        BattleData storage battle,
+        uint256 playerIndex,
+        uint256 prevPlayerSwitchForTurnFlag
+    ) internal returns (uint256 playerSwitchForTurnFlag) {
         MoveDecision memory move = (playerIndex == 0) ? config.p0Move : config.p1Move;
         int32 staminaCost;
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
@@ -1007,8 +1040,8 @@ contract Engine is IEngine, MappingAllocator {
         // Set Game Over if true, and calculate and return switch for turn flag
         // (We check for both players)
         uint256 otherPlayerIndex = (playerIndex + 1) % 2;
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(battleKey, playerIndex);
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(battleKey, otherPlayerIndex);
+        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, playerIndex);
+        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, otherPlayerIndex);
         return playerSwitchForTurnFlag;
     }
 
@@ -1181,6 +1214,8 @@ contract Engine is IEngine, MappingAllocator {
 
     function _handleEffects(
         bytes32 battleKey,
+        BattleConfig storage config,
+        BattleData storage battle,
         uint256 rng,
         uint256 effectIndex,
         uint256 playerIndex,
@@ -1189,9 +1224,6 @@ contract Engine is IEngine, MappingAllocator {
         uint256 prevPlayerSwitchForTurnFlag
     ) private returns (uint256 playerSwitchForTurnFlag) {
         // Check for Game Over and return early if so
-        bytes32 storageKey = _getStorageKey(battleKey);
-        BattleData storage battle = battleData[battleKey];
-        BattleConfig storage config = battleConfig[storageKey];
         playerSwitchForTurnFlag = prevPlayerSwitchForTurnFlag;
         if (battle.winnerIndex != 2) {
             return playerSwitchForTurnFlag;
@@ -1210,8 +1242,8 @@ contract Engine is IEngine, MappingAllocator {
 
         // Set Game Over if true, and calculate and return switch for turn flag
         // (We check for both players)
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(battleKey, 0);
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(battleKey, 1);
+        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, 0);
+        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, 1);
         return playerSwitchForTurnFlag;
     }
 
@@ -1324,6 +1356,29 @@ contract Engine is IEngine, MappingAllocator {
 
     function _getMonState(BattleConfig storage config, uint256 playerIndex, uint256 monIndex) private view returns (MonState storage) {
         return playerIndex == 0 ? config.p0States[monIndex] : config.p1States[monIndex];
+    }
+
+    // Helper functions for KO bitmap management (packed: lower 8 bits = p0, upper 8 bits = p1)
+    function _getKOBitmap(BattleConfig storage config, uint256 playerIndex) private view returns (uint256) {
+        return playerIndex == 0 ? (config.koBitmaps & 0xFF) : (config.koBitmaps >> 8);
+    }
+
+    function _setMonKO(BattleConfig storage config, uint256 playerIndex, uint256 monIndex) private {
+        uint256 bit = 1 << monIndex;
+        if (playerIndex == 0) {
+            config.koBitmaps = config.koBitmaps | uint16(bit);
+        } else {
+            config.koBitmaps = config.koBitmaps | uint16(bit << 8);
+        }
+    }
+
+    function _clearMonKO(BattleConfig storage config, uint256 playerIndex, uint256 monIndex) private {
+        uint256 bit = 1 << monIndex;
+        if (playerIndex == 0) {
+            config.koBitmaps = config.koBitmaps & uint16(~bit);
+        } else {
+            config.koBitmaps = config.koBitmaps & uint16(~(bit << 8));
+        }
     }
 
     /**

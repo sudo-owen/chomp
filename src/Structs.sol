@@ -45,7 +45,7 @@ struct Battle {
 
 struct MoveDecision {
     uint128 moveIndex;
-    uint8 isRealTurn; // 1 = real turn, 2 = fake/not set (packed with moveIndex for gas efficiency)
+    uint8 isRealTurn; // 1 = real turn, 2 = fake/not set
     bytes extraData;
 }
 
@@ -70,7 +70,8 @@ struct BattleConfig {
     uint8 globalEffectsLength;
     uint8 teamSizes; // Packed: lower 4 bits = p0 team size, upper 4 bits = p1 team size
     uint8 engineHooksLength;
-    uint64 startTimestamp;
+    uint16 koBitmaps; // Packed: lower 8 bits = p0 KO bitmap, upper 8 bits = p1 KO bitmap (supports up to 8 mons per team)
+    uint48 startTimestamp;
     bytes32 p0Salt;
     bytes32 p1Salt;
     MoveDecision p0Move;
