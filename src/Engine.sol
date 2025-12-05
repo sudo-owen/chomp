@@ -864,18 +864,16 @@ contract Engine is IEngine, MappingAllocator {
         // Otherwise, we check the teams of both players
         // A game is over if all of a player's mons are KOed
         uint256 newWinnerIndex = 2;
-        uint256[2] memory playerIndices = [uint256(0), uint256(1)];
         for (uint256 i = 0; i < 2; ++i) {
             uint256 monsKOed = 0;
-            uint256 playerIndex = playerIndices[i];
-            uint256 teamSize = (playerIndex == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
+            uint256 teamSize = (i == 0) ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
             for (uint256 j = 0; j < teamSize; ++j) {
-                if (_getMonState(config, playerIndex, j).isKnockedOut) {
+                if (_getMonState(config, i, j).isKnockedOut) {
                     monsKOed++;
                 }
             }
             if (monsKOed == teamSize) {
-                newWinnerIndex = uint8((playerIndex + 1) % 2); // winner is the other player
+                newWinnerIndex = uint8((i + 1) % 2); // winner is the other player
                 break;
             }
         }
