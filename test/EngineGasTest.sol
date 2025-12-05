@@ -129,6 +129,9 @@ contract EngineGasTest is Test, BattleHelper {
         bytes32 battleKey =  _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), IRuleset(address(ruleset)), address(commitManager));
         uint256 setup1Gas = vm.stopSnapshotGas("Setup 1");
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // - Battle 1:
         // - Both players send in mon 0 [x]
         // - Alice sets up Burn, Bob sets up Frostbite [x]
@@ -211,6 +214,9 @@ contract EngineGasTest is Test, BattleHelper {
         bytes32 battleKey2 =  _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), IRuleset(address(ruleset)), address(commitManager));
         uint256 setup2Gas = vm.stopSnapshotGas("Setup 2");
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // Check effects array after setup 2
         (BattleConfigView memory cfgAfterSetup2,) = engine.getBattle(battleKey2);
         console.log("After setup 2 - globalEffectsLength:", cfgAfterSetup2.globalEffectsLength);
@@ -269,6 +275,9 @@ contract EngineGasTest is Test, BattleHelper {
         vm.startSnapshotGas("Setup 3");
         bytes32 battleKey3 = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), IRuleset(address(ruleset)), address(commitManager));
         uint256 setup3Gas = vm.stopSnapshotGas("Setup 3");
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         // Battle 3: Exact same sequence as Battle 1
         vm.startSnapshotGas("ThirdBattle");
@@ -371,6 +380,9 @@ contract EngineGasTest is Test, BattleHelper {
         bytes32 battleKey1 = _startBattle(simpleValidator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), simpleRuleset, address(commitManager));
         uint256 setup1 = vm.stopSnapshotGas("Battle1_Setup");
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         vm.startSnapshotGas("Battle1_Execute");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));  // Both switch in mon 0
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, 0, 0, "", "");  // Both attack - one dies
@@ -381,6 +393,9 @@ contract EngineGasTest is Test, BattleHelper {
         vm.startSnapshotGas("Battle2_Setup");
         bytes32 battleKey2 = _startBattle(simpleValidator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), simpleRuleset, address(commitManager));
         uint256 setup2 = vm.stopSnapshotGas("Battle2_Setup");
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         vm.startSnapshotGas("Battle2_Execute");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey2, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));  // Both switch in mon 0
@@ -444,6 +459,9 @@ contract EngineGasTest is Test, BattleHelper {
         bytes32 battleKey1 = _startBattle(simpleValidator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), rulesetWithEffect, address(commitManager));
         uint256 setup1 = vm.stopSnapshotGas("B1_Setup");
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         vm.startSnapshotGas("B1_Execute");
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey1, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0));
 
@@ -475,6 +493,9 @@ contract EngineGasTest is Test, BattleHelper {
         vm.startSnapshotGas("B2_Setup");
         bytes32 battleKey2 = _startBattle(simpleValidator, engine, defaultOracle, defaultRegistry, matchmaker, new IEngineHook[](0), rulesetWithEffect, address(commitManager));
         uint256 setup2 = vm.stopSnapshotGas("B2_Setup");
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         // Check if effects array was reused
         (BattleConfigView memory cfg2,) = engine.getBattle(battleKey2);

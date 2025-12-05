@@ -182,6 +182,9 @@ contract EngineTest is Test, BattleHelper {
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
@@ -256,6 +259,9 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, teams[1]);
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -338,6 +344,9 @@ contract EngineTest is Test, BattleHelper {
 
         bytes32 battleKey = _startBattle(twoMonValidator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
@@ -398,7 +407,7 @@ contract EngineTest is Test, BattleHelper {
         engine.execute(battleKey);
 
         // Check that timeout succeeds for Bob in this case
-        vm.warp((TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
+        vm.warp(vm.getBlockTimestamp() + (TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
         engine.end(battleKey);
 
         // Assert Bob wins
@@ -421,7 +430,7 @@ contract EngineTest is Test, BattleHelper {
         // Assume Alice AFKs
 
         // Check that timeout succeeds for Bob in this case, Alice is the loser
-        vm.warp((TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
+        vm.warp(vm.getBlockTimestamp() + (TIMEOUT_DURATION * validator.PREV_TURN_MULTIPLIER()) + 1);
         engine.end(battleKey);
 
         // Assert Bob wins
@@ -462,6 +471,9 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, teams[1]);
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -938,6 +950,9 @@ contract EngineTest is Test, BattleHelper {
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
@@ -1148,6 +1163,9 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, teams[1]);
 
         bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(
@@ -2042,6 +2060,9 @@ contract EngineTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, teams[1]);
 
         bytes32 battleKey = _startBattle(oneMonValidator, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
 
         // First move of the game has to be selecting their mons (both index 0)
         _commitRevealExecuteForAliceAndBob(

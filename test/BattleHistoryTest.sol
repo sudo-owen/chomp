@@ -154,6 +154,9 @@ contract BattleHistoryTest is Test, BattleHelper {
         vm.startPrank(p0);
         matchmaker.confirmBattle(battleKey, salt, p0TeamIndex);
 
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         return battleKey;
     }
 

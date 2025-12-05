@@ -379,6 +379,10 @@ contract EmbursaTest is Test, BattleHelper {
         // Verify Alice's priority boost is cleared
         // Verify Alice's mon is KO'ed but Bob has taken damage
         bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );
@@ -407,6 +411,10 @@ contract EmbursaTest is Test, BattleHelper {
         // Alice uses Heat Beacon again, Bob uses KO Move
         // Verify Alice's mon is KO'ed but Bob's mon now has 2x Dummy status
         battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Advance time to avoid GameStartsAndEndsSameBlock error
+        vm.warp(vm.getBlockTimestamp() + 1);
+
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, abi.encode(0), abi.encode(0)
         );

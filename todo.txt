@@ -1,11 +1,6 @@
 # TODO
 
 1) Add tests / fix test to ensure battles cannot start/end on same timestamp
-2) Move double team array into mapping as well (we already cache the length) to save on gas
-    - p0Team/p1
-    - p0TeamState/p1
-3) remove tombstone and instead use transient mapping to mark for deletion, and then fix all removals in 1 pass at the very end
-4) combine battle data and battle state
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES

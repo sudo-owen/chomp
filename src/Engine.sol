@@ -501,7 +501,13 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function _handleGameOver(bytes32 battleKey, address winner) internal {
-        BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
+
+        bytes32 storageKey = _getStorageKey(battleKey);
+        if (block.timestamp == battleConfig[storageKey].startTimestamp) {
+            revert GameStartsAndEndsSameBlock();
+        }
+
+        BattleConfig storage config = battleConfig[storageKey];
         for (uint256 i = 0; i < config.engineHooksLength; ++i) {
             config.engineHooks[i].onBattleEnd(battleKey);
         }
