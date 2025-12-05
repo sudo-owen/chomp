@@ -24,6 +24,11 @@ contract Engine is IEngine, MappingAllocator {
     uint256 private transient currentStep; // Used to bubble up step data for events
     address private transient upstreamCaller; // Used to bubble up caller data for events
 
+    // Transient state for effect removal tracking (cleared automatically at end of tx)
+    uint256 private transient globalEffectsRemovalCount;
+    // Key: (playerIndex << 4) | monIndex, Value: count of effects to remove for that mon
+    mapping(uint256 => uint256) private transient playerEffectRemovalCount;
+
     // Errors
     error NoWriteAllowed();
     error WrongCaller();
@@ -470,6 +475,9 @@ contract Engine is IEngine, MappingAllocator {
             config.engineHooks[i].onRoundEnd(battleKey);
         }
 
+        // Compact effect arrays to remove tombstoned entries (reduces SLOADs next turn)
+        _cleanupRemovedEffects(battleKey);
+
         // End of turn cleanup:
         // - Progress turn index
         // - Set the player switch for turn flag on battle data
@@ -698,8 +706,11 @@ contract Engine is IEngine, MappingAllocator {
             effect.onRemove(data, 2, monIndex);
         }
 
-        // Tombstone the effect (indices are stable, no need to re-find)
+        // Tombstone the effect (for intra-turn correctness when iterating effects)
         effectToRemove.effect = IEffect(TOMBSTONE_ADDRESS);
+
+        // Track removal count for end-of-turn compaction
+        globalEffectsRemovalCount++;
 
         emit EffectRemove(battleKey, 2, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
     }
@@ -726,10 +737,121 @@ contract Engine is IEngine, MappingAllocator {
             effect.onRemove(data, targetIndex, monIndex);
         }
 
-        // Tombstone the effect (indices are stable, no need to re-find)
+        // Tombstone the effect (for intra-turn correctness when iterating effects)
         effectToRemove.effect = IEffect(TOMBSTONE_ADDRESS);
 
+        // Track per-mon removal count for end-of-turn compaction
+        // Key: (playerIndex << 4) | monIndex
+        uint256 removalKey = (targetIndex << 4) | monIndex;
+        playerEffectRemovalCount[removalKey]++;
+
         emit EffectRemove(battleKey, targetIndex, monIndex, address(effect), _getUpstreamCallerAndResetValue(), currentStep);
+    }
+
+    /**
+     * @dev Compacts global effects array by removing tombstoned entries.
+     * Uses 2-pointer algorithm for O(k) writes where k is the number of removals.
+     */
+    function _compactGlobalEffects(BattleConfig storage config) private {
+        uint256 removalCount = globalEffectsRemovalCount;
+        if (removalCount == 0) return;
+
+        uint256 currentLength = config.globalEffectsLength;
+        uint256 targetLength = currentLength - removalCount;
+
+        // 2-pointer compaction: fill holes from the front with elements from the back
+        uint256 head = 0;
+        uint256 searchTail = currentLength - 1;
+
+        while (head < targetLength) {
+            // Check if current head position has a tombstone (hole)
+            if (address(config.globalEffects[head].effect) == TOMBSTONE_ADDRESS) {
+                // Find a non-tombstoned element from the tail region
+                while (searchTail > head && address(config.globalEffects[searchTail].effect) == TOMBSTONE_ADDRESS) {
+                    searchTail--;
+                }
+                // Move the tail element to fill the hole
+                if (searchTail > head) {
+                    config.globalEffects[head] = config.globalEffects[searchTail];
+                    searchTail--;
+                }
+            }
+            head++;
+        }
+
+        // Update the length
+        config.globalEffectsLength = uint8(targetLength);
+    }
+
+    /**
+     * @dev Compacts player effects for all mons by removing tombstoned entries.
+     * Uses 2-pointer algorithm for O(k) writes per mon where k is the number of removals.
+     */
+    function _compactPlayerEffects(BattleConfig storage config, uint256 playerIndex, uint256 teamSize) private {
+        mapping(uint256 => EffectInstance) storage effects = playerIndex == 0 ? config.p0Effects : config.p1Effects;
+        uint96 packedCounts = playerIndex == 0 ? config.packedP0EffectsCount : config.packedP1EffectsCount;
+
+        for (uint256 monIndex = 0; monIndex < teamSize; monIndex++) {
+            // Get removal count for this mon
+            uint256 removalKey = (playerIndex << 4) | monIndex;
+            uint256 removalCount = playerEffectRemovalCount[removalKey];
+            if (removalCount == 0) continue;
+
+            uint256 effectCount = _getMonEffectCount(packedCounts, monIndex);
+            uint256 baseSlot = _getEffectSlotIndex(monIndex, 0);
+            uint256 targetCount = effectCount - removalCount;
+
+            // 2-pointer compaction within this mon's effect slots
+            uint256 head = 0;
+            uint256 searchTail = effectCount - 1;
+
+            while (head < targetCount) {
+                uint256 headSlot = baseSlot + head;
+                // Check if current head position has a tombstone (hole)
+                if (address(effects[headSlot].effect) == TOMBSTONE_ADDRESS) {
+                    // Find a non-tombstoned element from the tail
+                    while (searchTail > head && address(effects[baseSlot + searchTail].effect) == TOMBSTONE_ADDRESS) {
+                        searchTail--;
+                    }
+                    // Move the tail element to fill the hole
+                    if (searchTail > head) {
+                        effects[headSlot] = effects[baseSlot + searchTail];
+                        searchTail--;
+                    }
+                }
+                head++;
+            }
+
+            // Update the count for this mon
+            packedCounts = _setMonEffectCount(packedCounts, monIndex, targetCount);
+        }
+
+        // Store the updated packed counts
+        if (playerIndex == 0) {
+            config.packedP0EffectsCount = packedCounts;
+        } else {
+            config.packedP1EffectsCount = packedCounts;
+        }
+    }
+
+    /**
+     * @dev Main cleanup function called at end of execute() to compact effect arrays.
+     * This removes tombstoned effects, reducing SLOADs in subsequent turns.
+     */
+    function _cleanupRemovedEffects(bytes32 battleKey) private {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleConfig storage config = battleConfig[storageKey];
+
+        // Compact global effects
+        _compactGlobalEffects(config);
+
+        // Compact player effects for both players
+        uint8 teamSizes = config.teamSizes;
+        uint256 p0TeamSize = teamSizes & 0x0F;
+        uint256 p1TeamSize = teamSizes >> 4;
+
+        _compactPlayerEffects(config, 0, p0TeamSize);
+        _compactPlayerEffects(config, 1, p1TeamSize);
     }
 
     function setGlobalKV(bytes32 key, uint192 value) external {
