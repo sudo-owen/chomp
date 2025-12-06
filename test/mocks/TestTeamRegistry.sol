@@ -19,6 +19,10 @@ contract TestTeamRegistry is ITeamRegistry {
         return teams[player];
     }
 
+    function getTeams(address p0, uint256, address p1, uint256) external view returns (Mon[] memory, Mon[] memory) {
+        return (teams[p0], teams[p1]);
+    }
+
     function getTeamCount(address player) external view returns (uint256) {
         return teams[player].length;
     }
