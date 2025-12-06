@@ -825,7 +825,11 @@ contract Engine is IEngine, MappingAllocator {
         // Use cached key if called during execute(), otherwise lookup
         bool isForCurrentBattle = battleKeyForWrite == battleKey;
         bytes32 storageKey = isForCurrentBattle ? storageKeyForWrite : _getStorageKey(battleKey);
-        bool isMoveManager = msg.sender == address(battleConfig[storageKey].moveManager);
+
+        // Cache storage pointer to avoid repeated mapping lookups
+        BattleConfig storage config = battleConfig[storageKey];
+
+        bool isMoveManager = msg.sender == address(config.moveManager);
         if (!isMoveManager && !isForCurrentBattle) {
             revert NoWriteAllowed();
         }
@@ -834,11 +838,11 @@ contract Engine is IEngine, MappingAllocator {
         MoveDecision memory newMove = MoveDecision({moveIndex: moveIndex, isRealTurn: 1, extraData: extraData});
 
         if (playerIndex == 0) {
-            battleConfig[storageKey].p0Move = newMove;
-            battleConfig[storageKey].p0Salt = salt;
+            config.p0Move = newMove;
+            config.p0Salt = salt;
         } else {
-            battleConfig[storageKey].p1Move = newMove;
-            battleConfig[storageKey].p1Salt = salt;
+            config.p1Move = newMove;
+            config.p1Salt = salt;
         }
     }
 
