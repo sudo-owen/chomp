@@ -141,55 +141,21 @@ contract StatBoosts is BasicEffect {
         return (false, 0, bytes32(0));
     }
 
-    // Combined single-pass function: finds existing boost AND aggregates all boost data for recalculation
-    // This avoids the double iteration that would happen if calling _findExistingBoostWithKey then _recalculateAndApplyStats
-    function _findAndAggregateBoosts(
-        uint256 targetIndex,
-        uint256 monIndex,
-        uint168 searchKey,
-        bool searchIsPerm,
-        bool excludeTempBoosts
-    )
-        internal
-        view
-        returns (
-            bool found,
-            uint256 foundEffectIndex,
-            bytes32 foundExtraData,
-            uint32[5] memory numBoostsPerStat,
-            uint256[5] memory accumulatedNumeratorPerStat,
-            uint32[5] memory baseStats
-        )
-    {
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
-        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
-        baseStats = _getMonStatSubset(battleKey, targetIndex, monIndex);
-
-        // Single pass: find matching key AND aggregate all boost data
-        for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(this)) {
-                (bool isPerm, uint168 existingKey, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
-                    _unpackBoostData(effects[i].data);
-
-                // Check if this is the effect we're searching for
-                if (existingKey == searchKey && isPerm == searchIsPerm) {
-                    found = true;
-                    foundEffectIndex = indices[i];
-                    foundExtraData = effects[i].data;
-                }
-
-                // Skip temp boosts if excludeTempBoosts is true (for aggregation)
-                if (excludeTempBoosts && !isPerm) continue;
-
-                // Aggregate boost data
-                for (uint256 k = 0; k < 5; k++) {
-                    if (boostCounts[k] == 0) continue;
-                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
-                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
-                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
-                    numBoostsPerStat[k] += boostCounts[k];
-                }
-            }
+    // Accumulate boost contributions into running totals (modifies arrays in place)
+    function _accumulateBoosts(
+        uint32[5] memory baseStats,
+        uint8[5] memory boostPercents,
+        uint8[5] memory boostCounts,
+        bool[5] memory isMultiply,
+        uint32[5] memory numBoostsPerStat,
+        uint256[5] memory accumulatedNumeratorPerStat
+    ) internal pure {
+        for (uint256 k = 0; k < 5; k++) {
+            if (boostCounts[k] == 0) continue;
+            uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
+            uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
+            accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
+            numBoostsPerStat[k] += boostCounts[k];
         }
     }
 
@@ -304,13 +270,7 @@ contract StatBoosts is BasicEffect {
                     _unpackBoostData(effects[i].data);
                 // Skip temp boosts if excludeTempBoosts is true
                 if (excludeTempBoosts && !isPerm) continue;
-                for (uint256 k = 0; k < 5; k++) {
-                    if (boostCounts[k] == 0) continue;
-                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? stats[k] : accumulatedNumeratorPerStat[k];
-                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
-                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
-                    numBoostsPerStat[k] += boostCounts[k];
-                }
+                _accumulateBoosts(stats, boostPercents, boostCounts, isMultiply, numBoostsPerStat, accumulatedNumeratorPerStat);
             }
         }
 
@@ -435,13 +395,7 @@ contract StatBoosts is BasicEffect {
                 }
 
                 // Aggregate this effect's boosts
-                for (uint256 k = 0; k < 5; k++) {
-                    if (boostCounts[k] == 0) continue;
-                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
-                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
-                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
-                    numBoostsPerStat[k] += boostCounts[k];
-                }
+                _accumulateBoosts(baseStats, boostPercents, boostCounts, isMultiply, numBoostsPerStat, accumulatedNumeratorPerStat);
             }
         }
 
@@ -465,13 +419,7 @@ contract StatBoosts is BasicEffect {
         }
 
         // Add the new/merged boost's contribution to aggregation
-        for (uint256 k = 0; k < 5; k++) {
-            if (finalCounts[k] == 0) continue;
-            uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
-            uint256 scalingFactor = finalIsMultiply[k] ? DENOM + finalPercents[k] : DENOM - finalPercents[k];
-            accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** finalCounts[k]);
-            numBoostsPerStat[k] += finalCounts[k];
-        }
+        _accumulateBoosts(baseStats, finalPercents, finalCounts, finalIsMultiply, numBoostsPerStat, accumulatedNumeratorPerStat);
 
         // Update effect storage
         if (found) {
@@ -527,13 +475,7 @@ contract StatBoosts is BasicEffect {
                 }
 
                 // Aggregate this effect's boosts
-                for (uint256 k = 0; k < 5; k++) {
-                    if (boostCounts[k] == 0) continue;
-                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
-                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
-                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
-                    numBoostsPerStat[k] += boostCounts[k];
-                }
+                _accumulateBoosts(baseStats, boostPercents, boostCounts, isMultiply, numBoostsPerStat, accumulatedNumeratorPerStat);
             }
         }
 
