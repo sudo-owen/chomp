@@ -141,12 +141,99 @@ contract StatBoosts is BasicEffect {
         return (false, 0, bytes32(0));
     }
 
+    // Combined single-pass function: finds existing boost AND aggregates all boost data for recalculation
+    // This avoids the double iteration that would happen if calling _findExistingBoostWithKey then _recalculateAndApplyStats
+    function _findAndAggregateBoosts(
+        uint256 targetIndex,
+        uint256 monIndex,
+        uint168 searchKey,
+        bool searchIsPerm,
+        bool excludeTempBoosts
+    )
+        internal
+        view
+        returns (
+            bool found,
+            uint256 foundEffectIndex,
+            bytes32 foundExtraData,
+            uint32[5] memory numBoostsPerStat,
+            uint256[5] memory accumulatedNumeratorPerStat,
+            uint32[5] memory baseStats
+        )
+    {
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        baseStats = _getMonStatSubset(battleKey, targetIndex, monIndex);
+
+        // Single pass: find matching key AND aggregate all boost data
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(this)) {
+                (bool isPerm, uint168 existingKey, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
+                    _unpackBoostData(effects[i].data);
+
+                // Check if this is the effect we're searching for
+                if (existingKey == searchKey && isPerm == searchIsPerm) {
+                    found = true;
+                    foundEffectIndex = indices[i];
+                    foundExtraData = effects[i].data;
+                }
+
+                // Skip temp boosts if excludeTempBoosts is true (for aggregation)
+                if (excludeTempBoosts && !isPerm) continue;
+
+                // Aggregate boost data
+                for (uint256 k = 0; k < 5; k++) {
+                    if (boostCounts[k] == 0) continue;
+                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
+                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
+                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
+                    numBoostsPerStat[k] += boostCounts[k];
+                }
+            }
+        }
+    }
+
     function _packBoostSnapshot(uint32[5] memory unpackedSnapshot) internal pure returns (uint192) {
         return uint192(
             (uint256(unpackedSnapshot[0]) << 160) | (uint256(unpackedSnapshot[1]) << 128)
                 | (uint256(unpackedSnapshot[2]) << 96) | (uint256(unpackedSnapshot[3]) << 64)
                 | (uint256(unpackedSnapshot[4]) << 32)
         );
+    }
+
+    // Apply stat deltas from pre-aggregated boost data (avoids re-iterating effects)
+    function _applyStatsFromAggregatedData(
+        uint256 targetIndex,
+        uint256 monIndex,
+        uint32[5] memory baseStats,
+        uint32[5] memory numBoostsPerStat,
+        uint256[5] memory accumulatedNumeratorPerStat
+    ) internal {
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        bytes32 snapshotKey = _snapshotKey(targetIndex, monIndex);
+        uint192 prevSnapshot = ENGINE.getGlobalKV(battleKey, snapshotKey);
+        uint32[5] memory oldBoostedStats = _unpackBoostSnapshot(prevSnapshot, baseStats);
+
+        // Calculate final values
+        uint32[5] memory newBoostedStats;
+        for (uint256 i = 0; i < 5; i++) {
+            if (numBoostsPerStat[i] > 0) {
+                newBoostedStats[i] = uint32(accumulatedNumeratorPerStat[i] / (DENOM ** numBoostsPerStat[i]));
+            } else {
+                newBoostedStats[i] = baseStats[i];
+            }
+        }
+
+        // Apply deltas
+        for (uint256 i = 0; i < 5; i++) {
+            int32 delta = int32(newBoostedStats[i]) - int32(oldBoostedStats[i]);
+            if (delta != 0) {
+                ENGINE.updateMonState(targetIndex, monIndex, _statBoostIndexToMonStateIndex(i), delta);
+            }
+        }
+
+        // Update snapshot in globalKV
+        ENGINE.setGlobalKV(snapshotKey, _packBoostSnapshot(newBoostedStats));
     }
 
     // Unpack snapshot, using provided base stats to fill in zeros (avoids redundant ENGINE call)
@@ -320,26 +407,81 @@ contract StatBoosts is BasicEffect {
     ) internal {
         bool isPerm = boostFlag == StatBoostFlag.Perm;
 
-        // Check if effect with this key already exists
-        (bool found, uint256 effectIndex, bytes32 existingData) = _findExistingBoostWithKey(targetIndex, monIndex, key, isPerm);
+        // Single-pass: find existing boost AND aggregate all OTHER boosts
+        // We exclude the matching effect from aggregation so we can add the merged/new version
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        uint32[5] memory baseStats = _getMonStatSubset(battleKey, targetIndex, monIndex);
 
+        bool found;
+        uint256 foundEffectIndex;
+        bytes32 existingData;
+        uint32[5] memory numBoostsPerStat;
+        uint256[5] memory accumulatedNumeratorPerStat;
+
+        // Single pass: find matching key AND aggregate all OTHER StatBoost effects
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(this)) {
+                (bool effIsPerm, uint168 existingKey, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
+                    _unpackBoostData(effects[i].data);
+
+                // Check if this is the effect we're searching for
+                if (existingKey == key && effIsPerm == isPerm) {
+                    found = true;
+                    foundEffectIndex = indices[i];
+                    existingData = effects[i].data;
+                    // DON'T add to aggregation - we'll add the merged version later
+                    continue;
+                }
+
+                // Aggregate this effect's boosts
+                for (uint256 k = 0; k < 5; k++) {
+                    if (boostCounts[k] == 0) continue;
+                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
+                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
+                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
+                    numBoostsPerStat[k] += boostCounts[k];
+                }
+            }
+        }
+
+        // Compute the new/merged boost data and add its contribution to aggregation
+        uint8[5] memory finalPercents;
+        uint8[5] memory finalCounts;
+        bool[5] memory finalIsMultiply;
         bytes32 newData;
+
         if (found) {
             // Merge with existing boost
             (, , uint8[5] memory existingBoostPercents, uint8[5] memory existingBoostCounts, bool[5] memory existingIsMultiply) =
                 _unpackBoostData(existingData);
-            (uint8[5] memory mergedPercents, uint8[5] memory mergedCounts, bool[5] memory mergedIsMultiply) =
+            (finalPercents, finalCounts, finalIsMultiply) =
                 _mergeExistingAndNewBoosts(existingBoostPercents, existingBoostCounts, existingIsMultiply, statBoostsToApply);
-            newData = _packBoostDataWithArrays(key, isPerm, mergedPercents, mergedCounts, mergedIsMultiply);
-            ENGINE.editEffect(targetIndex, monIndex, effectIndex, newData);
+            newData = _packBoostDataWithArrays(key, isPerm, finalPercents, finalCounts, finalIsMultiply);
         } else {
-            // Create new effect
+            // Pack new boost data and extract its components for aggregation
             newData = _packBoostData(key, isPerm, statBoostsToApply);
+            (, , finalPercents, finalCounts, finalIsMultiply) = _unpackBoostData(newData);
+        }
+
+        // Add the new/merged boost's contribution to aggregation
+        for (uint256 k = 0; k < 5; k++) {
+            if (finalCounts[k] == 0) continue;
+            uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
+            uint256 scalingFactor = finalIsMultiply[k] ? DENOM + finalPercents[k] : DENOM - finalPercents[k];
+            accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** finalCounts[k]);
+            numBoostsPerStat[k] += finalCounts[k];
+        }
+
+        // Update effect storage
+        if (found) {
+            ENGINE.editEffect(targetIndex, monIndex, foundEffectIndex, newData);
+        } else {
             ENGINE.addEffect(targetIndex, monIndex, IEffect(address(this)), newData);
         }
 
-        // Recalculate and apply stats
-        _recalculateAndApplyStats(targetIndex, monIndex, false);
+        // Apply stats using already-computed aggregation (no second iteration needed)
+        _applyStatsFromAggregatedData(targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
     }
 
     function removeStatBoosts(uint256 targetIndex, uint256 monIndex, StatBoostFlag boostFlag) public {
@@ -359,13 +501,47 @@ contract StatBoosts is BasicEffect {
 
     function _removeStatBoostsWithKey(uint256 targetIndex, uint256 monIndex, uint168 key, StatBoostFlag boostFlag) internal {
         bool isPerm = boostFlag == StatBoostFlag.Perm;
-        (bool found, uint256 effectIndex,) = _findExistingBoostWithKey(targetIndex, monIndex, key, isPerm);
+
+        // Single-pass: find existing boost AND aggregate all OTHER boosts (excluding the one to remove)
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        uint32[5] memory baseStats = _getMonStatSubset(battleKey, targetIndex, monIndex);
+
+        bool found;
+        uint256 foundEffectIndex;
+        uint32[5] memory numBoostsPerStat;
+        uint256[5] memory accumulatedNumeratorPerStat;
+
+        // Single pass: find matching key AND aggregate all OTHER StatBoost effects
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(this)) {
+                (bool effIsPerm, uint168 existingKey, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
+                    _unpackBoostData(effects[i].data);
+
+                // Check if this is the effect we're removing
+                if (existingKey == key && effIsPerm == isPerm) {
+                    found = true;
+                    foundEffectIndex = indices[i];
+                    // DON'T add to aggregation - we're removing this effect
+                    continue;
+                }
+
+                // Aggregate this effect's boosts
+                for (uint256 k = 0; k < 5; k++) {
+                    if (boostCounts[k] == 0) continue;
+                    uint256 existingStatValue = (accumulatedNumeratorPerStat[k] == 0) ? baseStats[k] : accumulatedNumeratorPerStat[k];
+                    uint256 scalingFactor = isMultiply[k] ? DENOM + boostPercents[k] : DENOM - boostPercents[k];
+                    accumulatedNumeratorPerStat[k] = existingStatValue * (scalingFactor ** boostCounts[k]);
+                    numBoostsPerStat[k] += boostCounts[k];
+                }
+            }
+        }
 
         if (found) {
-            // Remove the effect by setting data to 0 (effect will be cleaned up)
-            ENGINE.removeEffect(targetIndex, monIndex, effectIndex);
-            // Recalculate stats
-            _recalculateAndApplyStats(targetIndex, monIndex, false);
+            // Remove the effect
+            ENGINE.removeEffect(targetIndex, monIndex, foundEffectIndex);
+            // Apply stats using already-computed aggregation (no second iteration needed)
+            _applyStatsFromAggregatedData(targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
         }
     }
 }

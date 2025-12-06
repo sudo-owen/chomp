@@ -231,21 +231,24 @@ contract DefaultCommitManager is ICommitManager {
     }
 
     function getCommitment(bytes32 battleKey, address player) external view returns (bytes32 moveHash, uint256 turnId) {
-        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
-        uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
+        // Use lighter-weight getPlayersForBattle instead of getBattleContext (fewer SLOADs)
+        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
+        uint256 playerIndex = (player == players[0]) ? 0 : 1;
         PlayerDecisionData storage pd = playerData[battleKey][playerIndex];
         return (pd.moveHash, pd.lastCommitmentTurnId);
     }
 
     function getMoveCountForBattleState(bytes32 battleKey, address player) external view returns (uint256) {
-        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
-        uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
+        // Use lighter-weight getPlayersForBattle instead of getBattleContext (fewer SLOADs)
+        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
+        uint256 playerIndex = (player == players[0]) ? 0 : 1;
         return playerData[battleKey][playerIndex].numMovesRevealed;
     }
 
     function getLastMoveTimestampForPlayer(bytes32 battleKey, address player) external view returns (uint256) {
-        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
-        uint256 playerIndex = (player == ctx.p0) ? 0 : 1;
+        // Use lighter-weight getPlayersForBattle instead of getBattleContext (fewer SLOADs)
+        address[] memory players = ENGINE.getPlayersForBattle(battleKey);
+        uint256 playerIndex = (player == players[0]) ? 0 : 1;
         return playerData[battleKey][playerIndex].lastMoveTimestamp;
     }
 }
