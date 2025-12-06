@@ -129,6 +129,31 @@ contract LookupTeamRegistry is ITeamRegistry {
         return team;
     }
 
+    function getTeams(address p0, uint256 p0TeamIndex, address p1, uint256 p1TeamIndex) external view returns (Mon[] memory, Mon[] memory) {
+        Mon[] memory p0Team = new Mon[](MONS_PER_TEAM);
+        Mon[] memory p1Team = new Mon[](MONS_PER_TEAM);
+
+        for (uint256 i; i < MONS_PER_TEAM; ++i) {
+            uint256 p0MonId = _getMonRegistryIndex(p0, p0TeamIndex, i);
+            (MonStats memory p0MonStats, address[] memory p0Moves, address[] memory p0Abilities) = REGISTRY.getMonData(p0MonId);
+            IMoveSet[] memory p0MovesToUse = new IMoveSet[](MOVES_PER_MON);
+            for (uint256 j; j < MOVES_PER_MON; ++j) {
+                p0MovesToUse[j] = IMoveSet(p0Moves[j]);
+            }
+            p0Team[i] = Mon({stats: p0MonStats, ability: IAbility(p0Abilities[0]), moves: p0MovesToUse});
+
+            uint256 p1MonId = _getMonRegistryIndex(p1, p1TeamIndex, i);
+            (MonStats memory p1MonStats, address[] memory p1Moves, address[] memory p1Abilities) = REGISTRY.getMonData(p1MonId);
+            IMoveSet[] memory p1MovesToUse = new IMoveSet[](MOVES_PER_MON);
+            for (uint256 j; j < MOVES_PER_MON; ++j) {
+                p1MovesToUse[j] = IMoveSet(p1Moves[j]);
+            }
+            p1Team[i] = Mon({stats: p1MonStats, ability: IAbility(p1Abilities[0]), moves: p1MovesToUse});
+        }
+
+        return (p0Team, p1Team);
+    }
+
     function getTeamCount(address player) external view returns (uint256) {
         return numTeams[player];
     }

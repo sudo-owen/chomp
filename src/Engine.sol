@@ -188,17 +188,21 @@ contract Engine is IEngine, MappingAllocator {
         });
 
         // Set the team for p0 and p1 in the reusable config storage
-        Mon[] memory p0Team = battle.teamRegistry.getTeam(battle.p0, battle.p0TeamIndex);
-        Mon[] memory p1Team = battle.teamRegistry.getTeam(battle.p1, battle.p1TeamIndex);
+        (Mon[] memory p0Team, Mon[] memory p1Team) = battle.teamRegistry.getTeams(
+            battle.p0, battle.p0TeamIndex,
+            battle.p1, battle.p1TeamIndex
+        );
 
         // Store actual team sizes (packed: lower 4 bits = p0, upper 4 bits = p1)
-        config.teamSizes = uint8(p0Team.length) | (uint8(p1Team.length) << 4);
+        uint256 p0Len = p0Team.length;
+        uint256 p1Len = p1Team.length;
+        config.teamSizes = uint8(p0Len) | (uint8(p1Len) << 4);
 
         // Store teams in mappings
-        for (uint256 j = 0; j < p0Team.length; j++) {
+        for (uint256 j = 0; j < p0Len; j++) {
             config.p0Team[j] = p0Team[j];
         }
-        for (uint256 j = 0; j < p1Team.length; j++) {
+        for (uint256 j = 0; j < p1Len; j++) {
             config.p1Team[j] = p1Team[j];
         }
 
