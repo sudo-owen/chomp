@@ -122,25 +122,6 @@ contract StatBoosts is BasicEffect {
         return uint168(uint256(keccak256(abi.encode(targetIndex, monIndex, caller, salt))));
     }
 
-    // Find existing boost with matching key
-    function _findExistingBoostWithKey(uint256 targetIndex, uint256 monIndex, uint168 key, bool isPerm)
-        internal
-        view
-        returns (bool found, uint256 effectIndex, bytes32 extraData)
-    {
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
-        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
-        for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(this)) {
-                (bool existingIsPerm, uint168 existingKey) = _unpackBoostHeader(effects[i].data);
-                if (existingKey == key && existingIsPerm == isPerm) {
-                    return (true, indices[i], effects[i].data);
-                }
-            }
-        }
-        return (false, 0, bytes32(0));
-    }
-
     // Accumulate boost contributions into running totals (modifies arrays in place)
     function _accumulateBoosts(
         uint32[5] memory baseStats,
@@ -169,13 +150,13 @@ contract StatBoosts is BasicEffect {
 
     // Apply stat deltas from pre-aggregated boost data (avoids re-iterating effects)
     function _applyStatsFromAggregatedData(
+        bytes32 battleKey,
         uint256 targetIndex,
         uint256 monIndex,
         uint32[5] memory baseStats,
         uint32[5] memory numBoostsPerStat,
         uint256[5] memory accumulatedNumeratorPerStat
     ) internal {
-        bytes32 battleKey = ENGINE.battleKeyForWrite();
         bytes32 snapshotKey = _snapshotKey(targetIndex, monIndex);
         uint192 prevSnapshot = ENGINE.getGlobalKV(battleKey, snapshotKey);
         uint32[5] memory oldBoostedStats = _unpackBoostSnapshot(prevSnapshot, baseStats);
@@ -429,7 +410,7 @@ contract StatBoosts is BasicEffect {
         }
 
         // Apply stats using already-computed aggregation (no second iteration needed)
-        _applyStatsFromAggregatedData(targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
+        _applyStatsFromAggregatedData(battleKey, targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
     }
 
     function removeStatBoosts(uint256 targetIndex, uint256 monIndex, StatBoostFlag boostFlag) public {
@@ -483,7 +464,7 @@ contract StatBoosts is BasicEffect {
             // Remove the effect
             ENGINE.removeEffect(targetIndex, monIndex, foundEffectIndex);
             // Apply stats using already-computed aggregation (no second iteration needed)
-            _applyStatsFromAggregatedData(targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
+            _applyStatsFromAggregatedData(battleKey, targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
         }
     }
 }
