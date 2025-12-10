@@ -191,3 +191,22 @@ struct BattleContext {
     address validator;
     address moveManager;
 }
+
+// Batch context for damage calculation to reduce external calls (7 -> 1)
+struct DamageCalcContext {
+    uint8 attackerMonIndex;
+    uint8 defenderMonIndex;
+    // Attacker stats (base + delta for physical and special)
+    uint32 attackerAttack;
+    int32 attackerAttackDelta;
+    uint32 attackerSpAtk;
+    int32 attackerSpAtkDelta;
+    // Defender stats (base + delta for physical and special)
+    uint32 defenderDef;
+    int32 defenderDefDelta;
+    uint32 defenderSpDef;
+    int32 defenderSpDefDelta;
+    // Defender types for type effectiveness
+    Type defenderType1;
+    Type defenderType2;
+}

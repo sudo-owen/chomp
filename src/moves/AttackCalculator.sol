@@ -25,12 +25,11 @@ library AttackCalculator {
         uint256 critRate // out of 100
     ) internal returns (int32, EngineEventType) {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
-        (int32 damage, EngineEventType eventType) = _calculateDamageView(
-            ENGINE,
+        // Use batch getter to reduce external calls (7 -> 1)
+        DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex, defenderPlayerIndex);
+        (int32 damage, EngineEventType eventType) = _calculateDamageFromContext(
             TYPE_CALCULATOR,
-            battleKey,
-            attackerPlayerIndex,
-            defenderPlayerIndex,
+            ctx,
             basePower,
             accuracy,
             volatility,
@@ -39,9 +38,8 @@ library AttackCalculator {
             rng,
             critRate
         );
-        uint256[] memory monIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
         if (damage != 0) {
-            ENGINE.dealDamage(defenderPlayerIndex, monIndex[defenderPlayerIndex], damage);
+            ENGINE.dealDamage(defenderPlayerIndex, ctx.defenderMonIndex, damage);
         }
         if (eventType != EngineEventType.None) {
             ENGINE.emitEngineEvent(eventType, "");
@@ -63,68 +61,52 @@ library AttackCalculator {
         uint256 rng,
         uint256 critRate // out of 100
     ) internal view returns (int32, EngineEventType) {
+        // Use batch getter to reduce external calls (7 -> 1)
+        DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex, defenderPlayerIndex);
+        return _calculateDamageFromContext(
+            TYPE_CALCULATOR,
+            ctx,
+            basePower,
+            accuracy,
+            volatility,
+            attackType,
+            attackSupertype,
+            rng,
+            critRate
+        );
+    }
+
+    function _calculateDamageFromContext(
+        ITypeCalculator TYPE_CALCULATOR,
+        DamageCalcContext memory ctx,
+        uint32 basePower,
+        uint32 accuracy, // out of 100
+        uint256 volatility,
+        Type attackType,
+        MoveClass attackSupertype,
+        uint256 rng,
+        uint256 critRate // out of 100
+    ) internal view returns (int32, EngineEventType) {
         // Do accuracy check first to decide whether or not to short circuit
         // [0... accuracy] [accuracy + 1, ..., 100]
         // [succeeds     ] [fails                 ]
         if ((rng % 100) >= accuracy) {
             return (0, EngineEventType.MoveMiss);
         }
-        uint256[] memory monIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
+
         int32 damage;
         EngineEventType eventType = EngineEventType.None;
         {
             uint32 attackStat;
             uint32 defenceStat;
 
-            // Grab the right atk/defense stats, and apply the delta if needed
+            // Grab the right atk/defense stats from pre-fetched context
             if (attackSupertype == MoveClass.Physical) {
-                attackStat = uint32(
-                    int32(
-                        ENGINE.getMonValueForBattle(
-                            battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.Attack
-                        )
-                    )
-                    + ENGINE.getMonStateForBattle(
-                        battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.Attack
-                    )
-                );
-                defenceStat = uint32(
-                    int32(
-                        ENGINE.getMonValueForBattle(
-                            battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Defense
-                        )
-                    )
-                    + ENGINE.getMonStateForBattle(
-                        battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Defense
-                    )
-                );
+                attackStat = uint32(int32(ctx.attackerAttack) + ctx.attackerAttackDelta);
+                defenceStat = uint32(int32(ctx.defenderDef) + ctx.defenderDefDelta);
             } else {
-                attackStat = uint32(
-                    int32(
-                        ENGINE.getMonValueForBattle(
-                            battleKey,
-                            attackerPlayerIndex,
-                            monIndex[attackerPlayerIndex],
-                            MonStateIndexName.SpecialAttack
-                        )
-                    )
-                    + ENGINE.getMonStateForBattle(
-                        battleKey, attackerPlayerIndex, monIndex[attackerPlayerIndex], MonStateIndexName.SpecialAttack
-                    )
-                );
-                defenceStat = uint32(
-                    int32(
-                        ENGINE.getMonValueForBattle(
-                            battleKey,
-                            defenderPlayerIndex,
-                            monIndex[defenderPlayerIndex],
-                            MonStateIndexName.SpecialDefense
-                        )
-                    )
-                    + ENGINE.getMonStateForBattle(
-                        battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.SpecialDefense
-                    )
-                );
+                attackStat = uint32(int32(ctx.attackerSpAtk) + ctx.attackerSpAtkDelta);
+                defenceStat = uint32(int32(ctx.defenderSpDef) + ctx.defenderSpDefDelta);
             }
 
             // Prevent weird stat bugs from messing up the math
@@ -137,22 +119,10 @@ library AttackCalculator {
 
             uint32 scaledBasePower;
             {
-                scaledBasePower = TYPE_CALCULATOR.getTypeEffectiveness(
-                    attackType,
-                    Type(
-                        ENGINE.getMonValueForBattle(
-                            battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Type1
-                        )
-                    ),
-                    basePower
-                );
-                Type defenderType2 = Type(
-                    ENGINE.getMonValueForBattle(
-                        battleKey, defenderPlayerIndex, monIndex[defenderPlayerIndex], MonStateIndexName.Type2
-                    )
-                );
-                if (defenderType2 != Type.None) {
-                    scaledBasePower = TYPE_CALCULATOR.getTypeEffectiveness(attackType, defenderType2, scaledBasePower);
+                // Use pre-fetched defender types
+                scaledBasePower = TYPE_CALCULATOR.getTypeEffectiveness(attackType, ctx.defenderType1, basePower);
+                if (ctx.defenderType2 != Type.None) {
+                    scaledBasePower = TYPE_CALCULATOR.getTypeEffectiveness(attackType, ctx.defenderType2, scaledBasePower);
                 }
             }
 
