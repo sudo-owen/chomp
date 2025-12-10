@@ -3,7 +3,7 @@
 Storm --> Rename to Overclock (your team becomes overclocked)
 
 # Inutia
-Add swap move (remove shrine strike)
+Add swap move (remove shrine strike) --> Hit And Dip [x]
 
 # Malalien
 - Infinite Love: 2 -> 3 stamina [x]
@@ -18,7 +18,7 @@ CONSIDER: making consuming the stack optional
 - NEW Move: Loop, 1 stamina, sets Baselight level to be 3 (i.e. triggers up to 2 heal stacks), -1 priority
 
 # Embursa
-- Change ability from Split The Pot to something different
+- Change ability from Split The Pot to something different [x]
     - NEW Ability: Tinderclaws
     After every move, Embursa has a 1/3 chance of getting burned. When burned, Embursa gains a 50% SpATK boost. 
     When resting, Embursa heals from burn.

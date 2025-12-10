@@ -22,7 +22,7 @@ import {HeatBeacon} from "../src/mons/embursa/HeatBeacon.sol";
 import {HoneyBribe} from "../src/mons/embursa/HoneyBribe.sol";
 import {Q5} from "../src/mons/embursa/Q5.sol";
 import {SetAblaze} from "../src/mons/embursa/SetAblaze.sol";
-import {SplitThePot} from "../src/mons/embursa/SplitThePot.sol";
+import {Tinderclaws} from "../src/mons/embursa/Tinderclaws.sol";
 import {EternalGrudge} from "../src/mons/ghouliath/EternalGrudge.sol";
 import {InfernalFlame} from "../src/mons/ghouliath/InfernalFlame.sol";
 import {Osteoporosis} from "../src/mons/ghouliath/Osteoporosis.sol";
@@ -40,9 +40,9 @@ import {IntrinsicValue} from "../src/mons/iblivion/IntrinsicValue.sol";
 import {Loop} from "../src/mons/iblivion/Loop.sol";
 import {BigBite} from "../src/mons/inutia/BigBite.sol";
 import {ChainExpansion} from "../src/mons/inutia/ChainExpansion.sol";
+import {HitAndDip} from "../src/mons/inutia/HitAndDip.sol";
 import {Initialize} from "../src/mons/inutia/Initialize.sol";
 import {Interweaving} from "../src/mons/inutia/Interweaving.sol";
-import {ShrineStrike} from "../src/mons/inutia/ShrineStrike.sol";
 import {ActusReus} from "../src/mons/malalien/ActusReus.sol";
 import {FederalInvestigation} from "../src/mons/malalien/FederalInvestigation.sol";
 import {InfiniteLove} from "../src/mons/malalien/InfiniteLove.sol";
@@ -206,10 +206,10 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        ShrineStrike shrinestrike = new ShrineStrike(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        HitAndDip hitanddip = new HitAndDip(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
         deployedContracts[contractIndex] = DeployData({
-            name: "Shrine Strike",
-            contractAddress: address(shrinestrike)
+            name: "Hit And Dip",
+            contractAddress: address(hitanddip)
         });
         contractIndex++;
 
@@ -235,7 +235,7 @@ contract SetupMons is Script {
         moves[0] = IMoveSet(address(chainexpansion));
         moves[1] = IMoveSet(address(initialize));
         moves[2] = IMoveSet(address(bigbite));
-        moves[3] = IMoveSet(address(shrinestrike));
+        moves[3] = IMoveSet(address(hitanddip));
         IAbility[] memory abilities = new IAbility[](1);
         abilities[0] = IAbility(address(interweaving));
         bytes32[] memory keys = new bytes32[](0);
@@ -597,10 +597,10 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        SplitThePot splitthepot = new SplitThePot(IEngine(vm.envAddress("ENGINE")));
+        Tinderclaws tinderclaws = new Tinderclaws(IEngine(vm.envAddress("ENGINE")), IEffect(vm.envAddress("BURN_STATUS")), StatBoosts(vm.envAddress("STAT_BOOSTS")));
         deployedContracts[contractIndex] = DeployData({
-            name: "Split The Pot",
-            contractAddress: address(splitthepot)
+            name: "Tinderclaws",
+            contractAddress: address(tinderclaws)
         });
         contractIndex++;
 
@@ -621,7 +621,7 @@ contract SetupMons is Script {
         moves[2] = IMoveSet(address(heatbeacon));
         moves[3] = IMoveSet(address(q5));
         IAbility[] memory abilities = new IAbility[](1);
-        abilities[0] = IAbility(address(splitthepot));
+        abilities[0] = IAbility(address(tinderclaws));
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
         registry.createMon(7, stats, moves, abilities, keys, values);

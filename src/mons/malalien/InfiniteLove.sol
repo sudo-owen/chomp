@@ -21,14 +21,14 @@ contract InfiniteLove is StandardAttack {
             ATTACK_PARAMS({
                 NAME: "Infinite Love",
                 BASE_POWER: 90,
-                STAMINA_COST: 2,
+                STAMINA_COST: 3,
                 ACCURACY: 100,
                 MOVE_TYPE: Type.Cosmic,
                 MOVE_CLASS: MoveClass.Special,
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
-                EFFECT_ACCURACY: 10,
+                EFFECT_ACCURACY: 100,
                 EFFECT: _SLEEP_STATUS
             })
         )

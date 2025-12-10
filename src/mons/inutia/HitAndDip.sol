@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: AGPL-3.0
+
+pragma solidity ^0.8.0;
+
+import "../../Constants.sol";
+import "../../Enums.sol";
+
+import {IEngine} from "../../IEngine.sol";
+
+import {IEffect} from "../../effects/IEffect.sol";
+import {StandardAttack} from "../../moves/StandardAttack.sol";
+import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
+import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
+
+contract HitAndDip is StandardAttack {
+    constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR)
+        StandardAttack(
+            address(msg.sender),
+            ENGINE,
+            TYPE_CALCULATOR,
+            ATTACK_PARAMS({
+                NAME: "Hit And Dip",
+                BASE_POWER: 30,
+                STAMINA_COST: 2,
+                ACCURACY: 100,
+                MOVE_TYPE: Type.Mythic,
+                MOVE_CLASS: MoveClass.Special,
+                PRIORITY: DEFAULT_PRIORITY,
+                CRIT_RATE: DEFAULT_CRIT_RATE,
+                VOLATILITY: DEFAULT_VOL,
+                EFFECT_ACCURACY: 100,
+                EFFECT: IEffect(address(0))
+            })
+        )
+    {}
+
+    function move(bytes32 battleKey, uint256 attackerPlayerIndex, bytes calldata extraData, uint256 rng)
+        public
+        override
+    {
+        // Deal the damage
+        (int32 damage,) = _move(battleKey, attackerPlayerIndex, rng);
+
+        if (damage > 0) {
+            // Decode the swap index from extraData and swap the active mon
+            (uint256 swapIndex) = abi.decode(extraData, (uint256));
+            ENGINE.switchActiveMon(attackerPlayerIndex, swapIndex);
+        }
+    }
+
+    function extraDataType() external pure override returns (ExtraDataType) {
+        return ExtraDataType.SelfTeamIndex;
+    }
+}

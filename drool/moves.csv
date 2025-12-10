@@ -12,9 +12,9 @@ Loop,Iblivion,0,1,100,0,Cosmic,Self,Restores all Stamina to full.,,No
 First Resort,Iblivion,40,2,100,?,Water,Special,"Deals damage, if Baselight is at least 2, has +1 priority.",,No
 Brightback,Iblivion,70,2,100,0,Yin,Special,"Deals damage, if Baselight is at least 2, heal for 50% of damage dealt.",,No
 Chain Expansion,Inutia,0,1,100,0,Mythic,Other,Sets up long-lasting battlefield effect. Triggers on switch in for both opponent and self. Damages opponent and heals self for 1/8 of max HP. Lasts for 3-5 turns.,,No
-Initialize,Inutia,0,3,100,0,Mythic,Self,"Boosts ATK/SpATK by 50%. Can only be used once each time Inutia is sent out. When Inutia switches out, half of the bonus is transferred to the next incoming mon.",,No
+Initialize,Inutia,0,2,100,0,Mythic,Self,"Boosts ATK/SpATK by 50%. Can only be used once each time Inutia is sent out. When Inutia switches out, half of the bonus is transferred to the next incoming mon.",,No
 Big Bite,Inutia,85,2,100,0,Wild,Physical,Deals damage.,,No
-Shrine Strike,Inutia,90,2,100,0,Water,Special,"Deals damage, heals for 1/16 of max HP.",,No
+Hit And Dip,Inutia,30,2,100,0,Mythic,Special,"Deals damage, then swaps out.",,Yes
 Triple Think,Malalien,0,2,100,0,Mind,Self,Boosts SpATK by 75%.,,No
 Federal Investigation,Malalien,100,3,100,0,Cyber,Special,Deals damage.,,No
 Negative Thoughts,Malalien,80,3,100,0,Mind,Special,"Deals damage, 10% chance to cause Panic.",,No
