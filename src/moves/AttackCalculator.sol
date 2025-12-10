@@ -26,7 +26,7 @@ library AttackCalculator {
     ) internal returns (int32, EngineEventType) {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
         // Use batch getter to reduce external calls (7 -> 1)
-        DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex);
+        DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex, defenderPlayerIndex);
         (int32 damage, EngineEventType eventType) = _calculateDamageFromContext(
             TYPE_CALCULATOR,
             ctx,
@@ -52,7 +52,7 @@ library AttackCalculator {
         ITypeCalculator TYPE_CALCULATOR,
         bytes32 battleKey,
         uint256 attackerPlayerIndex,
-        uint256, // defenderPlayerIndex - unused, kept for interface compatibility
+        uint256 defenderPlayerIndex,
         uint32 basePower,
         uint32 accuracy, // out of 100
         uint256 volatility,
@@ -62,7 +62,7 @@ library AttackCalculator {
         uint256 critRate // out of 100
     ) internal view returns (int32, EngineEventType) {
         // Use batch getter to reduce external calls (7 -> 1)
-        DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex);
+        DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex, defenderPlayerIndex);
         return _calculateDamageFromContext(
             TYPE_CALCULATOR,
             ctx,

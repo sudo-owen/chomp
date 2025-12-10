@@ -1775,7 +1775,7 @@ contract Engine is IEngine, MappingAllocator {
         ctx.moveManager = config.moveManager;
     }
 
-    function getDamageCalcContext(bytes32 battleKey, uint256 attackerPlayerIndex)
+    function getDamageCalcContext(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 defenderPlayerIndex)
         external
         view
         returns (DamageCalcContext memory ctx)
@@ -1786,7 +1786,6 @@ contract Engine is IEngine, MappingAllocator {
 
         // Get active mon indices
         uint256 attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
-        uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
         uint256 defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
 
         ctx.attackerMonIndex = uint8(attackerMonIndex);
