@@ -1774,4 +1774,40 @@ contract Engine is IEngine, MappingAllocator {
         ctx.validator = address(config.validator);
         ctx.moveManager = config.moveManager;
     }
+
+    function getDamageCalcContext(bytes32 battleKey, uint256 attackerPlayerIndex)
+        external
+        view
+        returns (DamageCalcContext memory ctx)
+    {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleData storage data = battleData[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
+
+        // Get active mon indices
+        uint256 attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
+        uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
+        uint256 defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
+
+        ctx.attackerMonIndex = uint8(attackerMonIndex);
+        ctx.defenderMonIndex = uint8(defenderMonIndex);
+
+        // Get attacker stats
+        Mon storage attackerMon = _getTeamMon(config, attackerPlayerIndex, attackerMonIndex);
+        MonState storage attackerState = _getMonState(config, attackerPlayerIndex, attackerMonIndex);
+        ctx.attackerAttack = attackerMon.stats.attack;
+        ctx.attackerAttackDelta = attackerState.attackDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : attackerState.attackDelta;
+        ctx.attackerSpAtk = attackerMon.stats.specialAttack;
+        ctx.attackerSpAtkDelta = attackerState.specialAttackDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : attackerState.specialAttackDelta;
+
+        // Get defender stats and types
+        Mon storage defenderMon = _getTeamMon(config, defenderPlayerIndex, defenderMonIndex);
+        MonState storage defenderState = _getMonState(config, defenderPlayerIndex, defenderMonIndex);
+        ctx.defenderDef = defenderMon.stats.defense;
+        ctx.defenderDefDelta = defenderState.defenceDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : defenderState.defenceDelta;
+        ctx.defenderSpDef = defenderMon.stats.specialDefense;
+        ctx.defenderSpDefDelta = defenderState.specialDefenceDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : defenderState.specialDefenceDelta;
+        ctx.defenderType1 = defenderMon.stats.type1;
+        ctx.defenderType2 = defenderMon.stats.type2;
+    }
 }
