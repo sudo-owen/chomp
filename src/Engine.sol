@@ -287,7 +287,8 @@ contract Engine is IEngine, MappingAllocator {
         // (gets cleared at the end of the transaction)
         battleKeyForWrite = battleKey;
 
-        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
+        uint256 numHooks = config.engineHooksLength;
+        for (uint256 i = 0; i < numHooks; ++i) {
             config.engineHooks[i].onRoundStart(battleKey);
         }
 
@@ -472,16 +473,16 @@ contract Engine is IEngine, MappingAllocator {
             );
         }
 
+        // Run the round end hooks
+        for (uint256 i = 0; i < numHooks; ++i) {
+            config.engineHooks[i].onRoundEnd(battleKey);
+        }
+
         // If a winner has been set, handle the game over
         if (battle.winnerIndex != 2) {
             address winner = (battle.winnerIndex == 0) ? battle.p0 : battle.p1;
             _handleGameOver(battleKey, winner);
             return;
-        }
-
-        // Run the round end hooks
-        for (uint256 i = 0; i < config.engineHooksLength; ++i) {
-            config.engineHooks[i].onRoundEnd(battleKey);
         }
 
         // End of turn cleanup:
@@ -1227,8 +1228,8 @@ contract Engine is IEngine, MappingAllocator {
     function computePriorityPlayerIndex(bytes32 battleKey, uint256 rng) public view returns (uint256) {
         BattleConfig storage config = battleConfig[_getStorageKey(battleKey)];
         BattleData storage battle = battleData[battleKey];
-        MoveDecision memory p0Move = config.p0Move;
-        MoveDecision memory p1Move = config.p1Move;
+        uint128 p0MoveIndex = config.p0Move.moveIndex;
+        uint128 p1MoveIndex = config.p1Move.moveIndex;
         uint256 p0ActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, 0);
         uint256 p1ActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, 1);
         uint256 p0Priority;
@@ -1236,17 +1237,17 @@ contract Engine is IEngine, MappingAllocator {
 
         // Call the move for its priority, unless it's the switch or no op move index
         {
-            if (p0Move.moveIndex == SWITCH_MOVE_INDEX || p0Move.moveIndex == NO_OP_MOVE_INDEX) {
+            if (p0MoveIndex == SWITCH_MOVE_INDEX || p0MoveIndex == NO_OP_MOVE_INDEX) {
                 p0Priority = SWITCH_PRIORITY;
             } else {
-                IMoveSet p0MoveSet = _getTeamMon(config, 0, p0ActiveMonIndex).moves[p0Move.moveIndex];
+                IMoveSet p0MoveSet = _getTeamMon(config, 0, p0ActiveMonIndex).moves[p0MoveIndex];
                 p0Priority = p0MoveSet.priority(battleKey, 0);
             }
 
-            if (p1Move.moveIndex == SWITCH_MOVE_INDEX || p1Move.moveIndex == NO_OP_MOVE_INDEX) {
+            if (p1MoveIndex == SWITCH_MOVE_INDEX || p1MoveIndex == NO_OP_MOVE_INDEX) {
                 p1Priority = SWITCH_PRIORITY;
             } else {
-                IMoveSet p1MoveSet = _getTeamMon(config, 1, p1ActiveMonIndex).moves[p1Move.moveIndex];
+                IMoveSet p1MoveSet = _getTeamMon(config, 1, p1ActiveMonIndex).moves[p1MoveIndex];
                 p1Priority = p1MoveSet.priority(battleKey, 1);
             }
         }

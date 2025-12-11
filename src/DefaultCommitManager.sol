@@ -114,13 +114,8 @@ contract DefaultCommitManager is ICommitManager {
         }
 
         // Set current and other player based on the caller
-        uint256 currentPlayerIndex;
-        uint256 otherPlayerIndex;
-        if (msg.sender == ctx.p0) {
-            otherPlayerIndex = 1;
-        } else {
-            currentPlayerIndex = 1;
-        }
+        uint256 currentPlayerIndex = msg.sender == ctx.p0 ? 0 : 1;
+        uint256 otherPlayerIndex = 1 - currentPlayerIndex;
 
         if (ctx.winnerIndex != 2) {
             revert BattleAlreadyComplete();
