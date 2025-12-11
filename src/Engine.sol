@@ -1745,6 +1745,20 @@ contract Engine is IEngine, MappingAllocator {
         ctx.moveManager = config.moveManager;
     }
 
+    function getCommitContext(bytes32 battleKey) external view returns (CommitContext memory ctx) {
+        bytes32 storageKey = _getStorageKey(battleKey);
+        BattleData storage data = battleData[battleKey];
+        BattleConfig storage config = battleConfig[storageKey];
+
+        ctx.startTimestamp = config.startTimestamp;
+        ctx.p0 = data.p0;
+        ctx.p1 = data.p1;
+        ctx.winnerIndex = data.winnerIndex;
+        ctx.turnId = data.turnId;
+        ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
+        ctx.validator = address(config.validator);
+    }
+
     function getDamageCalcContext(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 defenderPlayerIndex)
         external
         view

@@ -140,6 +140,19 @@ contract StatBoosts is BasicEffect {
         }
     }
 
+    function _denomPower(uint256 exp) internal pure returns (uint256) {
+        if (exp == 0) return 1;
+        if (exp == 1) return 100;
+        if (exp == 2) return 10000;
+        if (exp == 3) return 1000000;
+        if (exp == 4) return 100000000;
+        if (exp == 5) return 10000000000;
+        if (exp == 6) return 1000000000000;
+        if (exp == 7) return 100000000000000;
+        // Fallback for larger exponents (rare)
+        return DENOM ** exp;
+    }
+
     function _packBoostSnapshot(uint32[5] memory unpackedSnapshot) internal pure returns (uint192) {
         return uint192(
             (uint256(unpackedSnapshot[0]) << 160) | (uint256(unpackedSnapshot[1]) << 128)
@@ -165,7 +178,7 @@ contract StatBoosts is BasicEffect {
         uint32[5] memory newBoostedStats;
         for (uint256 i = 0; i < 5; i++) {
             if (numBoostsPerStat[i] > 0) {
-                newBoostedStats[i] = uint32(accumulatedNumeratorPerStat[i] / (DENOM ** numBoostsPerStat[i]));
+                newBoostedStats[i] = uint32(accumulatedNumeratorPerStat[i] / _denomPower(numBoostsPerStat[i]));
             } else {
                 newBoostedStats[i] = baseStats[i];
             }
@@ -258,7 +271,7 @@ contract StatBoosts is BasicEffect {
         // Calculate final values
         for (uint256 i = 0; i < 5; i++) {
             if (numBoostsPerStat[i] > 0) {
-                newBoostedStats[i] = uint32(accumulatedNumeratorPerStat[i] / (DENOM ** numBoostsPerStat[i]));
+                newBoostedStats[i] = uint32(accumulatedNumeratorPerStat[i] / _denomPower(numBoostsPerStat[i]));
             } else {
                 newBoostedStats[i] = stats[i];
             }

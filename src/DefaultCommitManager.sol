@@ -40,7 +40,7 @@ contract DefaultCommitManager is ICommitManager {
      */
     function commitMove(bytes32 battleKey, bytes32 moveHash) external {
         // Get all battle context in one call
-        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        CommitContext memory ctx = ENGINE.getCommitContext(battleKey);
 
         // Can only commit moves to battles with nonzero timestamp and no winner
         if (ctx.startTimestamp == 0) {
@@ -101,7 +101,7 @@ contract DefaultCommitManager is ICommitManager {
         external
     {
         // Get all battle context in one call
-        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+        CommitContext memory ctx = ENGINE.getCommitContext(battleKey);
 
         // Can only reveal moves to battles with nonzero timestamp and no winner
         if (ctx.startTimestamp == 0) {
