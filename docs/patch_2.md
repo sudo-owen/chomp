@@ -14,8 +14,8 @@ NEW Ability: Baselight, starts at 1, gain 1 stack at the end of each turn, up to
 CONSIDER: making consuming the stack optional
 - Brightback: consumes 1 stack to heal for 50% of damage dealt, power 70, stamina 2
 - NEW Move: Unbounded Strike: consumes 3 stacks, power 130, stamina 3, otherwise power 80, stamina 2 
-- NEW Move: Renormalize, Raises all stats by X0% where X is Baselight level. Fails if already active.
-- NEW Move: Loop, 1 stamina, sets Baselight level to be 3 (i.e. triggers up to 2 heal stacks), -1 priority
+- NEW Move: Renormalize, 0 stamina, Raises all stats by X0% where X is Baselight level. Fails if already active.
+- NEW Move: Loop, 0 stamina, sets Baselight level to be 3 (i.e. triggers up to 2 heal stacks), -1 priority, resets all status changes (and resets Renormalize)
 
 # Embursa
 - Change ability from Split The Pot to something different [x]

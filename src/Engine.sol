@@ -801,13 +801,8 @@ contract Engine is IEngine, MappingAllocator {
             // Only call the internal switch function if the switch is valid
             _handleSwitch(battleKey, playerIndex, monToSwitchIndex, msg.sender);
 
-            // Check for game over and/or KOs for the switching player
-            (uint256 playerSwitchForTurnFlag,,, bool isGameOver) = _checkForGameOverOrKO(config, battle, playerIndex);
-            if (isGameOver) return;
-
-            // Check for game over and/or KOs for the other player
-            uint256 otherPlayerIndex = (playerIndex + 1) % 2;
-            (playerSwitchForTurnFlag,,, isGameOver) = _checkForGameOverOrKO(config, battle, otherPlayerIndex);
+            // Check for game over and/or KOs
+            (uint256 playerSwitchForTurnFlag, bool isGameOver) = _checkForGameOverOrKO(config, battle, playerIndex);
             if (isGameOver) return;
 
             // Set the player switch for turn flag
@@ -868,27 +863,13 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config,
         BattleData storage battle,
         uint256 priorityPlayerIndex
-    )
-        internal
-        returns (
-            uint256 playerSwitchForTurnFlag,
-            bool isPriorityPlayerActiveMonKnockedOut,
-            bool isNonPriorityPlayerActiveMonKnockedOut,
-            bool isGameOver
-        )
-    {
+    ) internal returns (uint256 playerSwitchForTurnFlag, bool isGameOver) {
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
         uint8 existingWinnerIndex = battle.winnerIndex;
 
         // First check if we already calculated a winner
         if (existingWinnerIndex != 2) {
-            isGameOver = true;
-            return (
-                playerSwitchForTurnFlag,
-                isPriorityPlayerActiveMonKnockedOut,
-                isNonPriorityPlayerActiveMonKnockedOut,
-                isGameOver
-            );
+            return (playerSwitchForTurnFlag, true);
         }
 
         // Check for game over using KO bitmaps (O(1) instead of O(n) loop)
@@ -910,26 +891,20 @@ contract Engine is IEngine, MappingAllocator {
         // If we found a winner, set it on the battle data and return
         if (newWinnerIndex != 2) {
             battle.winnerIndex = uint8(newWinnerIndex);
-            isGameOver = true;
-            return (
-                playerSwitchForTurnFlag,
-                isPriorityPlayerActiveMonKnockedOut,
-                isNonPriorityPlayerActiveMonKnockedOut,
-                isGameOver
-            );
+            return (playerSwitchForTurnFlag, true);
         }
         // Otherwise if it isn't a game over, we check for KOs and set the player switch for turn flag
         else {
             // Always set default switch to be 2 (allow both players to make a move)
             playerSwitchForTurnFlag = 2;
 
-            isPriorityPlayerActiveMonKnockedOut =
-            _getMonState(config, priorityPlayerIndex, _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex))
-            .isKnockedOut;
-
-            isNonPriorityPlayerActiveMonKnockedOut =
-            _getMonState(config, otherPlayerIndex, _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex))
-            .isKnockedOut;
+            // Use already-loaded KO bitmaps to check active mon KO status (avoids SLOAD)
+            uint256 priorityActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
+            uint256 otherActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
+            uint256 priorityKOBitmap = priorityPlayerIndex == 0 ? p0KOBitmap : p1KOBitmap;
+            uint256 otherKOBitmap = priorityPlayerIndex == 0 ? p1KOBitmap : p0KOBitmap;
+            bool isPriorityPlayerActiveMonKnockedOut = (priorityKOBitmap & (1 << priorityActiveMonIndex)) != 0;
+            bool isNonPriorityPlayerActiveMonKnockedOut = (otherKOBitmap & (1 << otherActiveMonIndex)) != 0;
 
             // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
             if (isPriorityPlayerActiveMonKnockedOut && !isNonPriorityPlayerActiveMonKnockedOut) {
@@ -1046,10 +1021,7 @@ contract Engine is IEngine, MappingAllocator {
         }
 
         // Set Game Over if true, and calculate and return switch for turn flag
-        // (We check for both players)
-        uint256 otherPlayerIndex = (playerIndex + 1) % 2;
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, playerIndex);
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, otherPlayerIndex);
+        (playerSwitchForTurnFlag,) = _checkForGameOverOrKO(config, battle, playerIndex);
         return playerSwitchForTurnFlag;
     }
 
@@ -1248,9 +1220,7 @@ contract Engine is IEngine, MappingAllocator {
         _runEffects(battleKey, rng, effectIndex, playerIndex, round, "");
 
         // Set Game Over if true, and calculate and return switch for turn flag
-        // (We check for both players)
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, 0);
-        (playerSwitchForTurnFlag,,,) = _checkForGameOverOrKO(config, battle, 1);
+        (playerSwitchForTurnFlag,) = _checkForGameOverOrKO(config, battle, playerIndex);
         return playerSwitchForTurnFlag;
     }
 
