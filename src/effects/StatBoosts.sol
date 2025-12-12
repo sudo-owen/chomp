@@ -21,12 +21,12 @@ import {IEffect} from "./IEffect.sol";
  *
  * KV Storage:
  *  - Key-to-Index: keccak256(targetIndex, monIndex, address(this), "k2i", truncatedKey) => slotIndex (1-indexed)
- *  - Slot Data: keccak256(targetIndex, monIndex, address(this), "slot", slotIndex) => [64 truncatedKey | 8 isPerm | 80 statData | 40 unused]
+ *  - Slot Data: keccak256(targetIndex, monIndex, address(this), "slot", slotIndex) => packed slot data
  *  - Snapshot: keccak256(targetIndex, monIndex, address(this)) => aggregated stats
  *
  * Slot Data Layout (192 bits):
- *  [64 bits truncatedKey | 8 bits isPerm | 80 bits statData (5 stats × 16 bits)]
- *  Each stat: [8 boostPercent | 7 boostCount | 1 isMultiply]
+ *  [bits 0-79: statData | bit 80: isPerm | bits 81-127: unused | bits 128-191: truncatedKey]
+ *  Each stat (16 bits): [8 boostPercent | 7 boostCount | 1 isMultiply]
  */
 contract StatBoosts is BasicEffect {
     uint256 public constant DENOM = 100;
@@ -37,9 +37,12 @@ contract StatBoosts is BasicEffect {
     uint256 private constant COUNT_MASK = 0xFF;
 
     // Slot data layout (within uint192)
-    uint256 private constant SLOT_KEY_OFFSET = 128; // bits 128-191 = truncatedKey (64 bits)
-    uint256 private constant SLOT_PERM_OFFSET = 120; // bits 120-127 = isPerm (8 bits, but only 1 used)
-    // bits 0-79 = statData (80 bits = 5 stats × 16 bits)
+    // bits 0-79: statData (80 bits = 5 stats × 16 bits)
+    // bit 80: isPerm (1 bit)
+    // bits 81-127: unused (47 bits)
+    // bits 128-191: truncatedKey (64 bits)
+    uint256 private constant SLOT_KEY_OFFSET = 128;
+    uint256 private constant SLOT_PERM_BIT = 80;
 
     IEngine immutable ENGINE;
 
@@ -90,7 +93,7 @@ contract StatBoosts is BasicEffect {
         bool[5] memory isMultiply
     ) internal pure returns (uint192) {
         uint256 packed = uint256(truncatedKey) << SLOT_KEY_OFFSET;
-        packed |= (isPerm ? uint256(1) : 0) << SLOT_PERM_OFFSET;
+        packed |= (isPerm ? uint256(1) : 0) << SLOT_PERM_BIT;
 
         for (uint256 i = 0; i < 5; i++) {
             uint256 offset = i * 16;
@@ -112,7 +115,7 @@ contract StatBoosts is BasicEffect {
         )
     {
         truncatedKey = uint64(uint256(data) >> SLOT_KEY_OFFSET);
-        isPerm = ((uint256(data) >> SLOT_PERM_OFFSET) & 0xFF) != 0;
+        isPerm = ((uint256(data) >> SLOT_PERM_BIT) & 0x1) != 0;
 
         for (uint256 i = 0; i < 5; i++) {
             uint256 offset = i * 16;
