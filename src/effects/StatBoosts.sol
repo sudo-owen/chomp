@@ -25,7 +25,7 @@ import {IEffect} from "./IEffect.sol";
  *  - Snapshot: keccak256(targetIndex, monIndex, address(this)) => aggregated stats
  *
  * Slot Data Layout (192 bits):
- *  [bits 0-79: statData | bit 80: isPerm | bits 81-127: unused | bits 128-191: truncatedKey]
+ *  [bits 0-79: statData | bit 80: isPerm | bits 81-191: truncatedKey (111 bits)]
  *  Each stat (16 bits): [8 boostPercent | 7 boostCount | 1 isMultiply]
  */
 contract StatBoosts is BasicEffect {
@@ -39,10 +39,10 @@ contract StatBoosts is BasicEffect {
     // Slot data layout (within uint192)
     // bits 0-79: statData (80 bits = 5 stats × 16 bits)
     // bit 80: isPerm (1 bit)
-    // bits 81-127: unused (47 bits)
-    // bits 128-191: truncatedKey (64 bits)
-    uint256 private constant SLOT_KEY_OFFSET = 128;
+    // bits 81-191: truncatedKey (111 bits)
+    uint256 private constant SLOT_KEY_OFFSET = 81;
     uint256 private constant SLOT_PERM_BIT = 80;
+    uint256 private constant SLOT_KEY_MASK = (1 << 111) - 1;
 
     IEngine immutable ENGINE;
 
@@ -71,7 +71,7 @@ contract StatBoosts is BasicEffect {
 
     // ============ KV Key Generation ============
 
-    function _kvKeyToIndex(uint256 targetIndex, uint256 monIndex, uint64 truncatedKey) internal view returns (bytes32) {
+    function _kvKeyToIndex(uint256 targetIndex, uint256 monIndex, uint128 truncatedKey) internal view returns (bytes32) {
         return keccak256(abi.encode(targetIndex, monIndex, address(this), "k2i", truncatedKey));
     }
 
@@ -86,13 +86,13 @@ contract StatBoosts is BasicEffect {
     // ============ Slot Data Packing ============
 
     function _packSlotData(
-        uint64 truncatedKey,
+        uint128 truncatedKey,
         bool isPerm,
         uint8[5] memory boostPercents,
         uint8[5] memory boostCounts,
         bool[5] memory isMultiply
     ) internal pure returns (uint192) {
-        uint256 packed = uint256(truncatedKey) << SLOT_KEY_OFFSET;
+        uint256 packed = (uint256(truncatedKey) & SLOT_KEY_MASK) << SLOT_KEY_OFFSET;
         packed |= (isPerm ? uint256(1) : 0) << SLOT_PERM_BIT;
 
         for (uint256 i = 0; i < 5; i++) {
@@ -107,14 +107,14 @@ contract StatBoosts is BasicEffect {
         internal
         pure
         returns (
-            uint64 truncatedKey,
+            uint128 truncatedKey,
             bool isPerm,
             uint8[5] memory boostPercents,
             uint8[5] memory boostCounts,
             bool[5] memory isMultiply
         )
     {
-        truncatedKey = uint64(uint256(data) >> SLOT_KEY_OFFSET);
+        truncatedKey = uint128((uint256(data) >> SLOT_KEY_OFFSET) & SLOT_KEY_MASK);
         isPerm = ((uint256(data) >> SLOT_PERM_BIT) & 0x1) != 0;
 
         for (uint256 i = 0; i < 5; i++) {
@@ -126,7 +126,7 @@ contract StatBoosts is BasicEffect {
         }
     }
 
-    function _packSlotDataFromApply(uint64 truncatedKey, bool isPerm, StatBoostToApply[] memory boosts)
+    function _packSlotDataFromApply(uint128 truncatedKey, bool isPerm, StatBoostToApply[] memory boosts)
         internal
         pure
         returns (uint192)
@@ -189,10 +189,10 @@ contract StatBoosts is BasicEffect {
     function _generateKey(uint256 targetIndex, uint256 monIndex, address caller, string memory salt)
         internal
         pure
-        returns (uint64)
+        returns (uint128)
     {
-        // Truncate to 64 bits for KV storage efficiency
-        return uint64(uint256(keccak256(abi.encode(targetIndex, monIndex, caller, salt))));
+        // Truncate to 111 bits (fits in uint128) for KV storage
+        return uint128(uint256(keccak256(abi.encode(targetIndex, monIndex, caller, salt))) & SLOT_KEY_MASK);
     }
 
     function _getMonStatSubset(bytes32 battleKey, uint256 playerIndex, uint256 monIndex)
@@ -321,7 +321,7 @@ contract StatBoosts is BasicEffect {
         StatBoostToApply[] memory statBoostsToApply,
         StatBoostFlag boostFlag
     ) public {
-        uint64 key = _generateKey(targetIndex, monIndex, msg.sender, name());
+        uint128 key = _generateKey(targetIndex, monIndex, msg.sender, name());
         _addStatBoostsWithKey(targetIndex, monIndex, statBoostsToApply, boostFlag, key);
     }
 
@@ -332,7 +332,7 @@ contract StatBoosts is BasicEffect {
         StatBoostFlag boostFlag,
         string memory keyToUse
     ) public {
-        uint64 key = _generateKey(targetIndex, monIndex, msg.sender, keyToUse);
+        uint128 key = _generateKey(targetIndex, monIndex, msg.sender, keyToUse);
         _addStatBoostsWithKey(targetIndex, monIndex, statBoostsToApply, boostFlag, key);
     }
 
@@ -341,7 +341,7 @@ contract StatBoosts is BasicEffect {
         uint256 monIndex,
         StatBoostToApply[] memory statBoostsToApply,
         StatBoostFlag boostFlag,
-        uint64 key
+        uint128 key
     ) internal {
         bool isPerm = boostFlag == StatBoostFlag.Perm;
         bytes32 battleKey = ENGINE.battleKeyForWrite();
@@ -416,7 +416,7 @@ contract StatBoosts is BasicEffect {
     }
 
     function removeStatBoosts(uint256 targetIndex, uint256 monIndex, StatBoostFlag boostFlag) public {
-        uint64 key = _generateKey(targetIndex, monIndex, msg.sender, name());
+        uint128 key = _generateKey(targetIndex, monIndex, msg.sender, name());
         _removeStatBoostsWithKey(targetIndex, monIndex, key, boostFlag);
     }
 
@@ -426,11 +426,11 @@ contract StatBoosts is BasicEffect {
         StatBoostFlag boostFlag,
         string memory stringToUse
     ) public {
-        uint64 key = _generateKey(targetIndex, monIndex, msg.sender, stringToUse);
+        uint128 key = _generateKey(targetIndex, monIndex, msg.sender, stringToUse);
         _removeStatBoostsWithKey(targetIndex, monIndex, key, boostFlag);
     }
 
-    function _removeStatBoostsWithKey(uint256 targetIndex, uint256 monIndex, uint64 key, StatBoostFlag boostFlag)
+    function _removeStatBoostsWithKey(uint256 targetIndex, uint256 monIndex, uint128 key, StatBoostFlag boostFlag)
         internal
     {
         bool isPerm = boostFlag == StatBoostFlag.Perm;
@@ -460,7 +460,7 @@ contract StatBoosts is BasicEffect {
         if (slotToRemove != totalCount) {
             bytes32 lastSlotKey = _kvSlot(targetIndex, monIndex, totalCount);
             uint192 lastSlotData = ENGINE.getGlobalKV(battleKey, lastSlotKey);
-            (uint64 lastKey,,,,) = _unpackSlotData(lastSlotData);
+            (uint128 lastKey,,,,) = _unpackSlotData(lastSlotData);
 
             // Move last slot data to the removed slot
             ENGINE.setGlobalKV(slotKey, lastSlotData);
@@ -520,7 +520,7 @@ contract StatBoosts is BasicEffect {
                 continue;
             }
 
-            (uint64 slotTruncatedKey, bool isPerm,,,) = _unpackSlotData(slotData);
+            (uint128 slotTruncatedKey, bool isPerm,,,) = _unpackSlotData(slotData);
 
             if (!isPerm) {
                 // This is a temp boost, remove it
@@ -532,7 +532,7 @@ contract StatBoosts is BasicEffect {
                     // Swap with last
                     bytes32 lastSlotKey = _kvSlot(targetIndex, monIndex, totalCount);
                     uint192 lastSlotData = ENGINE.getGlobalKV(battleKey, lastSlotKey);
-                    (uint64 lastKey,,,,) = _unpackSlotData(lastSlotData);
+                    (uint128 lastKey,,,,) = _unpackSlotData(lastSlotData);
 
                     ENGINE.setGlobalKV(slotKey, lastSlotData);
 
