@@ -29,14 +29,27 @@ contract Baselight is IAbility, BasicEffect {
         return "Baselight";
     }
 
-    function getBaselightLevel(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) public view returns (uint256) {
-        (EffectInstance[] memory effects,) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
+    /// @dev Finds the Baselight effect on a mon and returns its state
+    /// @return exists Whether the effect exists on this mon
+    /// @return effectIndex The index to use with editEffect (only valid if exists)
+    /// @return level The current Baselight level (0 if not exists)
+    function _findBaselightEffect(bytes32 battleKey, uint256 playerIndex, uint256 monIndex)
+        internal
+        view
+        returns (bool exists, uint256 effectIndex, uint256 level)
+    {
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
-                return uint256(effects[i].data);
+                return (true, indices[i], uint256(effects[i].data));
             }
         }
-        return 0;
+        return (false, 0, 0);
+    }
+
+    function getBaselightLevel(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) public view returns (uint256) {
+        (,, uint256 level) = _findBaselightEffect(battleKey, playerIndex, monIndex);
+        return level;
     }
 
     function setBaselightLevel(uint256 playerIndex, uint256 monIndex, uint256 level) public {
@@ -44,38 +57,27 @@ contract Baselight is IAbility, BasicEffect {
             level = MAX_BASELIGHT_LEVEL;
         }
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
-        for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(this)) {
-                ENGINE.editEffect(playerIndex, monIndex, indices[i], bytes32(level));
-                return;
-            }
+        (bool exists, uint256 effectIndex,) = _findBaselightEffect(battleKey, playerIndex, monIndex);
+        if (exists) {
+            ENGINE.editEffect(playerIndex, monIndex, effectIndex, bytes32(level));
         }
     }
 
     function decreaseBaselightLevel(uint256 playerIndex, uint256 monIndex, uint256 amount) public {
         bytes32 battleKey = ENGINE.battleKeyForWrite();
-        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
-        for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(this)) {
-                uint256 currentLevel = uint256(effects[i].data);
-                uint256 newLevel = amount >= currentLevel ? 0 : currentLevel - amount;
-                ENGINE.editEffect(playerIndex, monIndex, indices[i], bytes32(newLevel));
-                return;
-            }
+        (bool exists, uint256 effectIndex, uint256 currentLevel) = _findBaselightEffect(battleKey, playerIndex, monIndex);
+        if (exists) {
+            uint256 newLevel = amount >= currentLevel ? 0 : currentLevel - amount;
+            ENGINE.editEffect(playerIndex, monIndex, effectIndex, bytes32(newLevel));
         }
     }
 
     // IAbility implementation - called when the mon switches in
     function activateOnSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) external {
-        // Check if the effect has already been set for this mon
-        (EffectInstance[] memory effects,) = ENGINE.getEffects(battleKey, playerIndex, monIndex);
-        for (uint256 i = 0; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(this)) {
-                return;
-            }
+        (bool exists,,) = _findBaselightEffect(battleKey, playerIndex, monIndex);
+        if (exists) {
+            return;
         }
-
         // First switch-in: add effect with initial Baselight level stored in extraData
         ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(uint256(INITIAL_BASELIGHT_LEVEL)));
     }
