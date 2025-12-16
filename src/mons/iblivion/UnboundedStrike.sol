@@ -14,13 +14,17 @@ import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 import {Baselight} from "./Baselight.sol";
 
 /**
- * Brightback Move for Iblivion
- * - Power: 70, Stamina: 2, Type: Yin, Class: Physical
- * - Consumes 1 Baselight stack to heal for 50% of damage dealt
- * - If no Baselight stack available, still deals damage but doesn't heal
+ * Unbounded Strike Move for Iblivion
+ * - Type: Yin, Class: Physical
+ * - If at 3 Baselight stacks: Power 130, Stamina 1, consumes all 3 stacks
+ * - Otherwise: Power 80, Stamina 2, consumes nothing
  */
-contract Brightback is IMoveSet {
-    uint32 public constant BASE_POWER = 70;
+contract UnboundedStrike is IMoveSet {
+    uint32 public constant BASE_POWER = 80;
+    uint32 public constant EMPOWERED_POWER = 130;
+    uint32 public constant BASE_STAMINA = 2;
+    uint32 public constant EMPOWERED_STAMINA = 1;
+    uint256 public constant REQUIRED_STACKS = 3;
 
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
@@ -33,16 +37,29 @@ contract Brightback is IMoveSet {
     }
 
     function name() public pure override returns (string memory) {
-        return "Brightback";
+        return "Unbounded Strike";
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, uint240, uint256 rng) external {
-        (int32 damageDealt,) = AttackCalculator._calculateDamage(
+        uint256 monIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        uint256 baselightLevel = BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex);
+
+        uint32 power;
+        if (baselightLevel >= REQUIRED_STACKS) {
+            // Empowered version: consume all 3 stacks
+            power = EMPOWERED_POWER;
+            BASELIGHT.setBaselightLevel(attackerPlayerIndex, monIndex, 0);
+        } else {
+            // Normal version: no stacks consumed
+            power = BASE_POWER;
+        }
+
+        AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,
             attackerPlayerIndex,
-            BASE_POWER,
+            power,
             DEFAULT_ACCURACY,
             DEFAULT_VOL,
             moveType(battleKey),
@@ -50,31 +67,14 @@ contract Brightback is IMoveSet {
             rng,
             DEFAULT_CRIT_RATE
         );
-
-        uint256 monIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
-        uint256 baselightLevel = BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex);
-
-        // Only heal if we have at least 1 Baselight stack
-        if (baselightLevel >= 1) {
-            // Consume 1 Baselight stack
-            BASELIGHT.decreaseBaselightLevel(attackerPlayerIndex, monIndex, 1);
-
-            // Heal for half of damage done
-            int32 healAmount = damageDealt / 2;
-            int32 hpDelta = ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, monIndex, MonStateIndexName.Hp);
-
-            // Prevent overhealing
-            if (hpDelta + healAmount > 0) {
-                healAmount = -1 * hpDelta;
-            }
-
-            // Do the heal
-            ENGINE.updateMonState(attackerPlayerIndex, monIndex, MonStateIndexName.Hp, healAmount);
-        }
     }
 
-    function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 2;
+    function stamina(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 monIndex) external view returns (uint32) {
+        uint256 baselightLevel = BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex);
+        if (baselightLevel >= REQUIRED_STACKS) {
+            return EMPOWERED_STAMINA;
+        }
+        return BASE_STAMINA;
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {
