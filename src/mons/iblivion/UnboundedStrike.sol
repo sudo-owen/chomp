@@ -4,18 +4,25 @@ pragma solidity ^0.8.0;
 
 import "../../Constants.sol";
 import "../../Enums.sol";
+import "../../Structs.sol";
 
 import {IEngine} from "../../IEngine.sol";
-import "../../Structs.sol";
 import {AttackCalculator} from "../../moves/AttackCalculator.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 import {Baselight} from "./Baselight.sol";
 
-contract FirstResort is IMoveSet {
-    uint32 public constant BASE_POWER = 40;
-    uint256 public constant BASELIGHT_THRESHOLD = 2;
+/**
+ * Unbounded Strike Move for Iblivion
+ * - Stamina: 2, Type: Yin, Class: Physical
+ * - If at 3 Baselight stacks: Power 130, consumes all 3 stacks
+ * - Otherwise: Power 80, consumes nothing
+ */
+contract UnboundedStrike is IMoveSet {
+    uint32 public constant BASE_POWER = 80;
+    uint32 public constant EMPOWERED_POWER = 130;
+    uint256 public constant REQUIRED_STACKS = 3;
 
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
@@ -28,17 +35,30 @@ contract FirstResort is IMoveSet {
     }
 
     function name() public pure override returns (string memory) {
-        return "First Resort";
+        return "Unbounded Strike";
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, uint240, uint256 rng) external {
+        uint256 monIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+        uint256 baselightLevel = BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex);
+
+        uint32 power;
+        if (baselightLevel >= REQUIRED_STACKS) {
+            // Empowered version: consume all 3 stacks
+            power = EMPOWERED_POWER;
+            BASELIGHT.setBaselightLevel(attackerPlayerIndex, monIndex, 0);
+        } else {
+            // Normal version: no stacks consumed
+            power = BASE_POWER;
+        }
+
         AttackCalculator._calculateDamage(
             ENGINE,
             TYPE_CALCULATOR,
             battleKey,
             attackerPlayerIndex,
-            BASE_POWER,
-            DEFAULT_ACCURACY, // 100%
+            power,
+            DEFAULT_ACCURACY,
             DEFAULT_VOL,
             moveType(battleKey),
             moveClass(battleKey),
@@ -51,26 +71,16 @@ contract FirstResort is IMoveSet {
         return 2;
     }
 
-    function priority(bytes32 battleKey, uint256 attackerPlayerIndex) external view returns (uint32) {
-        if (
-            BASELIGHT.getBaselightLevel(
-                    battleKey,
-                    attackerPlayerIndex,
-                    ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex]
-                ) >= BASELIGHT_THRESHOLD
-        ) {
-            return DEFAULT_PRIORITY + 1;
-        } else {
-            return DEFAULT_PRIORITY;
-        }
+    function priority(bytes32, uint256) external pure returns (uint32) {
+        return DEFAULT_PRIORITY;
     }
 
     function moveType(bytes32) public pure returns (Type) {
-        return Type.Water;
+        return Type.Yin;
     }
 
     function moveClass(bytes32) public pure returns (MoveClass) {
-        return MoveClass.Special;
+        return MoveClass.Physical;
     }
 
     function isValidTarget(bytes32, uint240) external pure returns (bool) {

@@ -480,4 +480,33 @@ contract StatBoosts is BasicEffect {
             _applyStatsFromAggregatedData(battleKey, targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
         }
     }
+
+    /// @notice Clears all stat boosts for a mon and resets stats to base values
+    /// @param targetIndex The player index
+    /// @param monIndex The mon index
+    function clearAllBoostsForMon(uint256 targetIndex, uint256 monIndex) external {
+        bytes32 battleKey = ENGINE.battleKeyForWrite();
+        (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, targetIndex, monIndex);
+        uint32[5] memory baseStats = _getMonStatSubset(battleKey, targetIndex, monIndex);
+
+        // Single pass: collect indices to remove in reverse order
+        // We iterate forward but store in reverse to enable proper removal
+        uint256 removeCount = 0;
+        for (uint256 i = effects.length; i > 0; i--) {
+            if (address(effects[i - 1].effect) == address(this)) {
+                // Remove immediately while iterating in reverse (avoids index shifting)
+                ENGINE.removeEffect(targetIndex, monIndex, indices[i - 1]);
+                removeCount++;
+            }
+        }
+
+        if (removeCount == 0) {
+            return;
+        }
+
+        // Reset stats to base values by applying with empty aggregation
+        uint32[5] memory numBoostsPerStat;
+        uint256[5] memory accumulatedNumeratorPerStat;
+        _applyStatsFromAggregatedData(battleKey, targetIndex, monIndex, baseStats, numBoostsPerStat, accumulatedNumeratorPerStat);
+    }
 }

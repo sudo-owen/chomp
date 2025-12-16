@@ -35,9 +35,9 @@ import {RockPull} from "../src/mons/gorillax/RockPull.sol";
 import {ThrowPebble} from "../src/mons/gorillax/ThrowPebble.sol";
 import {Baselight} from "../src/mons/iblivion/Baselight.sol";
 import {Brightback} from "../src/mons/iblivion/Brightback.sol";
-import {FirstResort} from "../src/mons/iblivion/FirstResort.sol";
-import {IntrinsicValue} from "../src/mons/iblivion/IntrinsicValue.sol";
+import {UnboundedStrike} from "../src/mons/iblivion/UnboundedStrike.sol";
 import {Loop} from "../src/mons/iblivion/Loop.sol";
+import {Renormalize} from "../src/mons/iblivion/Renormalize.sol";
 import {BigBite} from "../src/mons/inutia/BigBite.sol";
 import {ChainExpansion} from "../src/mons/inutia/ChainExpansion.sol";
 import {HitAndDip} from "../src/mons/inutia/HitAndDip.sol";
@@ -313,38 +313,39 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        Baselight baselight = new Baselight(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
+        // Baselight is now an ability, not a move
+        Baselight baselight = new Baselight(IEngine(vm.envAddress("ENGINE")));
         deployedContracts[contractIndex] = DeployData({
             name: "Baselight",
             contractAddress: address(baselight)
         });
         contractIndex++;
 
-        Loop loop = new Loop(IEngine(vm.envAddress("ENGINE")));
-        deployedContracts[contractIndex] = DeployData({
-            name: "Loop",
-            contractAddress: address(loop)
-        });
-        contractIndex++;
-
-        FirstResort firstresort = new FirstResort(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
-        deployedContracts[contractIndex] = DeployData({
-            name: "First Resort",
-            contractAddress: address(firstresort)
-        });
-        contractIndex++;
-
-        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
+        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), baselight);
         deployedContracts[contractIndex] = DeployData({
             name: "Brightback",
             contractAddress: address(brightback)
         });
         contractIndex++;
 
-        IntrinsicValue intrinsicvalue = new IntrinsicValue(IEngine(vm.envAddress("ENGINE")), Baselight(address(baselight)), StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        UnboundedStrike unboundedstrike = new UnboundedStrike(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), baselight);
         deployedContracts[contractIndex] = DeployData({
-            name: "Intrinsic Value",
-            contractAddress: address(intrinsicvalue)
+            name: "Unbounded Strike",
+            contractAddress: address(unboundedstrike)
+        });
+        contractIndex++;
+
+        Loop loop = new Loop(IEngine(vm.envAddress("ENGINE")), baselight, StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Loop",
+            contractAddress: address(loop)
+        });
+        contractIndex++;
+
+        Renormalize renormalize = new Renormalize(IEngine(vm.envAddress("ENGINE")), baselight, StatBoosts(vm.envAddress("STAT_BOOSTS")), loop);
+        deployedContracts[contractIndex] = DeployData({
+            name: "Renormalize",
+            contractAddress: address(renormalize)
         });
         contractIndex++;
 
@@ -360,12 +361,12 @@ contract SetupMons is Script {
             type2: Type.None
         });
         IMoveSet[] memory moves = new IMoveSet[](4);
-        moves[0] = IMoveSet(address(baselight));
-        moves[1] = IMoveSet(address(loop));
-        moves[2] = IMoveSet(address(firstresort));
-        moves[3] = IMoveSet(address(brightback));
+        moves[0] = IMoveSet(address(brightback));
+        moves[1] = IMoveSet(address(unboundedstrike));
+        moves[2] = IMoveSet(address(loop));
+        moves[3] = IMoveSet(address(renormalize));
         IAbility[] memory abilities = new IAbility[](1);
-        abilities[0] = IAbility(address(intrinsicvalue));
+        abilities[0] = IAbility(address(baselight));
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
         registry.createMon(3, stats, moves, abilities, keys, values);

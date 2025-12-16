@@ -14,7 +14,6 @@ import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
-import {IntrinsicValue} from "../../src/mons/iblivion/IntrinsicValue.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
 import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
@@ -22,15 +21,15 @@ import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
-import {StatBoostsMove} from "../mocks/StatBoostsMove.sol";
 import {TestTeamRegistry} from "../mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {Baselight} from "../../src/mons/iblivion/Baselight.sol";
 import {Brightback} from "../../src/mons/iblivion/Brightback.sol";
-import {FirstResort} from "../../src/mons/iblivion/FirstResort.sol";
+import {UnboundedStrike} from "../../src/mons/iblivion/UnboundedStrike.sol";
 import {Loop} from "../../src/mons/iblivion/Loop.sol";
+import {Renormalize} from "../../src/mons/iblivion/Renormalize.sol";
 
 contract IblivionTest is Test, BattleHelper {
     Engine engine;
@@ -39,18 +38,16 @@ contract IblivionTest is Test, BattleHelper {
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
     DefaultValidator validator;
-    IntrinsicValue intrinsicValue;
-    Baselight baselight;
-    Loop loop;
     StatBoosts statBoost;
-    StatBoostsMove statBoostMove;
     StandardAttackFactory attackFactory;
     DefaultMatchmaker matchmaker;
 
-    // Helper to pack StatBoostsMove extraData: lower 60 bits = playerIndex, next 60 bits = monIndex, next 60 bits = statIndex, upper 60 bits = boostAmount
-    function _packStatBoost(uint256 playerIndex, uint256 monIndex, uint256 statIndex, int32 boostAmount) internal pure returns (uint240) {
-        return uint240(playerIndex | (monIndex << 60) | (statIndex << 120) | (uint256(uint32(boostAmount)) << 180));
-    }
+    // Iblivion contracts
+    Baselight baselight;
+    Brightback brightback;
+    UnboundedStrike unboundedStrike;
+    Loop loop;
+    Renormalize renormalize;
 
     function setUp() public {
         typeCalc = new TestTypeCalculator();
@@ -58,39 +55,302 @@ contract IblivionTest is Test, BattleHelper {
         defaultRegistry = new TestTeamRegistry();
         engine = new Engine();
         validator = new DefaultValidator(
-            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 4, TIMEOUT_DURATION: 10})
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         statBoost = new StatBoosts(IEngine(address(engine)));
-        baselight = new Baselight(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
-        loop = new Loop(IEngine(address(engine)));
-        intrinsicValue = new IntrinsicValue(IEngine(address(engine)), baselight, statBoost);
-        statBoostMove = new StatBoostsMove(IEngine(address(engine)), statBoost);
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
+
+        // Deploy Iblivion contracts
+        baselight = new Baselight(IEngine(address(engine)));
+        brightback = new Brightback(IEngine(address(engine)), ITypeCalculator(address(typeCalc)), baselight);
+        unboundedStrike = new UnboundedStrike(IEngine(address(engine)), ITypeCalculator(address(typeCalc)), baselight);
+        loop = new Loop(IEngine(address(engine)), baselight, statBoost);
+        renormalize = new Renormalize(IEngine(address(engine)), baselight, statBoost, loop);
     }
 
-    /*
-    function test_intrinsicValueResetsDebuffsAndIncreasesBaselightLevel() public {
-        // Test all stat types
-        _testStatDebuffReset(MonStateIndexName.Attack);
-        _testStatDebuffReset(MonStateIndexName.Defense);
-        _testStatDebuffReset(MonStateIndexName.SpecialAttack);
-        _testStatDebuffReset(MonStateIndexName.SpecialDefense);
-        _testStatDebuffReset(MonStateIndexName.Speed);
-    }
-    */
+    // ============ Baselight Ability Tests ============
 
-    function _testStatDebuffReset(MonStateIndexName statType) internal {
-        // Create a team with a mon that has IntrinsicValue ability and Baselight move
-        IMoveSet[] memory aliceMoves = new IMoveSet[](1);
-        aliceMoves[0] = baselight;
+    function test_baselightStartsAtOneOnFirstSwitchIn() public {
+        // Create a mon with Baselight ability
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory aliceTeam = new Mon[](2);
+        aliceTeam[0] = mon;
+        aliceTeam[1] = mon;
+
+        Mon[] memory bobTeam = new Mon[](2);
+        bobTeam[0] = mon;
+        bobTeam[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Switch in mons
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Check that Baselight level is 1 (turn 0 doesn't increment)
+        uint256 baselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
+        assertEq(baselightLevel, 1, "Baselight should start at 1 on first switch in");
+    }
+
+    function test_baselightGainsOnePerRound() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Baselight starts at 1 (turn 0 doesn't increment)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should start at 1");
+
+        // After round 1, should be 2
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0
+        );
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should be 2 after round 1");
+
+        // After round 2, should be 3 (max)
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0
+        );
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should be 3 (max) after round 2");
+
+        // After round 3, should still be 3 (capped at max)
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0
+        );
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should stay at 3 (max)");
+    }
+
+    // ============ Brightback Tests ============
+
+    function test_brightbackHealsWithStack() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
 
         Mon memory aliceMon = Mon({
             stats: MonStats({
-                hp: 100,
-                stamina: 100,
+                hp: 1000,
+                stamina: 20,
                 speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon memory bobMon = Mon({
+            stats: MonStats({
+                hp: 10000,
+                stamina: 20,
+                speed: 50,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0))
+        });
+
+        Mon[] memory aliceTeam = new Mon[](2);
+        aliceTeam[0] = aliceMon;
+        aliceTeam[1] = aliceMon;
+
+        Mon[] memory bobTeam = new Mon[](2);
+        bobTeam[0] = bobMon;
+        bobTeam[1] = bobMon;
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Alice starts with 1 Baselight stack
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should start with 1 stack");
+
+        // Bob damages Alice first
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, 0, 0
+        );
+
+        // Get Alice's HP before Brightback
+        int32 aliceHpBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertTrue(aliceHpBefore < 0, "Alice should have taken damage");
+
+        // After round, Baselight is now 2 (gained 1 from round end)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should be 2 after round");
+
+        // Alice uses Brightback - should consume 1 stack and heal
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        // Check Baselight decreased by 1
+        // Note: After round ends, it gains 1 back, so net is same (2 - 1 + 1 = 2, but cap is 3)
+        uint256 afterBrightback = baselight.getBaselightLevel(battleKey, 0, 0);
+        assertEq(afterBrightback, 2, "Baselight should be 2 (consumed 1, gained 1 at round end)");
+
+        // Check Alice healed
+        int32 aliceHpAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertTrue(aliceHpAfter > aliceHpBefore, "Alice should have healed");
+    }
+
+    function test_brightbackNoHealWithoutStack() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(0)) // No Baselight ability, so no stacks
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // No Baselight stacks
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 0, "Should have 0 stacks without ability");
+
+        // Bob damages Alice
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, 0, 0
+        );
+
+        int32 aliceHpBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertTrue(aliceHpBefore < 0, "Alice should have taken damage");
+
+        // Alice uses Brightback - should NOT heal (no stacks)
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        int32 aliceHpAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(aliceHpAfter, aliceHpBefore, "Alice should not have healed without stacks");
+    }
+
+    // ============ Unbounded Strike Tests ============
+
+    function test_unboundedStrikeNormalPower() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory aliceMon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon memory bobMon = Mon({
+            stats: MonStats({
+                hp: 10000,
+                stamina: 20,
+                speed: 50,
                 attack: 100,
                 defense: 100,
                 specialAttack: 100,
@@ -98,489 +358,508 @@ contract IblivionTest is Test, BattleHelper {
                 type1: Type.Fire,
                 type2: Type.None
             }),
-            moves: aliceMoves,
-            ability: IAbility(address(intrinsicValue))
+            moves: moves,
+            ability: IAbility(address(0))
         });
 
-        // Create a StandardAttack that applies any debuff
-        IMoveSet[] memory bobMoves = new IMoveSet[](1);
-        bobMoves[0] = statBoostMove;
-
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 100,
-                stamina: 10,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0)) // No ability
-        });
-
-        // Set up teams
-        Mon[] memory aliceTeam = new Mon[](1);
+        Mon[] memory aliceTeam = new Mon[](2);
         aliceTeam[0] = aliceMon;
+        aliceTeam[1] = aliceMon;
 
-        Mon[] memory bobTeam = new Mon[](1);
+        Mon[] memory bobTeam = new Mon[](2);
         bobTeam[0] = bobMon;
+        bobTeam[1] = bobMon;
 
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
 
-        // Start a battle
         bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
 
-        // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Check that Alice's mon has the IntrinsicValue effect
-        (EffectInstance[] memory aliceEffects, ) = engine.getEffects(battleKey, 0, 0);
-        bool hasIntrinsicValueEffect = false;
-        for (uint256 i = 0; i < aliceEffects.length; i++) {
-            if (aliceEffects[i].effect == IEffect(address(intrinsicValue))) {
-                hasIntrinsicValueEffect = true;
-                break;
-            }
-        }
-        assertTrue(hasIntrinsicValueEffect, "Alice's mon should have IntrinsicValue effect");
+        // Alice has 1 stack (not 3), so normal power (80)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should have 1 stack");
 
-        // Get initial stat value
-        int32 statBefore = engine.getMonStateForBattle(battleKey, 0, 0, statType);
-
-        // Get initial Baselight level
-        uint256 baselightLevelBefore = baselight.getBaselightLevel(battleKey, 0, 0);
-
-        // Bob uses debuff attack on Alice's mon
-        // The debuff applies -1% to the specified stat, which then gets reset at end of round
-        uint240 debuffData = _packStatBoost(0, 0, uint256(statType), int32(-1));
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, 0, debuffData);
-
-        // Check that Alice's mon's stat debuff has been reset
-        int32 statAfterReset = engine.getMonStateForBattle(battleKey, 0, 0, statType);
-        assertEq(
-            statAfterReset,
-            statBefore,
-            string(abi.encodePacked("Stat debuff for ", _getStatName(statType), " should be reset"))
+        // Alice uses Unbounded Strike
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, 0, 0
         );
 
-        // Check that Baselight level has been increased
-        uint256 baselightLevelAfter = baselight.getBaselightLevel(battleKey, 0, 0);
-        assertEq(
-            baselightLevelAfter,
-            baselightLevelBefore + 1,
-            string(
-                abi.encodePacked(
-                    "Baselight level should be increased by 1 after resetting ", _getStatName(statType), " debuff"
-                )
-            )
-        );
+        int32 bobHpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        assertTrue(bobHpDelta < 0, "Bob should have taken damage");
+
+        // Stacks should NOT be consumed (still 1, but round end adds 1 = 2)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Stacks should not be consumed at < 3");
     }
 
-    // Helper function to get stat name for better error messages
-    function _getStatName(MonStateIndexName statType) internal pure returns (string memory) {
-        if (statType == MonStateIndexName.Attack) return "Attack";
-        if (statType == MonStateIndexName.Defense) return "Defense";
-        if (statType == MonStateIndexName.SpecialAttack) return "SpecialAttack";
-        if (statType == MonStateIndexName.SpecialDefense) return "SpecialDefense";
-        if (statType == MonStateIndexName.Speed) return "Speed";
-        return "Unknown";
-    }
-
-    function test_baselightSequentialUse() public {
-        // Create a team with a mon that has Baselight move and high HP
-        IMoveSet[] memory aliceMoves = new IMoveSet[](1);
-        aliceMoves[0] = baselight;
+    function test_unboundedStrikeEmpoweredPower() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
 
         Mon memory aliceMon = Mon({
             stats: MonStats({
                 hp: 1000,
                 stamina: 20,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
                 type2: Type.None
             }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
+            moves: moves,
+            ability: IAbility(address(baselight))
         });
-
-        // Create a mon with high HP to receive damage
-        IMoveSet[] memory bobMoves = new IMoveSet[](1);
-        bobMoves[0] = statBoostMove; // Just a placeholder move
 
         Mon memory bobMon = Mon({
             stats: MonStats({
                 hp: 10000,
                 stamina: 20,
-                speed: 5, // Lower speed so Alice goes first
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
+                speed: 50,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
                 type1: Type.Fire,
                 type2: Type.None
             }),
-            moves: bobMoves,
-            ability: IAbility(address(0)) // No ability
+            moves: moves,
+            ability: IAbility(address(0))
         });
 
-        // Set up teams
-        Mon[] memory aliceTeam = new Mon[](1);
+        Mon[] memory aliceTeam = new Mon[](2);
         aliceTeam[0] = aliceMon;
+        aliceTeam[1] = aliceMon;
 
-        Mon[] memory bobTeam = new Mon[](1);
+        Mon[] memory bobTeam = new Mon[](2);
         bobTeam[0] = bobMon;
+        bobTeam[1] = bobMon;
 
         defaultRegistry.setTeam(ALICE, aliceTeam);
         defaultRegistry.setTeam(BOB, bobTeam);
 
-        // Start a battle
         bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
 
-        // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Use Baselight sequentially and verify damage and stamina cost
-        for (uint256 i = 0; i < baselight.MAX_BASELIGHT_LEVEL(); i++) {
-            // Get current Baselight level before the move
-            uint256 currentBaselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
-            assertEq(
-                currentBaselightLevel,
-                i,
-                string(abi.encodePacked("Baselight level should be ", vm.toString(i), " before move"))
-            );
+        // Wait for 3 stacks (start at 1, need 2 more rounds)
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
 
-            // Get current stamina before the move
-            int32 aliceStaminaBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should have 3 stacks");
 
-            // Get Bob's HP before the move
-            int32 bobHpBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        // Get Bob's HP before
+        int32 bobHpBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
 
-            // Alice uses Baselight, Bob uses NO_OP
-            _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
-
-            // Get new Baselight level after the move
-            uint256 newBaselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
-            assertEq(
-                newBaselightLevel,
-                i + 1,
-                string(abi.encodePacked("Baselight level should be ", vm.toString(i + 1), " after move"))
-            );
-
-            // Get stamina after the move
-            int32 aliceStaminaAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
-
-            // Verify stamina cost (should be equal to the Baselight level before the move)
-            int32 expectedStaminaCost = int32(int256(currentBaselightLevel));
-            assertEq(
-                aliceStaminaBefore - aliceStaminaAfter,
-                expectedStaminaCost,
-                string(
-                    abi.encodePacked(
-                        "Stamina cost should be ",
-                        vm.toString(uint256(uint32(expectedStaminaCost))),
-                        " at level ",
-                        vm.toString(currentBaselightLevel)
-                    )
-                )
-            );
-
-            // Get Bob's HP after the move
-            int32 bobHpAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
-            uint32 expectedBasePower =
-                baselight.BASE_POWER() + (uint32(currentBaselightLevel) * baselight.BASELIGHT_LEVEL_BOOST());
-            uint32 damageDealt = uint32(bobHpBefore - bobHpAfter);
-            assertApproxEqRel(
-                damageDealt,
-                expectedBasePower,
-                2e17,
-                string(
-                    abi.encodePacked(
-                        "Damage dealt should be ",
-                        vm.toString(expectedBasePower),
-                        " at level ",
-                        vm.toString(currentBaselightLevel)
-                    )
-                )
-            );
-        }
-
-        // Do it one more time and verify that Baselight does not go up more
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
-
-        uint256 finalBaselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
-        assertEq(finalBaselightLevel, baselight.MAX_BASELIGHT_LEVEL(), "Baselight level should not exceed max level");
-    }
-
-    function test_loop() public {
-        // Create a new validator with 2 moves per mon
-        DefaultValidator twoMovesValidator = new DefaultValidator(
-            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
-        );
-
-        // Create a StandardAttack with 5 stamina cost but 0 damage
-        StandardAttack highStaminaAttack = attackFactory.createAttack(
-            ATTACK_PARAMS({
-                BASE_POWER: 0, // No damage
-                STAMINA_COST: 5, // High stamina cost
-                ACCURACY: 100,
-                PRIORITY: 0,
-                MOVE_TYPE: Type.Fire,
-                EFFECT_ACCURACY: 0,
-                MOVE_CLASS: MoveClass.Physical,
-                CRIT_RATE: 0,
-                VOLATILITY: 0,
-                NAME: "Stamina Drain",
-                EFFECT: IEffect(address(0))
-            })
-        );
-
-        // Create a team with a mon that has Loop move and the high stamina cost attack
-        IMoveSet[] memory aliceMoves = new IMoveSet[](2);
-        aliceMoves[0] = highStaminaAttack;
-        aliceMoves[1] = loop;
-
-        Mon memory aliceMon = Mon({
-            stats: MonStats({
-                hp: 100,
-                stamina: 6,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: aliceMoves,
-            ability: IAbility(address(0))
-        });
-
-        // Create a mon for Bob
-        IMoveSet[] memory bobMoves = new IMoveSet[](2);
-        bobMoves[0] = statBoostMove; // Just a placeholder move
-        bobMoves[1] = statBoostMove; // Just a placeholder move
-
-        Mon memory bobMon = Mon({
-            stats: MonStats({
-                hp: 100,
-                stamina: 10,
-                speed: 5, // Lower speed so Alice goes first
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: bobMoves,
-            ability: IAbility(address(0)) // No ability
-        });
-
-        // Set up teams
-        Mon[] memory aliceTeam = new Mon[](1);
-        aliceTeam[0] = aliceMon;
-
-        Mon[] memory bobTeam = new Mon[](1);
-        bobTeam[0] = bobMon;
-
-        defaultRegistry.setTeam(ALICE, aliceTeam);
-        defaultRegistry.setTeam(BOB, bobTeam);
-
-        // Start a battle
-        bytes32 battleKey = _startBattle(twoMovesValidator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
-
-        // First move: Both players select their first mon (index 0)
+        // Alice uses Unbounded Strike at 3 stacks - empowered (130 power)
         _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+            engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, 0, 0
         );
 
-        // Alice uses high stamina cost attack, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
+        int32 bobHpAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        int32 damageDealt = bobHpBefore - bobHpAfter;
+        assertTrue(damageDealt > 0, "Bob should have taken damage");
 
-        // Get the stamina delta (staminaDelta is stored in the Stamina field)
-        int32 staminaDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
-        assertEq(staminaDelta, -5, "Stamina should be 0 after using high stamina cost attack");
-
-        // Alice uses Loop, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, 0, 0);
-
-        // Check that Alice's mon's stamina delta is reset
-        int32 staminaDeltaAfterLoop = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
-        assertEq(staminaDeltaAfterLoop, 0, "Stamina delta should be reset to 0 after using Loop");
+        // All stacks consumed (but round end adds 1, so should be 1)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Stacks should be consumed to 0 then gain 1 at round end");
     }
 
-    function test_firstResort() public {
-        // Create a new validator with 2 moves per mon
-        DefaultValidator validatorToUse = new DefaultValidator(
-            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 2, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
-        );
+    // ============ Loop Tests ============
 
-        // Deploy First Resort
-        FirstResort firstResort = new FirstResort(engine, typeCalc, baselight);
-
-        // Set up moves array
-        IMoveSet[] memory moves = new IMoveSet[](2);
-        moves[0] = baselight;
-        moves[1] = firstResort;
-
-        Mon memory firstResortMon = Mon({
-            stats: MonStats({
-                hp: 1,
-                stamina: 6,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(0))
-        });
-        Mon memory fastMon = Mon({
-            stats: MonStats({
-                hp: 1000,
-                stamina: 6,
-                speed: 100, // Much faster than alice
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(0))
-        });
-
-        Mon[] memory team = new Mon[](2);
-        team[0] = firstResortMon;
-        team[1] = firstResortMon;
-        Mon[] memory fastTeam = new Mon[](2);
-        fastTeam[0] = fastMon;
-        fastTeam[1] = fastMon;
-
-        defaultRegistry.setTeam(ALICE, team);
-        defaultRegistry.setTeam(BOB, fastTeam);
-
-        // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
-
-        // First move: Both players select their first mon (index 0)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
-        );
-
-        // Alice chooses move index 1 (First Resort), Bob chooses move index 0 (Baselight)
-        // Bob should move first and KO Alice's mon index 0 without taking damage
-        // (even though both choose to attack)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, 0, uint240(0), uint240(0));
-
-        // Assert Bob's mon index 0's HP delta is also 0 (Bob took no damage)
-        int32 hpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
-        assertEq(hpDelta, 0, "Bob should have taken zero damage");
-
-        // Alice swaps in mon index 1
-        vm.startPrank(ALICE);
-        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, 0, uint240(1), true);
-
-        // Alice levels up Baselight to level 2, Bob does nothing
-        for (uint256 i; i < firstResort.BASELIGHT_THRESHOLD(); i++) {
-            _commitRevealExecuteForAliceAndBob(
-                engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, uint240(0), uint240(0)
-            );
-        }
-
-        // Assert that Bob has taken damage
-        hpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
-        assertGt(0, hpDelta, "Bob should have taken damage now");
-    }
-
-    function test_brightback() public {
-        // Create a new validator with 2 moves per mon
-        DefaultValidator validatorToUse = new DefaultValidator(
-            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
-        );
-
-        Brightback brightback = new Brightback(engine, typeCalc, baselight);
-
-        // Set up moves array
-        IMoveSet[] memory moves = new IMoveSet[](2);
-        moves[0] = baselight;
-        moves[1] = brightback;
+    function test_loopAppliesStatBoosts() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
 
         Mon memory mon = Mon({
             stats: MonStats({
                 hp: 1000,
-                stamina: 6,
-                speed: 10,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 10,
-                type1: Type.Fire,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
                 type2: Type.None
             }),
             moves: moves,
-            ability: IAbility(address(0))
+            ability: IAbility(address(baselight))
         });
 
-        Mon[] memory team = new Mon[](1);
+        Mon[] memory team = new Mon[](2);
         team[0] = mon;
+        team[1] = mon;
 
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
 
-        // Start a battle
-        bytes32 battleKey = _startBattle(validatorToUse, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
 
-        // First move: Both players select their first mon (index 0)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Bob deals damage to Alice, Alice does nothing
+        // At Baselight 1, Loop should give 15% boost
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should have 1 stack");
+
+        // Get stats before Loop
+        int32 attackBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+
+        // Alice uses Loop
         _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, uint240(0), uint240(0)
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
         );
 
-        // Alice does Brightback, no hp should be regained
-        int32 aliceDamageBefore = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        // Check stats are boosted (15% of 100 = 15)
+        int32 attackAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(attackAfter - attackBefore, 15, "Attack should be boosted by 15%");
+
+        // Loop should be marked as active
+        assertTrue(loop.isLoopActive(battleKey, 0, 0), "Loop should be active");
+    }
+
+    function test_loopFailsIfAlreadyActive() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
         _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, uint240(0), uint240(0)
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
-        int32 aliceDamageAfter = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
-        assertEq(aliceDamageBefore, aliceDamageAfter, "No healing yet, Baselight is lv 0");
 
-        // Alice levels up Baselight, Bob does nothing
-        for (uint256 i; i < brightback.BASELIGHT_THRESHOLD(); i++) {
-            _commitRevealExecuteForAliceAndBob(
-                engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, uint240(0), uint240(0)
-            );
-        }
-
-        // Get hp beforehand
-        aliceDamageBefore = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
-
-        // Alice uses Brightback, should heal some HP, Bob does nothing
+        // Alice uses Loop first time
         _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, uint240(0), uint240(0)
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
         );
-        aliceDamageAfter = -1 * engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
-        assertGt(aliceDamageBefore, aliceDamageAfter, "Alice should have healed");
+
+        int32 attackAfterFirst = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertTrue(loop.isLoopActive(battleKey, 0, 0), "Loop should be active");
+
+        // Alice uses Loop second time - should fail
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        int32 attackAfterSecond = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(attackAfterSecond, attackAfterFirst, "Attack should not change when Loop fails");
+    }
+
+    function test_loopBoostPercentages() public {
+        // Test that Loop gives correct boosts at different Baselight levels
+        // Level 1: 15%, Level 2: 30%, Level 3: 40%
+
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Wait for 3 stacks
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
+
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should have 3 stacks");
+
+        // Get stats before Loop
+        int32 attackBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+
+        // Alice uses Loop at level 3 - should get 40% boost
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        int32 attackAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(attackAfter - attackBefore, 40, "Attack should be boosted by 40% at level 3");
+    }
+
+    // ============ Renormalize Tests ============
+
+    function test_renormalizeSetsBaselightToThree() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Start at 1 stack
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should have 1 stack");
+
+        // Alice uses Renormalize
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 3, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        // Should be at 3 stacks (set to 3, then capped at max even with round end)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Baselight should be set to 3");
+    }
+
+    function test_renormalizeClearsStatBoosts() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Alice uses Loop to get stat boosts
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        int32 attackBoosted = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertTrue(attackBoosted > 0, "Attack should be boosted");
+
+        // Alice uses Renormalize - should clear stat boosts
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 3, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        int32 attackAfterRenormalize = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(attackAfterRenormalize, 0, "Attack boost should be cleared");
+    }
+
+    function test_renormalizeClearsLoopActive() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory mon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory team = new Mon[](2);
+        team[0] = mon;
+        team[1] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Alice uses Loop
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        assertTrue(loop.isLoopActive(battleKey, 0, 0), "Loop should be active");
+
+        // Alice uses Renormalize
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 3, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        assertFalse(loop.isLoopActive(battleKey, 0, 0), "Loop should no longer be active");
+
+        // Alice can use Loop again
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        int32 attackBoosted = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertTrue(attackBoosted > 0, "Attack should be boosted again after Renormalize");
+    }
+
+    function test_renormalizeHasLowerPriority() public {
+        // Renormalize should have -1 priority (DEFAULT_PRIORITY - 1 = 2)
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = brightback;
+        moves[1] = unboundedStrike;
+        moves[2] = loop;
+        moves[3] = renormalize;
+
+        Mon memory fastMon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100,
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon memory slowMon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 10, // Much slower
+                attack: 100,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: moves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon[] memory aliceTeam = new Mon[](2);
+        aliceTeam[0] = fastMon;
+        aliceTeam[1] = fastMon;
+
+        Mon[] memory bobTeam = new Mon[](2);
+        bobTeam[0] = slowMon;
+        bobTeam[1] = slowMon;
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Check priority
+        uint32 renomalPriority = renormalize.priority(battleKey, 0);
+        assertEq(renomalPriority, DEFAULT_PRIORITY - 1, "Renormalize should have -1 priority");
     }
 }

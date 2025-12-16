@@ -13,9 +13,14 @@ import {ITypeCalculator} from "../../types/ITypeCalculator.sol";
 
 import {Baselight} from "./Baselight.sol";
 
+/**
+ * Brightback Move for Iblivion
+ * - Power: 70, Stamina: 2, Type: Yin, Class: Physical
+ * - Consumes 1 Baselight stack to heal for 50% of damage dealt
+ * - If no Baselight stack available, still deals damage but doesn't heal
+ */
 contract Brightback is IMoveSet {
     uint32 public constant BASE_POWER = 70;
-    uint256 public constant BASELIGHT_THRESHOLD = 2;
 
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
@@ -38,15 +43,22 @@ contract Brightback is IMoveSet {
             battleKey,
             attackerPlayerIndex,
             BASE_POWER,
-            DEFAULT_ACCURACY, // 100%
+            DEFAULT_ACCURACY,
             DEFAULT_VOL,
             moveType(battleKey),
             moveClass(battleKey),
             rng,
             DEFAULT_CRIT_RATE
         );
+
         uint256 monIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
-        if (BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex) >= BASELIGHT_THRESHOLD) {
+        uint256 baselightLevel = BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex);
+
+        // Only heal if we have at least 1 Baselight stack
+        if (baselightLevel >= 1) {
+            // Consume 1 Baselight stack
+            BASELIGHT.decreaseBaselightLevel(attackerPlayerIndex, monIndex, 1);
+
             // Heal for half of damage done
             int32 healAmount = damageDealt / 2;
             int32 hpDelta = ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, monIndex, MonStateIndexName.Hp);
@@ -74,7 +86,7 @@ contract Brightback is IMoveSet {
     }
 
     function moveClass(bytes32) public pure returns (MoveClass) {
-        return MoveClass.Special;
+        return MoveClass.Physical;
     }
 
     function isValidTarget(bytes32, uint240) external pure returns (bool) {
