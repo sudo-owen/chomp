@@ -12,7 +12,7 @@ import {IEffect} from "../../effects/IEffect.sol";
 /**
  * Baselight Ability for Iblivion
  * - Starts at 1 stack when the mon first switches in (only on first switch-in of the game)
- * - Gains 1 stack at the end of each turn (except turn 0), up to a max of 3
+ * - Gains 1 stack at the end of each turn, up to a max of 3
  */
 contract Baselight is IAbility, BasicEffect {
     uint256 public constant MAX_BASELIGHT_LEVEL = 3;
@@ -78,8 +78,7 @@ contract Baselight is IAbility, BasicEffect {
         }
 
         // Add the effect to track round ends
-        // Use extraData = 1 to skip the first round end (turn 0)
-        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(uint256(1)));
+        ENGINE.addEffect(playerIndex, monIndex, IEffect(address(this)), bytes32(0));
     }
 
     // IEffect implementation - should run at end of round
@@ -92,11 +91,6 @@ contract Baselight is IAbility, BasicEffect {
         override
         returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        // Skip increment on turn 0 (when extraData == 1)
-        if (uint256(extraData) == 1) {
-            return (bytes32(uint256(0)), false);
-        }
-
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         uint256 currentLevel = getBaselightLevel(battleKey, targetIndex, monIndex);
         if (currentLevel < MAX_BASELIGHT_LEVEL) {

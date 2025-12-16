@@ -15,13 +15,15 @@ import {Baselight} from "./Baselight.sol";
 
 /**
  * Unbounded Strike Move for Iblivion
- * - Stamina: 2, Type: Yin, Class: Physical
- * - If at 3 Baselight stacks: Power 130, consumes all 3 stacks
- * - Otherwise: Power 80, consumes nothing
+ * - Type: Yin, Class: Physical
+ * - If at 3 Baselight stacks: Power 130, Stamina 1, consumes all 3 stacks
+ * - Otherwise: Power 80, Stamina 2, consumes nothing
  */
 contract UnboundedStrike is IMoveSet {
     uint32 public constant BASE_POWER = 80;
     uint32 public constant EMPOWERED_POWER = 130;
+    uint32 public constant BASE_STAMINA = 2;
+    uint32 public constant EMPOWERED_STAMINA = 1;
     uint256 public constant REQUIRED_STACKS = 3;
 
     IEngine immutable ENGINE;
@@ -67,8 +69,12 @@ contract UnboundedStrike is IMoveSet {
         );
     }
 
-    function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 2;
+    function stamina(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 monIndex) external view returns (uint32) {
+        uint256 baselightLevel = BASELIGHT.getBaselightLevel(battleKey, attackerPlayerIndex, monIndex);
+        if (baselightLevel >= REQUIRED_STACKS) {
+            return EMPOWERED_STAMINA;
+        }
+        return BASE_STAMINA;
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {

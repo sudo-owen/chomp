@@ -24,6 +24,9 @@ import {Baselight} from "./Baselight.sol";
  */
 contract Loop is IMoveSet {
     string public constant LOOP_KEY = "Loop";
+    uint8 public constant BOOST_PERCENT_LEVEL_1 = 15;
+    uint8 public constant BOOST_PERCENT_LEVEL_2 = 30;
+    uint8 public constant BOOST_PERCENT_LEVEL_3 = 40;
 
     IEngine immutable ENGINE;
     Baselight immutable BASELIGHT;
@@ -53,11 +56,11 @@ contract Loop is IMoveSet {
 
     function _getBoostPercent(uint256 baselightLevel) internal pure returns (uint8) {
         if (baselightLevel >= 3) {
-            return 40;
+            return BOOST_PERCENT_LEVEL_3;
         } else if (baselightLevel == 2) {
-            return 30;
+            return BOOST_PERCENT_LEVEL_2;
         } else if (baselightLevel == 1) {
-            return 15;
+            return BOOST_PERCENT_LEVEL_1;
         } else {
             return 0;
         }

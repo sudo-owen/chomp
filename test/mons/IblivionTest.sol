@@ -114,9 +114,9 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Check that Baselight level is 1 (turn 0 doesn't increment)
+        // Check that Baselight level is 2 (1 from switch-in + 1 from round end)
         uint256 baselightLevel = baselight.getBaselightLevel(battleKey, 0, 0);
-        assertEq(baselightLevel, 1, "Baselight should start at 1 on first switch in");
+        assertEq(baselightLevel, 2, "Baselight should be 2 after first switch in (1 initial + 1 from round end)");
     }
 
     function test_baselightGainsOnePerRound() public {
@@ -155,22 +155,16 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Baselight starts at 1 (turn 0 doesn't increment)
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should start at 1");
+        // Baselight starts at 2 (1 from switch + 1 from round end)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should start at 2 after switch-in round");
 
-        // After round 1, should be 2
+        // After one more round, should be 3 (max)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0
         );
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should be 2 after round 1");
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should be 3 (max) after one more round");
 
-        // After round 2, should be 3 (max)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0
-        );
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should be 3 (max) after round 2");
-
-        // After round 3, should still be 3 (capped at max)
+        // After another round, should still be 3 (capped at max)
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0
         );
@@ -235,8 +229,8 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Alice starts with 1 Baselight stack
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should start with 1 stack");
+        // Alice starts with 2 Baselight stacks (1 from switch + 1 from round end)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should start with 2 stacks");
 
         // Bob damages Alice first
         _commitRevealExecuteForAliceAndBob(
@@ -247,18 +241,17 @@ contract IblivionTest is Test, BattleHelper {
         int32 aliceHpBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
         assertTrue(aliceHpBefore < 0, "Alice should have taken damage");
 
-        // After round, Baselight is now 2 (gained 1 from round end)
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should be 2 after round");
+        // After round, Baselight is now 3 (max)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should be 3 (max) after round");
 
         // Alice uses Brightback - should consume 1 stack and heal
         _commitRevealExecuteForAliceAndBob(
             engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0
         );
 
-        // Check Baselight decreased by 1
-        // Note: After round ends, it gains 1 back, so net is same (2 - 1 + 1 = 2, but cap is 3)
+        // Check Baselight decreased by 1 (3 - 1 = 2, then +1 at round end = 3 max)
         uint256 afterBrightback = baselight.getBaselightLevel(battleKey, 0, 0);
-        assertEq(afterBrightback, 2, "Baselight should be 2 (consumed 1, gained 1 at round end)");
+        assertEq(afterBrightback, 3, "Baselight should be 3 (consumed 1 from 3, gained 1 at round end, capped at 3)");
 
         // Check Alice healed
         int32 aliceHpAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
@@ -379,8 +372,8 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Alice has 1 stack (not 3), so normal power (80)
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should have 1 stack");
+        // Alice has 2 stacks (not 3), so normal power (80)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should have 2 stacks");
 
         // Alice uses Unbounded Strike
         _commitRevealExecuteForAliceAndBob(
@@ -390,8 +383,8 @@ contract IblivionTest is Test, BattleHelper {
         int32 bobHpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
         assertTrue(bobHpDelta < 0, "Bob should have taken damage");
 
-        // Stacks should NOT be consumed (still 1, but round end adds 1 = 2)
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Stacks should not be consumed at < 3");
+        // Stacks should NOT be consumed (still 2, but round end adds 1 = 3 max)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Stacks should not be consumed at < 3, capped at 3 after round end");
     }
 
     function test_unboundedStrikeEmpoweredPower() public {
@@ -450,8 +443,7 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Wait for 3 stacks (start at 1, need 2 more rounds)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
+        // Wait for 3 stacks (start at 2, need 1 more round)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
 
         assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should have 3 stacks");
@@ -510,8 +502,8 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // At Baselight 1, Loop should give 15% boost
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should have 1 stack");
+        // At Baselight 2, Loop should give 30% boost
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should have 2 stacks");
 
         // Get stats before Loop
         int32 attackBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
@@ -521,9 +513,9 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, 2, NO_OP_MOVE_INDEX, 0, 0
         );
 
-        // Check stats are boosted (15% of 100 = 15)
+        // Check stats are boosted (30% of 100 = 30)
         int32 attackAfter = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
-        assertEq(attackAfter - attackBefore, 15, "Attack should be boosted by 15%");
+        assertEq(attackAfter - attackBefore, 30, "Attack should be boosted by 30%");
 
         // Loop should be marked as active
         assertTrue(loop.isLoopActive(battleKey, 0, 0), "Loop should be active");
@@ -621,8 +613,7 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Wait for 3 stacks
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
+        // Wait for 3 stacks (start at 2, need 1 more round)
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
 
         assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 3, "Should have 3 stacks");
@@ -677,8 +668,8 @@ contract IblivionTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Start at 1 stack
-        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 1, "Should have 1 stack");
+        // Start at 2 stacks (1 initial + 1 from round end)
+        assertEq(baselight.getBaselightLevel(battleKey, 0, 0), 2, "Should have 2 stacks");
 
         // Alice uses Renormalize
         _commitRevealExecuteForAliceAndBob(
