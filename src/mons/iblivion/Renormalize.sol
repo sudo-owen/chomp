@@ -55,7 +55,6 @@ contract Renormalize is IMoveSet {
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {
-        // -1 priority means below normal (DEFAULT_PRIORITY is 3, so we use 2)
         return DEFAULT_PRIORITY - 1;
     }
 

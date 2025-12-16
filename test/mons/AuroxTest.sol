@@ -38,7 +38,7 @@ import {VolatilePunch} from "../../src/mons/aurox/VolatilePunch.sol";
         - Bull Rush correctly deals SELF_DAMAGE_PERCENT of max hp to self [x]
         - Gilded Recovery heals for HEAL_PERCENT of max hp if there is a status effect [x]
         - Gilded Recovery gives +1 stamina if there is a status effect [x]
-        - Iron Wall correctly heals damage dealt until end of next turn [x]
+        - Iron Wall correctly heals damage dealt until mon switches out [x]
         - Up Only correctly boosts on damage, and it stays on switch in/out [x]
         - Volatile Punch correctly deals damage and can trigger status effects
             - rng of 2 should trigger frostbite
@@ -240,6 +240,11 @@ contract AuroxTest is Test, BattleHelper {
         }
     }
 
+    /**
+     * Iron Wall heals 50% of damage taken while active.
+     * Effect persists across multiple hits until mon switches out.
+     * Verifies: reduced damage on first hit, effect still active, reduced damage on second hit, effect cleared on switch out.
+     */
     function test_ironWallHealsDamage() public {
         uint32 maxHp = 100;
 
@@ -267,11 +272,14 @@ contract AuroxTest is Test, BattleHelper {
         Mon memory mon = _createMon();
         mon.moves = moves;
         mon.stats.hp = maxHp;
-        Mon[] memory fastTeam = new Mon[](1);
+        Mon[] memory fastTeam = new Mon[](2);
         fastTeam[0] = mon;
         fastTeam[0].stats.speed = 2;
-        Mon[] memory slowTeam = new Mon[](1);
+        fastTeam[1] = mon;
+        fastTeam[1].stats.speed = 2;
+        Mon[] memory slowTeam = new Mon[](2);
         slowTeam[0] = mon;
+        slowTeam[1] = mon;
 
         defaultRegistry.setTeam(ALICE, fastTeam);
         defaultRegistry.setTeam(BOB, slowTeam);
@@ -289,18 +297,40 @@ contract AuroxTest is Test, BattleHelper {
 
         // Alice uses Iron Wall, Bob does nothing
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
-        
+
         // Alice does nothing, Bob attacks
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, 0, 0);
 
-        // Verify that Alice's mon index 0 has taken damage (should be the basePower of the move multiplied by 100 - the heal percent)
+        // Verify that Alice's mon index 0 has taken reduced damage (basePower * (100 - heal percent) / 100)
         int32 aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
-        assertEq(aliceDamage, -1 * int32(attack.basePower(battleKey)) * int32(100 - ironWall.HEAL_PERCENT()) / 100, "Alice's mon should take reduced damage");
+        int32 expectedDamagePerHit = -1 * int32(attack.basePower(battleKey)) * int32(100 - ironWall.HEAL_PERCENT()) / 100;
+        assertEq(aliceDamage, expectedDamagePerHit, "Alice's mon should take reduced damage");
 
-        // Verify that the effect is gone
+        // Verify that the effect is still active (clears on switch out, not after activation)
         (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
+        bool hasIronWall = false;
         for (uint256 i = 0; i < effects.length; i++) {
-            assertNotEq(address(effects[i].effect), address(ironWall), "Alice's mon should no longer have Iron Wall");
+            if (address(effects[i].effect) == address(ironWall)) {
+                hasIronWall = true;
+                break;
+            }
+        }
+        assertTrue(hasIronWall, "Alice's mon should still have Iron Wall effect");
+
+        // Bob attacks again, Alice still has Iron Wall active
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, 0, 0);
+
+        // Verify that Alice's mon takes reduced damage again (cumulative)
+        aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(aliceDamage, expectedDamagePerHit * 2, "Alice's mon should take reduced damage on second hit");
+
+        // Alice switches to mon index 1, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, uint240(1), 0);
+
+        // Verify that the Iron Wall effect is now gone after switch out
+        (effects, ) = engine.getEffects(battleKey, 0, 0);
+        for (uint256 i = 0; i < effects.length; i++) {
+            assertNotEq(address(effects[i].effect), address(ironWall), "Alice's mon should no longer have Iron Wall after switch out");
         }
     }
 

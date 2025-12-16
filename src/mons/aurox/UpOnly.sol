@@ -13,7 +13,7 @@ import {StatBoosts} from "../../effects/StatBoosts.sol";
 
 contract UpOnly is IAbility, BasicEffect {
 
-    uint8 public constant ATTACK_BOOST_PERCENT = 5; // 5% attack boost per hit
+    uint8 public constant ATTACK_BOOST_PERCENT = 10; // 10% attack boost per hit
 
     IEngine immutable ENGINE;
     StatBoosts immutable STAT_BOOSTS;

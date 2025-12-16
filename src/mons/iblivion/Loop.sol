@@ -119,7 +119,7 @@ contract Loop is IMoveSet {
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
-        return 0;
+        return 1;
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {

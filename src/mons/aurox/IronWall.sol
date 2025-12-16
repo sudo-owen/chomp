@@ -11,9 +11,7 @@ import {IEffect} from "../../effects/IEffect.sol";
 import {IMoveSet} from "../../moves/IMoveSet.sol";
 
 contract IronWall is IMoveSet, BasicEffect {
-    uint256 public constant REMOVE = 0;
-    uint256 public constant DO_NOT_REMOVE = 1;
-
+    
     int32 public constant HEAL_PERCENT = 50;
 
     IEngine immutable ENGINE;
@@ -29,10 +27,8 @@ contract IronWall is IMoveSet, BasicEffect {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, uint240, uint256) external {
         // Get the active mon index
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
-
-        // Add the effect to Aurox with the activation turn stored in extraData
-        // The effect will last until the end of turn (currentTurn + 1)
-        ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, IEffect(address(this)), bytes32(DO_NOT_REMOVE));
+        // The effect will last until Aurox switches out
+        ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, IEffect(address(this)), bytes32(0));
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -61,16 +57,7 @@ contract IronWall is IMoveSet, BasicEffect {
 
     // IEffect implementation
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {
-        return (step == EffectStep.AfterDamage || step == EffectStep.RoundEnd || step == EffectStep.RoundStart);
-    }
-
-    function onRoundStart(uint256, bytes32, uint256, uint256)
-        external
-        pure
-        override
-        returns (bytes32 updatedExtraData, bool removeAfterRun)
-    {
-        return (bytes32(REMOVE), false);
+        return (step == EffectStep.AfterDamage || step == EffectStep.OnMonSwitchOut);
     }
 
     function onAfterDamage(uint256, bytes32 extraData, uint256 targetIndex, uint256 monIndex, int32 damageDealt)
@@ -92,20 +79,12 @@ contract IronWall is IMoveSet, BasicEffect {
         return (extraData, false);
     }
 
-    function onRoundEnd(uint256, bytes32 extraData, uint256, uint256)
+    function onMonSwitchOut(uint256, bytes32, uint256, uint256)
         external
         pure
         override
         returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
-        // Decode the remove flag
-        uint256 removeFlag = uint256(extraData);
-
-        // Remove the effect at the end of next full turn
-        if (removeFlag == REMOVE) {
-            return (extraData, true);
-        }
-
-        return (extraData, false);
+        return (bytes32(0), true);
     }
 }

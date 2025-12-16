@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {EffectStep, MonStateIndexName, StatBoostFlag, StatBoostType} from "../Enums.sol";
-import {EffectInstance, MonStats, StatBoostToApply, StatBoostUpdate} from "../Structs.sol";
+import {EffectInstance, MonStats, StatBoostToApply} from "../Structs.sol";
 
 import {IEngine} from "../IEngine.sol";
 import {BasicEffect} from "./BasicEffect.sol";

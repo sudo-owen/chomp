@@ -82,7 +82,7 @@ contract UnboundedStrike is IMoveSet {
     }
 
     function moveType(bytes32) public pure returns (Type) {
-        return Type.Yin;
+        return Type.Air;
     }
 
     function moveClass(bytes32) public pure returns (MoveClass) {

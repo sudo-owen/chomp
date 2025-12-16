@@ -12,7 +12,7 @@ import {IValidator} from "../IValidator.sol";
 import {NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX} from "../Constants.sol";
 
 import {ExtraDataType} from "../Enums.sol";
-import {BattleConfig, BattleState, Battle, ProposedBattle, RevealedMove} from "../Structs.sol";
+import {Battle, ProposedBattle, RevealedMove} from "../Structs.sol";
 
 abstract contract CPU is CPUMoveManager, ICPU, ICPURNG, IMatchmaker {
     uint256 private immutable NUM_MOVES;

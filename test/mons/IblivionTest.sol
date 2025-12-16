@@ -8,16 +8,13 @@ import {Test} from "forge-std/Test.sol";
 
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
 import {Engine} from "../../src/Engine.sol";
-import {MonStateIndexName, MoveClass, Type} from "../../src/Enums.sol";
+import {MonStateIndexName, Type} from "../../src/Enums.sol";
 import {DefaultValidator} from "../../src/DefaultValidator.sol";
 import {IEngine} from "../../src/IEngine.sol";
 import {IAbility} from "../../src/abilities/IAbility.sol";
-import {IEffect} from "../../src/effects/IEffect.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
-import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";
 import {BattleHelper} from "../abstract/BattleHelper.sol";
 import {MockRandomnessOracle} from "../mocks/MockRandomnessOracle.sol";
@@ -30,6 +27,12 @@ import {Brightback} from "../../src/mons/iblivion/Brightback.sol";
 import {UnboundedStrike} from "../../src/mons/iblivion/UnboundedStrike.sol";
 import {Loop} from "../../src/mons/iblivion/Loop.sol";
 import {Renormalize} from "../../src/mons/iblivion/Renormalize.sol";
+import {BurnStatus} from "../../src/effects/status/BurnStatus.sol";
+import {IEffect} from "../../src/effects/IEffect.sol";
+import {MoveClass} from "../../src/Enums.sol";
+import {StandardAttack} from "../../src/moves/StandardAttack.sol";
+import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
+import {MockEffectRemover} from "../mocks/MockEffectRemover.sol";
 
 contract IblivionTest is Test, BattleHelper {
     Engine engine;
@@ -852,5 +855,166 @@ contract IblivionTest is Test, BattleHelper {
         // Check priority
         uint32 renomalPriority = renormalize.priority(battleKey, 0);
         assertEq(renomalPriority, DEFAULT_PRIORITY - 1, "Renormalize should have -1 priority");
+    }
+
+    /**
+     * Tests Renormalize interaction with status effect stat boosts:
+     * 1. Iblivion gets burned (BurnStatus applies a permanent attack debuff via StatBoosts)
+     * 2. Iblivion uses Renormalize (clears ALL stat boosts including burn's attack debuff)
+     * 3. MockEffectRemover removes the burn status (burn's onRemove tries to call removeStatBoosts)
+     * 4. Verify: removeStatBoosts silently fails (no revert) because Renormalize already cleared it
+     * 5. Verify: stats remain at base values (no change from the failed removal attempt)
+     */
+    function test_renormalizeClearsStatusEffectStatBoosts() public {
+        BurnStatus burnStatus = new BurnStatus(IEngine(address(engine)), statBoost);
+        MockEffectRemover effectRemover = new MockEffectRemover(IEngine(address(engine)));
+
+        // Create a 0-damage attack that inflicts burn with 100% accuracy
+        StandardAttack burnAttack = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: 0,
+                STAMINA_COST: 0,
+                ACCURACY: 100,
+                PRIORITY: DEFAULT_PRIORITY,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 100,
+                MOVE_CLASS: MoveClass.Other,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Burn Attack",
+                EFFECT: IEffect(address(burnStatus))
+            })
+        );
+
+        IMoveSet[] memory iblivionMoves = new IMoveSet[](4);
+        iblivionMoves[0] = brightback;
+        iblivionMoves[1] = unboundedStrike;
+        iblivionMoves[2] = loop;
+        iblivionMoves[3] = renormalize;
+
+        IMoveSet[] memory opponentMoves = new IMoveSet[](4);
+        opponentMoves[0] = burnAttack;
+        opponentMoves[1] = effectRemover;
+        opponentMoves[2] = loop;
+        opponentMoves[3] = renormalize;
+
+        uint32 baseAttack = 100;
+
+        Mon memory iblivionMon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 50, // Slower so Bob can inflict burn first
+                attack: baseAttack,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Yin,
+                type2: Type.None
+            }),
+            moves: iblivionMoves,
+            ability: IAbility(address(baselight))
+        });
+
+        Mon memory opponentMon = Mon({
+            stats: MonStats({
+                hp: 1000,
+                stamina: 20,
+                speed: 100, // Faster
+                attack: baseAttack,
+                defense: 100,
+                specialAttack: 100,
+                specialDefense: 100,
+                type1: Type.Fire,
+                type2: Type.None
+            }),
+            moves: opponentMoves,
+            ability: IAbility(address(0))
+        });
+
+        Mon[] memory aliceTeam = new Mon[](2);
+        aliceTeam[0] = iblivionMon;
+        aliceTeam[1] = iblivionMon;
+
+        Mon[] memory bobTeam = new Mon[](2);
+        bobTeam[0] = opponentMon;
+        bobTeam[1] = opponentMon;
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Switch in mons
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Verify Alice's attack starts at base (0 delta)
+        int32 aliceAttackBefore = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(aliceAttackBefore, 0, "Alice's attack delta should start at 0");
+
+        // Bob inflicts burn on Alice (move index 0), Alice does nothing
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 0, 0, 0
+        );
+
+        // Verify Alice has burn effect and attack debuff applied
+        (EffectInstance[] memory effectsAfterBurn,) = engine.getEffects(battleKey, 0, 0);
+        bool hasBurn = false;
+        for (uint256 i = 0; i < effectsAfterBurn.length; i++) {
+            if (address(effectsAfterBurn[i].effect) == address(burnStatus)) {
+                hasBurn = true;
+                break;
+            }
+        }
+        assertTrue(hasBurn, "Alice should have burn effect");
+
+        // Verify attack is debuffed (BurnStatus divides attack by 50%, so attack delta should be negative)
+        int32 aliceAttackAfterBurn = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertTrue(aliceAttackAfterBurn < 0, "Alice's attack should be debuffed by burn");
+        // Expected debuff: baseAttack / 2 = 50, so delta = 50 - 100 = -50
+        assertEq(aliceAttackAfterBurn, -1 * int32(baseAttack) / 2, "Attack debuff should be -50%");
+
+        // Alice uses Renormalize (move index 3), Bob does nothing
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, 3, NO_OP_MOVE_INDEX, 0, 0
+        );
+
+        // Verify Alice's attack is reset to base (0 delta) after Renormalize
+        int32 aliceAttackAfterRenormalize = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(aliceAttackAfterRenormalize, 0, "Alice's attack should be reset to base after Renormalize");
+
+        // Alice still has burn effect (Renormalize only clears stat boosts, not status effects)
+        (EffectInstance[] memory effectsAfterRenormalize,) = engine.getEffects(battleKey, 0, 0);
+        bool stillHasBurn = false;
+        for (uint256 i = 0; i < effectsAfterRenormalize.length; i++) {
+            if (address(effectsAfterRenormalize[i].effect) == address(burnStatus)) {
+                stillHasBurn = true;
+                break;
+            }
+        }
+        assertTrue(stillHasBurn, "Alice should still have burn effect after Renormalize");
+
+        // Bob uses MockEffectRemover to remove burn from Alice (move index 1)
+        // Pass burn status address as extraData
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, 0, uint240(uint160(address(burnStatus)))
+        );
+
+        // Verify burn effect is removed
+        (EffectInstance[] memory effectsAfterRemove,) = engine.getEffects(battleKey, 0, 0);
+        bool burnRemoved = true;
+        for (uint256 i = 0; i < effectsAfterRemove.length; i++) {
+            if (address(effectsAfterRemove[i].effect) == address(burnStatus)) {
+                burnRemoved = false;
+                break;
+            }
+        }
+        assertTrue(burnRemoved, "Burn effect should be removed");
+
+        // Verify stats remain at base (removeStatBoosts silently failed, no revert, no stat change)
+        int32 aliceAttackFinal = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Attack);
+        assertEq(aliceAttackFinal, 0, "Alice's attack should remain at base after burn removal (no double-removal issue)");
     }
 }

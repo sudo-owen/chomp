@@ -5,13 +5,6 @@ import "forge-std/Script.sol";
 
 import {IEngine} from "../src/IEngine.sol";
 import {ITypeCalculator} from "../src/types/ITypeCalculator.sol";
-import {VitalSiphon} from "../src/mons/xmon/VitalSiphon.sol";
-import {DefaultMonRegistry} from "../src/teams/DefaultMonRegistry.sol";
-import {MonStats} from "../src/Structs.sol";
-import {Type} from "../src/Enums.sol";
-import {IMoveSet} from "../src/moves/IMoveSet.sol";
-import {IAbility} from "../src/abilities/IAbility.sol";
-import {DefaultMatchmaker} from "../src/matchmaker/DefaultMatchmaker.sol";
 import {OkayCPU} from "../src/cpu/OkayCPU.sol";
 import {ICPURNG} from "../src/rng/ICPURNG.sol";
 
