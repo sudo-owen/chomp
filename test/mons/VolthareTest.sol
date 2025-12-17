@@ -30,9 +30,10 @@ import {Storm} from "../../src/effects/weather/Storm.sol";
 
 import {DualShock} from "../../src/mons/volthare/DualShock.sol";
 import {MegaStarBlast} from "../../src/mons/volthare/MegaStarBlast.sol";
-import {Overclock} from "../../src/mons/volthare/Overclock.sol";
+import {PreemptiveShock} from "../../src/mons/volthare/PreemptiveShock.sol";
 
 import {DummyStatus} from "../mocks/DummyStatus.sol";
+import {GlobalEffectAttack} from "../mocks/GlobalEffectAttack.sol";
 
 import {DefaultMatchmaker} from "../../src/matchmaker/DefaultMatchmaker.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
@@ -44,7 +45,7 @@ contract VolthareTest is Test, BattleHelper {
     MockRandomnessOracle mockOracle;
     TestTeamRegistry defaultRegistry;
     DefaultValidator validator;
-    Overclock overclock;
+    PreemptiveShock preemptiveShock;
     Storm storm;
     StatBoosts statBoost;
     StandardAttackFactory attackFactory;
@@ -61,17 +62,21 @@ contract VolthareTest is Test, BattleHelper {
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         statBoost = new StatBoosts(IEngine(address(engine)));
         storm = new Storm(IEngine(address(engine)), statBoost);
-        overclock = new Overclock(IEngine(address(engine)), storm);
+        preemptiveShock = new PreemptiveShock(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
     }
 
-    function test_overclockAppliesStorm() public {
-        // Create a team with a mon that has Overclock ability
+    /**
+     * Test: PreemptiveShock deals damage when switching in
+     * - When a mon with PreemptiveShock ability switches in, it should deal BASE_POWER (15)
+     *   Lightning Physical damage to the opponent's active mon
+     */
+    function test_preemptiveShockDealsDamage() public {
         IMoveSet[] memory moves = new IMoveSet[](0);
 
-        // Create a mon with Overclock ability and nice round stats
-        Mon memory overclockMon = Mon({
+        // Create a mon with PreemptiveShock ability
+        Mon memory preemptiveShockMon = Mon({
             stats: MonStats({
                 hp: 100,
                 stamina: 10,
@@ -84,10 +89,10 @@ contract VolthareTest is Test, BattleHelper {
                 type2: Type.None
             }),
             moves: moves,
-            ability: IAbility(address(overclock))
+            ability: IAbility(address(preemptiveShock))
         });
 
-        // Create a regular mon with the same stats but no ability
+        // Create a regular mon with no ability
         Mon memory regularMon = Mon({
             stats: MonStats({
                 hp: 100,
@@ -97,7 +102,7 @@ contract VolthareTest is Test, BattleHelper {
                 defense: 10,
                 specialAttack: 10,
                 specialDefense: 100,
-                type1: Type.Lightning,
+                type1: Type.Fire, // Not Lightning, so no same-type resistance
                 type2: Type.None
             }),
             moves: moves,
@@ -106,7 +111,7 @@ contract VolthareTest is Test, BattleHelper {
 
         // Create teams for Alice and Bob
         Mon[] memory aliceTeam = new Mon[](2);
-        aliceTeam[0] = overclockMon;
+        aliceTeam[0] = preemptiveShockMon;
         aliceTeam[1] = regularMon;
 
         Mon[] memory bobTeam = new Mon[](2);
@@ -124,163 +129,40 @@ contract VolthareTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Verify that Storm effect is applied
-        // Check if the Storm duration is set to the default duration (2) (because turn end already ran)
-        uint256 stormDuration = storm.getDuration(battleKey, 0);
-        assertEq(stormDuration, storm.DEFAULT_DURATION() - 1, "Storm should be applied with default duration");
-
-        // Verify that Alice's mon's speed is boosted according to Storm's constants
-        // Speed should be increased by 25%
-        int32 expectedSpeedBoost = int32(int8(storm.SPEED_PERCENT()));
-        int32 speedDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Speed);
-        assertEq(speedDelta, expectedSpeedBoost, "Speed should be boosted");
-
-        // Verify that Alice's mon's special defense is decreased according to Storm's constants
-        // SpDef should be decreased (3/4)
-        int32 expectedSpDefDebuff = -1 * int32(int8(storm.SP_DEF_PERCENT()));
-        int32 spDefDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialDefense);
-        assertEq(spDefDelta, expectedSpDefDebuff, "Special Defense should be decreased");
-
-        // Bob's mon should not be affected by the Storm since it's on Alice's side
-        int32 bobSpeedDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Speed);
-        int32 bobSpDefDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.SpecialDefense);
-        assertEq(bobSpeedDelta, 0, "Bob's mon's speed should not be affected by Storm");
-        assertEq(bobSpDefDelta, 0, "Bob's mon's special defense should not be affected by Storm");
-
-        // Alice swaps in mon index 1, Bob does nothing (duration is now 1)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, NO_OP_MOVE_INDEX, uint240(1), 0
-        );
-
-        // Verify that Alice's new mon's speed/spdef are affected the same way
-        speedDelta = engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Speed);
-        spDefDelta = engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.SpecialDefense);
-        assertEq(speedDelta, expectedSpeedBoost, "Speed should be boosted");
-        assertEq(spDefDelta, expectedSpDefDebuff, "Special Defense should be decreased");
-
-        // Both players do nothing, storm subsides (duration is now 0)
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
-
-        // Verify that Alice's mon's speed/spdef are reset
-        speedDelta = engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Speed);
-        spDefDelta = engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.SpecialDefense);
-        assertEq(speedDelta, 0, "Speed should be reset after Storm subsides");
-        assertEq(spDefDelta, 0, "Special Defense should be reset after Storm subsides");
-
-        // Verify that Storm is removed from global effects
-        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 2, 0);
-        assertEq(effects.length, 0, "Storm effect should be removed from global effects after Storm subsides");
+        // Verify that Bob's mon took damage from PreemptiveShock
+        // Damage can vary due to DEFAULT_VOL (10), so check it's within expected range
+        int32 bobHpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        int32 basePower = int32(preemptiveShock.BASE_POWER());
+        int32 volatility = int32(preemptiveShock.DEFAULT_VOL());
+        assertTrue(bobHpDelta <= -basePower + volatility, "Bob's mon should take at least min PreemptiveShock damage");
+        assertTrue(bobHpDelta >= -basePower - volatility, "Bob's mon should take at most max PreemptiveShock damage");
     }
 
-    function test_doubleOverclock() public {
-        // Create a team with a mon that has Overclock ability
-        IMoveSet[] memory moves = new IMoveSet[](0);
-
-        // Create a mon with Overclock ability and nice round stats
-        Mon memory overclockMon = Mon({
-            stats: MonStats({
-                hp: 100,
-                stamina: 10,
-                speed: 100,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 100,
-                type1: Type.Lightning,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(overclock))
-        });
-
-        // Create a regular mon with the same stats but no ability
-        Mon memory regularMon = Mon({
-            stats: MonStats({
-                hp: 100,
-                stamina: 10,
-                speed: 100,
-                attack: 10,
-                defense: 10,
-                specialAttack: 10,
-                specialDefense: 100,
-                type1: Type.Lightning,
-                type2: Type.None
-            }),
-            moves: moves,
-            ability: IAbility(address(0))
-        });
-
-        // Create teams for Alice and Bob
-        Mon[] memory aliceTeam = new Mon[](2);
-        aliceTeam[0] = overclockMon;
-        aliceTeam[1] = regularMon;
-
-        Mon[] memory bobTeam = new Mon[](2);
-        bobTeam[0] = regularMon;
-        bobTeam[1] = overclockMon;
-
-        defaultRegistry.setTeam(ALICE, aliceTeam);
-        defaultRegistry.setTeam(BOB, bobTeam);
-
-        // Start a battle
-        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
-
-        // First move: Both players select their first mon (index 0)
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
-        );
-
-        // Alice does nothing, Bob switches in his Overclock mon
-        _commitRevealExecuteForAliceAndBob(
-            engine, commitManager, battleKey, NO_OP_MOVE_INDEX, SWITCH_MOVE_INDEX, 0, uint240(1)
-        );
-
-        // Verify that the stat changes are applied to Bob's mon
-        int32 expectedSpeedBoost = int32(int8(storm.SPEED_PERCENT()));
-        int32 expectedSpDefDebuff = int32(int8(storm.SP_DEF_PERCENT())) * -1;
-        int32 bobSpeedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
-        int32 bobSpDefDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.SpecialDefense);
-        assertEq(bobSpeedDelta, expectedSpeedBoost, "Bob's mon's speed should be boosted");
-        assertEq(bobSpDefDelta, expectedSpDefDebuff, "Bob's mon's special defense should be decreased");
-
-        // Wait a turn
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
-
-        // Alice's mon should have its stats reset
-        int32 aliceSpeedDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Speed);
-        int32 aliceSpDefDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.SpecialDefense);
-        assertEq(aliceSpeedDelta, 0, "Alice's mon's speed should be reset");
-        assertEq(aliceSpDefDelta, 0, "Alice's mon's special defense should be reset");
-
-        // Bob should not be reset
-        bobSpeedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
-        bobSpDefDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.SpecialDefense);
-        assertEq(bobSpeedDelta, expectedSpeedBoost, "Bob's mon's speed should not be reset");
-        assertEq(bobSpDefDelta, expectedSpDefDebuff, "Bob's mon's special defense should not be reset");
-
-        // Wait another turn
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, NO_OP_MOVE_INDEX, 0, 0);
-
-        // Bob's mon should have its stats reset
-        bobSpeedDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Speed);
-        bobSpDefDelta = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.SpecialDefense);
-        assertEq(bobSpeedDelta, 0, "Bob's mon's speed should be reset");
-        assertEq(bobSpDefDelta, 0, "Bob's mon's special defense should be reset");
-    }
-
+    /**
+     * Test: MegaStarBlast with Storm active
+     * - Uses a mock move to apply Storm, then tests that MegaStarBlast has increased accuracy
+     *   and can apply Zap status when Storm is active
+     */
     function test_megaStarBlast() public {
-        // Create a team with a mon that has Overclock ability
-        IMoveSet[] memory moves = new IMoveSet[](1);
+        // Create moves: one to apply Storm, one is MegaStarBlast
         DummyStatus zapStatus = new DummyStatus();
         MegaStarBlast msb = new MegaStarBlast(engine, typeCalc, zapStatus, storm);
-        moves[0] = IMoveSet(address(msb));
+        GlobalEffectAttack stormMove = new GlobalEffectAttack(
+            engine,
+            storm,
+            GlobalEffectAttack.Args({TYPE: Type.Lightning, STAMINA_COST: 0, PRIORITY: 0})
+        );
 
-        // Create a mon with Overclock ability and nice round stats
-        Mon memory overclockMon = Mon({
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = IMoveSet(address(stormMove));
+        moves[1] = IMoveSet(address(msb));
+
+        // Create a mon with no ability
+        Mon memory aliceMon = Mon({
             stats: MonStats({
                 hp: 100,
                 stamina: 10,
-                speed: 1,
+                speed: 100,
                 attack: 1,
                 defense: 1,
                 specialAttack: 1,
@@ -289,14 +171,14 @@ contract VolthareTest is Test, BattleHelper {
                 type2: Type.None
             }),
             moves: moves,
-            ability: IAbility(address(overclock))
+            ability: IAbility(address(0))
         });
 
-        // Create a regular mon with the same stats but no ability
+        // Create a regular mon with lots of HP
         Mon memory regularMon = Mon({
             stats: MonStats({
-                hp: 1000, // Lots of HP
-                stamina: 1,
+                hp: 1000,
+                stamina: 10,
                 speed: 1,
                 attack: 1,
                 defense: 1,
@@ -311,7 +193,7 @@ contract VolthareTest is Test, BattleHelper {
 
         // Create teams for Alice and Bob
         Mon[] memory aliceTeam = new Mon[](1);
-        aliceTeam[0] = overclockMon;
+        aliceTeam[0] = aliceMon;
 
         Mon[] memory bobTeam = new Mon[](1);
         bobTeam[0] = regularMon;
@@ -320,7 +202,7 @@ contract VolthareTest is Test, BattleHelper {
         defaultRegistry.setTeam(BOB, bobTeam);
 
         IValidator validatorToUse = new DefaultValidator(
-            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 1, TIMEOUT_DURATION: 10})
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 2, TIMEOUT_DURATION: 10})
         );
 
         // Start a battle
@@ -331,19 +213,22 @@ contract VolthareTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
+        // Alice uses the Storm move (move index 0), Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, uint240(0), 0);
+
         // Verify that Storm is applied
-        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 2, 0);
+        (EffectInstance[] memory effects,) = engine.getEffects(battleKey, 2, 0);
         assertEq(effects.length, 1, "Storm should be applied");
         assertEq(address(effects[0].effect), address(storm), "Storm should be applied");
 
         // Set RNG so that Zap is applied
         mockOracle.setRNG(2);
 
-        // Alice uses Mega Star Blast, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, uint240(0), 0);
+        // Alice uses Mega Star Blast (move index 1), Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, uint240(0), 0);
 
         // Verify that Bob's mon is zapped
-        (effects, ) = engine.getEffects(battleKey, 1, 0);
+        (effects,) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Bob's mon should be zapped");
         assertEq(address(effects[0].effect), address(zapStatus), "Bob's mon should be zapped");
 
@@ -355,10 +240,10 @@ contract VolthareTest is Test, BattleHelper {
         mockOracle.setRNG(51);
 
         // Alice uses Mega Star Blast, Bob does nothing
-        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, uint240(0), 0);
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 1, NO_OP_MOVE_INDEX, uint240(0), 0);
 
-        // Verify that Bob's mon is not zapped
-        (effects, ) = engine.getEffects(battleKey, 1, 0);
+        // Verify that Bob's mon is not zapped (again)
+        (effects,) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects.length, 1, "Bob's mon should not be zapped (again)");
 
         // Verify that Bob's mon did not take more damage

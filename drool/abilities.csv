@@ -6,7 +6,7 @@ Baselight,Iblivion,"At the end of every turn, Iblivion gains a Baselight point. 
 Carrot Harvest,Sofabbi,"At the end of every turn, Sofabbi has a 1/2 chance of regaining 1 stamina."
 Post-Workout,Pengym,"On swap out, automatically heal from certain status conditions. If healed, Pengym regains 1 stamina."
 Angery,Gorillax,"Each time Gorillax takes damage, they get Angerier. At 3 stacks, they heal for 1/6 of max HP."
-Overclock,Volthare,"When Volthare swaps in, the battlefield becomes Stormy. Storm lasts for 3 turns, boosts friendly mons' speed by 25%, and decreases their SpDEF by 25%."
+Preemptive Shock,Volthare,"When Volthare swaps in, they deal a small amount of damage to the opposing mon."
 Interweaving,Inutia,"When Inutia swaps in, the opposing mon's ATK decreases 10%. When Inutia swaps out, the opposing mon's SpATK decreases 10%."
 Up Only,Aurox,"Whenever Aurox takes damage, they gain a persistent 10% ATK boost."
 Dreamcatcher,Xmon,"Whenever Xmon gains stamina, heal 1/16 of max HP."

@@ -61,7 +61,7 @@ import {UnexpectedCarrot} from "../src/mons/sofabbi/UnexpectedCarrot.sol";
 import {DualShock} from "../src/mons/volthare/DualShock.sol";
 import {Electrocute} from "../src/mons/volthare/Electrocute.sol";
 import {MegaStarBlast} from "../src/mons/volthare/MegaStarBlast.sol";
-import {Overclock} from "../src/mons/volthare/Overclock.sol";
+import {PreemptiveShock} from "../src/mons/volthare/PreemptiveShock.sol";
 import {RoundTrip} from "../src/mons/volthare/RoundTrip.sol";
 import {ContagiousSlumber} from "../src/mons/xmon/ContagiousSlumber.sol";
 import {Dreamcatcher} from "../src/mons/xmon/Dreamcatcher.sol";
@@ -662,10 +662,10 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        Overclock overclock = new Overclock(IEngine(vm.envAddress("ENGINE")), Storm(vm.envAddress("STORM")));
+        PreemptiveShock preemptiveshock = new PreemptiveShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")));
         deployedContracts[contractIndex] = DeployData({
-            name: "Overclock",
-            contractAddress: address(overclock)
+            name: "Preemptive Shock",
+            contractAddress: address(preemptiveshock)
         });
         contractIndex++;
 
@@ -686,7 +686,7 @@ contract SetupMons is Script {
         moves[2] = IMoveSet(address(megastarblast));
         moves[3] = IMoveSet(address(dualshock));
         IAbility[] memory abilities = new IAbility[](1);
-        abilities[0] = IAbility(address(overclock));
+        abilities[0] = IAbility(address(preemptiveshock));
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
         registry.createMon(8, stats, moves, abilities, keys, values);
