@@ -3120,6 +3120,6 @@ contract EngineTest is Test, BattleHelper {
         uint240 editExtraData = uint240(1 | (0 << 80) | (indices[0] << 160));
         _commitRevealExecuteForAliceAndBob(battleKey, 0, NO_OP_MOVE_INDEX, editExtraData, 0);
         (effects, ) = engine.getEffects(battleKey, 1, 0);
-        assertEq(effects[0].data, bytes32(uint256(69)));
+        assertEq(effects[0].data, uint96(69));
     }
 }

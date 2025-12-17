@@ -38,7 +38,7 @@ contract MockEffectRemover is IMoveSet {
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == effectToRemove) {
                 // Call onRemove on the effect before removing
-                effects[i].effect.onRemove(effects[i].data, targetPlayerIndex, targetMonIndex);
+                effects[i].effect.onRemove(bytes32(uint256(effects[i].data)), targetPlayerIndex, targetMonIndex);
                 ENGINE.removeEffect(targetPlayerIndex, targetMonIndex, indices[i]);
                 break;
             }

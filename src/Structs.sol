@@ -88,8 +88,8 @@ struct BattleConfig {
 }
 
 struct EffectInstance {
-    IEffect effect;
-    bytes32 data;
+    IEffect effect; // 20 bytes
+    uint96 data;    // 12 bytes - fits in same slot as effect
 }
 
 // View struct for getBattle - contains array instead of mapping for memory return

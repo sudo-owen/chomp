@@ -261,7 +261,7 @@ contract StatBoosts is BasicEffect {
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 (bool isPerm, , uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
-                    _unpackBoostData(effects[i].data);
+                    _unpackBoostData(bytes32(uint256(effects[i].data)));
                 // Skip temp boosts if excludeTempBoosts is true
                 if (excludeTempBoosts && !isPerm) continue;
                 _accumulateBoosts(stats, boostPercents, boostCounts, isMultiply, numBoostsPerStat, accumulatedNumeratorPerStat);
@@ -377,13 +377,13 @@ contract StatBoosts is BasicEffect {
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 (bool effIsPerm, uint168 existingKey, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
-                    _unpackBoostData(effects[i].data);
+                    _unpackBoostData(bytes32(uint256(effects[i].data)));
 
                 // Check if this is the effect we're searching for
                 if (existingKey == key && effIsPerm == isPerm) {
                     found = true;
                     foundEffectIndex = indices[i];
-                    existingData = effects[i].data;
+                    existingData = bytes32(uint256(effects[i].data));
                     // DON'T add to aggregation - we'll add the merged version later
                     continue;
                 }
@@ -458,7 +458,7 @@ contract StatBoosts is BasicEffect {
         for (uint256 i = 0; i < effects.length; i++) {
             if (address(effects[i].effect) == address(this)) {
                 (bool effIsPerm, uint168 existingKey, uint8[5] memory boostPercents, uint8[5] memory boostCounts, bool[5] memory isMultiply) =
-                    _unpackBoostData(effects[i].data);
+                    _unpackBoostData(bytes32(uint256(effects[i].data)));
 
                 // Check if this is the effect we're removing
                 if (existingKey == key && effIsPerm == isPerm) {

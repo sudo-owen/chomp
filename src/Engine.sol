@@ -213,7 +213,7 @@ contract Engine is IEngine, MappingAllocator {
             if (numEffects > 0) {
                 for (uint i = 0; i < numEffects; ++i) {
                     config.globalEffects[i].effect = effects[i];
-                    config.globalEffects[i].data = data[i];
+                    config.globalEffects[i].data = uint96(uint256(data[i]));
                 }
                 config.globalEffectsLength = uint8(effects.length);
             }
@@ -630,7 +630,7 @@ contract Engine is IEngine, MappingAllocator {
                     uint256 effectIndex = config.globalEffectsLength;
                     EffectInstance storage effectSlot = config.globalEffects[effectIndex];
                     effectSlot.effect = effect;
-                    effectSlot.data = extraDataToUse;
+                    effectSlot.data = uint96(uint256(extraDataToUse));
                     config.globalEffectsLength = uint8(effectIndex + 1);
                 } else if (targetIndex == 0) {
                     // Player effects use per-mon indexing: slot = MAX_EFFECTS_PER_MON * monIndex + count[monIndex]
@@ -638,14 +638,14 @@ contract Engine is IEngine, MappingAllocator {
                     uint256 slotIndex = _getEffectSlotIndex(monIndex, monEffectCount);
                     EffectInstance storage effectSlot = config.p0Effects[slotIndex];
                     effectSlot.effect = effect;
-                    effectSlot.data = extraDataToUse;
+                    effectSlot.data = uint96(uint256(extraDataToUse));
                     config.packedP0EffectsCount = _setMonEffectCount(config.packedP0EffectsCount, monIndex, monEffectCount + 1);
                 } else {
                     uint256 monEffectCount = _getMonEffectCount(config.packedP1EffectsCount, monIndex);
                     uint256 slotIndex = _getEffectSlotIndex(monIndex, monEffectCount);
                     EffectInstance storage effectSlot = config.p1Effects[slotIndex];
                     effectSlot.effect = effect;
-                    effectSlot.data = extraDataToUse;
+                    effectSlot.data = uint96(uint256(extraDataToUse));
                     config.packedP1EffectsCount = _setMonEffectCount(config.packedP1EffectsCount, monIndex, monEffectCount + 1);
                 }
             }
@@ -671,7 +671,7 @@ contract Engine is IEngine, MappingAllocator {
             effectInstance = config.p1Effects[effectIndex];
         }
 
-        effectInstance.data = newExtraData;
+        effectInstance.data = uint96(uint256(newExtraData));
         emit EffectEdit(
             battleKey,
             targetIndex,
@@ -708,7 +708,7 @@ contract Engine is IEngine, MappingAllocator {
     ) private {
         EffectInstance storage effectToRemove = config.globalEffects[indexToRemove];
         IEffect effect = effectToRemove.effect;
-        bytes32 data = effectToRemove.data;
+        bytes32 data = bytes32(uint256(effectToRemove.data));
 
         // Skip if already tombstoned
         if (address(effect) == TOMBSTONE_ADDRESS) {
@@ -736,7 +736,7 @@ contract Engine is IEngine, MappingAllocator {
 
         EffectInstance storage effectToRemove = effects[indexToRemove];
         IEffect effect = effectToRemove.effect;
-        bytes32 data = effectToRemove.data;
+        bytes32 data = bytes32(uint256(effectToRemove.data));
 
         // Skip if already tombstoned
         if (address(effect) == TOMBSTONE_ADDRESS) {
@@ -1105,7 +1105,7 @@ contract Engine is IEngine, MappingAllocator {
             if (address(eff.effect) != TOMBSTONE_ADDRESS) {
                 _runSingleEffect(
                     config, rng, effectIndex, playerIndex, monIndex, round, extraEffectsData,
-                    eff.effect, eff.data, uint96(slotIndex)
+                    eff.effect, bytes32(uint256(eff.data)), uint96(slotIndex)
                 );
             }
 
@@ -1191,11 +1191,11 @@ contract Engine is IEngine, MappingAllocator {
         } else {
             // Update the data at the slot
             if (effectIndex == 2) {
-                config.globalEffects[slotIndex].data = updatedExtraData;
+                config.globalEffects[slotIndex].data = uint96(uint256(updatedExtraData));
             } else if (effectIndex == 0) {
-                config.p0Effects[slotIndex].data = updatedExtraData;
+                config.p0Effects[slotIndex].data = uint96(uint256(updatedExtraData));
             } else {
-                config.p1Effects[slotIndex].data = updatedExtraData;
+                config.p1Effects[slotIndex].data = uint96(uint256(updatedExtraData));
             }
         }
     }

@@ -47,7 +47,7 @@ contract NightTerrors is IMoveSet, BasicEffect {
                 found = true;
                 effectIndex = indices[i];
                 // Decode existing extraData
-                (, uint64 storedTerrorCount) = _unpackExtraData(effects[i].data);
+                (, uint64 storedTerrorCount) = _unpackExtraData(bytes32(uint256(effects[i].data)));
                 currentTerrorCount = storedTerrorCount;
                 break;
             }

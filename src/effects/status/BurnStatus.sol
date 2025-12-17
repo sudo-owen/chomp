@@ -88,7 +88,7 @@ contract BurnStatus is StatusEffect {
                 if (address(effects[i].effect) == address(this)) {
                     indexOfBurnEffect = indices[i];
                     burnDegree = uint256(effects[i].data);
-                    newExtraData = effects[i].data;
+                    newExtraData = bytes32(uint256(effects[i].data));
                 }
             }
             if (burnDegree < MAX_BURN_DEGREE) {
