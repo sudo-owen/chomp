@@ -45,7 +45,7 @@ contract ReduceSpAtkMove is IMoveSet {
     }
 
     function moveType(bytes32) external pure returns (Type) {
-        return Type.Mind;
+        return Type.Math;
     }
 
     function isValidTarget(bytes32, uint240) external pure returns (bool) {

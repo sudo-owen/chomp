@@ -116,12 +116,12 @@ contract StandardAttackFactoryTest is Test {
                 STAMINA_COST: 1,
                 ACCURACY: 100,
                 PRIORITY: 1,
-                MOVE_TYPE: Type.Water,
+                MOVE_TYPE: Type.Liquid,
                 EFFECT_ACCURACY: 50,
                 MOVE_CLASS: MoveClass.Special,
                 CRIT_RATE: 15,
                 VOLATILITY: 3,
-                NAME: "Water Attack",
+                NAME: "Liquid Attack",
                 EFFECT: IEffect(address(0))
             })
         );
@@ -131,7 +131,7 @@ contract StandardAttackFactoryTest is Test {
         assertEq(attack1.basePower(TEST_BATTLE_KEY), 80, "Attack1 base power mismatch");
         assertEq(attack2.basePower(TEST_BATTLE_KEY), 60, "Attack2 base power mismatch");
         assertEq(uint32(attack1.moveType(TEST_BATTLE_KEY)), uint32(Type.Fire), "Attack1 type mismatch");
-        assertEq(uint32(attack2.moveType(TEST_BATTLE_KEY)), uint32(Type.Water), "Attack2 type mismatch");
+        assertEq(uint32(attack2.moveType(TEST_BATTLE_KEY)), uint32(Type.Liquid), "Attack2 type mismatch");
     }
 
     function test_onlyOwnerCanSetEngineAndCalcOnFactory() public {
@@ -178,8 +178,8 @@ contract StandardAttackFactoryTest is Test {
         assertEq(attack.accuracy(TEST_BATTLE_KEY), 90, "Accuracy mismatch");
         attack.changeVar(3, 4); // Change priority
         assertEq(attack.priority(TEST_BATTLE_KEY, 0), 4, "Priority mismatch");
-        attack.changeVar(4, uint256(Type.Water)); // Change move type
-        assertEq(uint32(attack.moveType(TEST_BATTLE_KEY)), uint32(Type.Water), "Move type mismatch");
+        attack.changeVar(4, uint256(Type.Liquid)); // Change move type
+        assertEq(uint32(attack.moveType(TEST_BATTLE_KEY)), uint32(Type.Liquid), "Move type mismatch");
         attack.changeVar(5, 90); // Change effect accuracy
         assertEq(attack.effectAccuracy(TEST_BATTLE_KEY), 90, "Effect accuracy mismatch");
         attack.changeVar(6, uint256(MoveClass.Special)); // Change move class

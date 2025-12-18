@@ -46,7 +46,7 @@ contract TripleThink is IMoveSet {
     }
 
     function moveType(bytes32) public pure returns (Type) {
-        return Type.Mind;
+        return Type.Math;
     }
 
     function moveClass(bytes32) public pure returns (MoveClass) {

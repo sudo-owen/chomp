@@ -339,7 +339,7 @@ contract SofabbiTest is Test, BattleHelper {
                 STAMINA_COST: 1,
                 ACCURACY: 100,
                 PRIORITY: 0,
-                MOVE_TYPE: Type.Water,
+                MOVE_TYPE: Type.Liquid,
                 EFFECT_ACCURACY: 0,
                 MOVE_CLASS: MoveClass.Physical,
                 CRIT_RATE: 0,

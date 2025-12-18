@@ -49,7 +49,7 @@ class MoveValidator:
         'Yin': 'Type.Yin',
         'Yang': 'Type.Yang', 
         'Earth': 'Type.Earth',
-        'Water': 'Type.Water',
+        'Liquid': 'Type.Liquid',
         'Fire': 'Type.Fire',
         'Metal': 'Type.Metal',
         'Ice': 'Type.Ice',
@@ -57,7 +57,7 @@ class MoveValidator:
         'Lightning': 'Type.Lightning',
         'Mythic': 'Type.Mythic',
         'Air': 'Type.Air',
-        'Mind': 'Type.Mind',
+        'Math': 'Type.Math',
         'Cyber': 'Type.Cyber',
         'Wild': 'Type.Wild',
         'Cosmic': 'Type.Cosmic',
@@ -366,8 +366,15 @@ class MoveValidator:
 
         return result
 
-    def run_validation(self) -> None:
-        """Run validation for all moves"""
+    def run_validation(self) -> tuple[bool, bool]:
+        """
+        Run validation for all moves.
+
+        Returns:
+            Tuple of (validation_passed, changes_made):
+            - validation_passed: True if no errors were found
+            - changes_made: True if user accepted changes and contracts were updated
+        """
         self.load_csv_data()
         print(f"Loaded {len(self.moves_data)} moves from CSV")
         found_contracts = 0
@@ -403,8 +410,12 @@ class MoveValidator:
             response = input("Would you like to update the .sol files with values from the CSV? (y/n): ").strip().lower()
             if response == 'y':
                 self.update_all_contracts()
+                return (False, True)  # Errors existed, changes were made
             else:
                 print("Skipping contract updates.")
+                return (False, False)  # Errors existed, no changes made
+
+        return (True, False)  # No errors, no changes needed
 
     def print_summary(self) -> None:
         """Print a condensed summary of validation results"""

@@ -76,7 +76,7 @@ contract PengymTest is Test, BattleHelper {
                 STAMINA_COST: 1,
                 ACCURACY: 100,
                 PRIORITY: 0,
-                MOVE_TYPE: Type.Water,
+                MOVE_TYPE: Type.Liquid,
                 EFFECT_ACCURACY: 100, // 100% chance to inflict status
                 MOVE_CLASS: MoveClass.Physical,
                 CRIT_RATE: 0,
@@ -119,7 +119,7 @@ contract PengymTest is Test, BattleHelper {
                 defense: 5,
                 specialAttack: 5,
                 specialDefense: 5,
-                type1: Type.Water,
+                type1: Type.Liquid,
                 type2: Type.None
             }),
             moves: aliceMon1Moves,
@@ -294,7 +294,7 @@ contract PengymTest is Test, BattleHelper {
                 defense: 5,
                 specialAttack: 10, // Higher special attack to test Frostbite effect
                 specialDefense: 5,
-                type1: Type.Water,
+                type1: Type.Liquid,
                 type2: Type.None
             }),
             moves: aliceMon1Moves,
@@ -514,7 +514,7 @@ contract PengymTest is Test, BattleHelper {
                 STAMINA_COST: 1,
                 ACCURACY: 100,
                 PRIORITY: DEFAULT_PRIORITY,
-                MOVE_TYPE: Type.Water,
+                MOVE_TYPE: Type.Liquid,
                 EFFECT_ACCURACY: 0,
                 MOVE_CLASS: MoveClass.Physical,
                 CRIT_RATE: 0,

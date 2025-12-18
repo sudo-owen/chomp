@@ -20,12 +20,12 @@ export const typeData = {
       emoji: '🪨',
       name: 'Earth'
     },
-    'Water': {
+    'Liquid': {
       bgColor: '#1E90FF',
       textColor: '#000000',
       abbreviation: 'WTR',
       emoji: '🌊',
-      name: 'Water'
+      name: 'Liquid'
     },
     'Fire': {
       bgColor: '#d2400a',
@@ -76,12 +76,12 @@ export const typeData = {
       emoji: '🌪️',
       name: 'Air'
     },
-    'Mind': {
+    'Math': {
       bgColor: '#FF1493',
       textColor: '#FFFFFF',
       abbreviation: 'MND',
       emoji: '🧠',
-      name: 'Mind'
+      name: 'Math'
     },
     'Cyber': {
       bgColor: '#00CED1',

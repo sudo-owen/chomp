@@ -23,7 +23,7 @@ contract NegativeThoughts is StandardAttack {
                 BASE_POWER: 80,
                 STAMINA_COST: 3,
                 ACCURACY: 100,
-                MOVE_TYPE: Type.Mind,
+                MOVE_TYPE: Type.Math,
                 MOVE_CLASS: MoveClass.Special,
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,

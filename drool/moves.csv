@@ -15,9 +15,9 @@ Chain Expansion,Inutia,0,1,100,0,Mythic,Other,Sets up long-lasting battlefield e
 Initialize,Inutia,0,2,100,0,Mythic,Self,"Boosts ATK/SpATK by 50%. Can only be used once each time Inutia is sent out. When Inutia switches out, half of the bonus is transferred to the next incoming mon.",,No
 Big Bite,Inutia,85,2,100,0,Wild,Physical,Deals damage.,,No
 Hit And Dip,Inutia,30,2,100,0,Mythic,Special,"Deals damage, then swaps out.",,Yes
-Triple Think,Malalien,0,2,100,0,Mind,Self,Boosts SpATK by 75%.,,No
+Triple Think,Malalien,0,2,100,0,Math,Self,Boosts SpATK by 75%.,,No
 Federal Investigation,Malalien,100,3,100,0,Cyber,Special,Deals damage.,,No
-Negative Thoughts,Malalien,80,3,100,0,Mind,Special,"Deals damage, 10% chance to cause Panic.",,No
+Negative Thoughts,Malalien,80,3,100,0,Math,Special,"Deals damage, 10% chance to cause Panic.",,No
 Infinite Love,Malalien,90,3,100,0,Cosmic,Special,"Deals damage, 10% chance to cause Sleep.",,No
 Chill Out,Pengym,0,2,90,0,Ice,Other,"Inflicts Frostbite. Frostbite deals 1/16 damage every turn, and also halves SpATK.",,No
 Deadlift,Pengym,0,2,100,0,Metal,Self,Increases ATK and DEF by 50%.,,No

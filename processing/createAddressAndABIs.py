@@ -3,12 +3,42 @@
 Script to convert address values from output.txt and update the Address object
 in the munch and belch repositories' address.ts files.
 Also extracts ABIs from the out folder and creates TypeScript ABI files.
+
+Modes:
+  --stdin: Read KEY=VALUE lines from stdin instead of output.txt
+  (default): Read from processing/output.txt
 """
 
+import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+
+def parse_addresses_from_content(content: str) -> Dict[str, str]:
+    """Parse addresses from content string with KEY=VALUE lines."""
+    addresses = {}
+
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or '=' not in line:
+            continue
+
+        # Split the line into key and value
+        key, value = line.split('=', 1)
+
+        # Convert the key to uppercase and remove any non-alphanumeric characters
+        key = re.sub(r'[^A-Z0-9_]', '', key.upper())
+
+        # Convert the value to lowercase (for LowercaseHex type)
+        value = value.lower()
+
+        addresses[key] = value
+
+    return addresses
+
 
 def read_addresses(input_file: str) -> Dict[str, str]:
     """Read addresses from output.txt and return a dictionary."""
@@ -150,12 +180,9 @@ def process_abis(out_dir: Path, game_dir: Path) -> List[Tuple[str, str]]:
     return updated_files
 
 
-def main():
-    """Main function to orchestrate the address conversion and ABI extraction."""
+def run_main_logic(addresses: Dict[str, str]):
+    """Run main logic with provided addresses."""
     base_path = Path(__file__).parent
-
-    # Input file
-    input_file = base_path / "output.txt"
 
     # base_path is /game/chomp/processing, so we need to go up 1 level to /game/chomp
     chomp_dir = base_path.parent
@@ -170,18 +197,9 @@ def main():
     belch_output_file = game_dir / "belch" / "src" / "config" / "address.ts"
     fallback_output_file = base_path / "address.ts"
 
-    # Check if input file exists
-    if not input_file.exists():
-        print(f"Error: {input_file} not found!")
-        return
-
     print("=" * 60)
     print("PROCESSING ADDRESSES")
     print("=" * 60)
-    print("Reading addresses from output.txt...")
-
-    # Read addresses from input file
-    addresses = read_addresses(str(input_file))
 
     print(f"Loaded {len(addresses)} addresses")
 
@@ -226,6 +244,38 @@ def main():
     print("\n" + "=" * 60)
     print("DONE!")
     print("=" * 60)
+
+
+def main():
+    """Main function to orchestrate the address conversion and ABI extraction."""
+    parser = argparse.ArgumentParser(
+        description='Update address.ts files and extract ABIs'
+    )
+    parser.add_argument(
+        '--stdin',
+        action='store_true',
+        help='Read KEY=VALUE lines from stdin instead of output.txt'
+    )
+    args = parser.parse_args()
+
+    if args.stdin:
+        # Read from stdin
+        content = sys.stdin.read()
+        addresses = parse_addresses_from_content(content)
+        print(f"Reading addresses from stdin...")
+    else:
+        # Original file-based mode
+        base_path = Path(__file__).parent
+        input_file = base_path / "output.txt"
+
+        if not input_file.exists():
+            print(f"Error: {input_file} not found!")
+            return
+
+        print("Reading addresses from output.txt...")
+        addresses = read_addresses(str(input_file))
+
+    run_main_logic(addresses)
 
 
 if __name__ == "__main__":

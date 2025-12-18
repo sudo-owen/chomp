@@ -15,10 +15,11 @@ from pathlib import Path
 
 def run_move_check() -> bool:
     """
-    Run moveCheck.py and return whether changes should be made to Solidity files.
+    Run moveCheck.py to validate move contracts.
+    If validation fails and user accepts changes, re-runs validation until it passes or user declines.
 
     Returns:
-        True if changes should be made (user said 'y'), False otherwise
+        True if validation passes, False if user declined changes or an error occurred
     """
     print("="*80)
     print("STEP 1: Running moveCheck.py to validate move contracts")
@@ -44,23 +45,21 @@ def run_move_check() -> bool:
             print(f"Error: Source directory not found: {src_path}")
             return False
 
-        # Run validation
-        validator = MoveValidator(csv_path, src_path)
-        validator.run_validation()
+        # Run validation in a loop - re-run if user accepts changes
+        while True:
+            validator = MoveValidator(csv_path, src_path)
+            validation_passed, changes_made = validator.run_validation()
 
-        # Check if there were errors
-        moves_with_errors = sum(1 for result in validator.validation_results if result['errors'])
-
-        if moves_with_errors > 0:
-            # The validator already prompted the user and potentially made changes
-            # Check if changes were actually made by looking at the response
-            # Since we can't directly access the user's response, we'll return False
-            # to indicate that we should NOT proceed (user either declined or changes were made)
-            return False
-        else:
-            # No errors, proceed to next step
-            print("\n✅ All move validations passed!")
-            return True
+            if validation_passed:
+                print("\n✅ All move validations passed!")
+                return True
+            elif changes_made:
+                # User accepted changes, re-run validation to check if all issues are resolved
+                print("\n🔄 Re-running validation after changes...")
+                print()
+            else:
+                # User declined changes
+                return False
 
     except Exception as e:
         print(f"Error running moveCheck.py: {e}")

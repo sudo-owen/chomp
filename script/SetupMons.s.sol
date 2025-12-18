@@ -12,7 +12,6 @@ import {IAbility} from "../src/abilities/IAbility.sol";
 import {IEngine} from "../src/IEngine.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
-import {Storm} from "../src/effects/weather/Storm.sol";
 import {BullRush} from "../src/mons/aurox/BullRush.sol";
 import {GildedRecovery} from "../src/mons/aurox/GildedRecovery.sol";
 import {IronWall} from "../src/mons/aurox/IronWall.sol";
@@ -35,9 +34,9 @@ import {RockPull} from "../src/mons/gorillax/RockPull.sol";
 import {ThrowPebble} from "../src/mons/gorillax/ThrowPebble.sol";
 import {Baselight} from "../src/mons/iblivion/Baselight.sol";
 import {Brightback} from "../src/mons/iblivion/Brightback.sol";
-import {UnboundedStrike} from "../src/mons/iblivion/UnboundedStrike.sol";
 import {Loop} from "../src/mons/iblivion/Loop.sol";
 import {Renormalize} from "../src/mons/iblivion/Renormalize.sol";
+import {UnboundedStrike} from "../src/mons/iblivion/UnboundedStrike.sol";
 import {BigBite} from "../src/mons/inutia/BigBite.sol";
 import {ChainExpansion} from "../src/mons/inutia/ChainExpansion.sol";
 import {HitAndDip} from "../src/mons/inutia/HitAndDip.sol";
@@ -313,7 +312,6 @@ contract SetupMons is Script {
         DeployData[] memory deployedContracts = new DeployData[](5);
         uint256 contractIndex = 0;
 
-        // Baselight is now an ability, not a move
         Baselight baselight = new Baselight(IEngine(vm.envAddress("ENGINE")));
         deployedContracts[contractIndex] = DeployData({
             name: "Baselight",
@@ -321,28 +319,28 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), baselight);
-        deployedContracts[contractIndex] = DeployData({
-            name: "Brightback",
-            contractAddress: address(brightback)
-        });
-        contractIndex++;
-
-        UnboundedStrike unboundedstrike = new UnboundedStrike(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), baselight);
+        UnboundedStrike unboundedstrike = new UnboundedStrike(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
         deployedContracts[contractIndex] = DeployData({
             name: "Unbounded Strike",
             contractAddress: address(unboundedstrike)
         });
         contractIndex++;
 
-        Loop loop = new Loop(IEngine(vm.envAddress("ENGINE")), baselight, StatBoosts(vm.envAddress("STAT_BOOSTS")));
+        Loop loop = new Loop(IEngine(vm.envAddress("ENGINE")), Baselight(address(baselight)), StatBoosts(vm.envAddress("STAT_BOOSTS")));
         deployedContracts[contractIndex] = DeployData({
             name: "Loop",
             contractAddress: address(loop)
         });
         contractIndex++;
 
-        Renormalize renormalize = new Renormalize(IEngine(vm.envAddress("ENGINE")), baselight, StatBoosts(vm.envAddress("STAT_BOOSTS")), loop);
+        Brightback brightback = new Brightback(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), Baselight(address(baselight)));
+        deployedContracts[contractIndex] = DeployData({
+            name: "Brightback",
+            contractAddress: address(brightback)
+        });
+        contractIndex++;
+
+        Renormalize renormalize = new Renormalize(IEngine(vm.envAddress("ENGINE")), Baselight(address(baselight)), StatBoosts(vm.envAddress("STAT_BOOSTS")), Loop(address(loop)));
         deployedContracts[contractIndex] = DeployData({
             name: "Renormalize",
             contractAddress: address(renormalize)
@@ -357,13 +355,13 @@ contract SetupMons is Script {
             defense: 164,
             specialAttack: 240,
             specialDefense: 168,
-            type1: Type.Cosmic,
-            type2: Type.None
+            type1: Type.Yin,
+            type2: Type.Air
         });
         IMoveSet[] memory moves = new IMoveSet[](4);
-        moves[0] = IMoveSet(address(brightback));
-        moves[1] = IMoveSet(address(unboundedstrike));
-        moves[2] = IMoveSet(address(loop));
+        moves[0] = IMoveSet(address(unboundedstrike));
+        moves[1] = IMoveSet(address(loop));
+        moves[2] = IMoveSet(address(brightback));
         moves[3] = IMoveSet(address(renormalize));
         IAbility[] memory abilities = new IAbility[](1);
         abilities[0] = IAbility(address(baselight));

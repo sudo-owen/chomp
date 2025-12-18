@@ -755,7 +755,7 @@ contract EffectTest is Test, BattleHelper {
                 defense: 10,
                 specialAttack: 10,
                 specialDefense: 10,
-                type1: Type.Mind,
+                type1: Type.Math,
                 type2: Type.None
             }),
             moves: aliceMoves,

@@ -74,7 +74,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
                 defense: 10,
                 specialAttack: 20, // High special attack
                 specialDefense: 10,
-                type1: Type.Water,
+                type1: Type.Liquid,
                 type2: Type.None
             }),
             moves: new IMoveSet[](1),
@@ -122,7 +122,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
 
         // Expected damage calculation:
         // damage = (basePower * attackStat) / defenseStat
-        // For Fire vs Water (not effective): basePower is halved to 50
+        // For Fire vs Liquid (not effective): basePower is halved to 50
         // damage = (50 * 20) / 10 = 100
         assertEq(damage, 100, "Physical attack damage calculation incorrect");
     }
@@ -132,7 +132,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         uint32 basePower = 100;
         uint32 accuracy = 100; // Always hit
         uint256 volatility = 0; // No volatility
-        Type attackType = Type.Water;
+        Type attackType = Type.Liquid;
         MoveClass attackSupertype = MoveClass.Special;
         uint256 rng = 50; // Middle value
         uint256 critRate = 0; // No crits
@@ -155,7 +155,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
 
         // Expected damage calculation:
         // damage = (basePower * specialAttackStat) / specialDefenseStat
-        // For Water vs Fire (super effective): basePower is doubled to 200
+        // For Liquid vs Fire (super effective): basePower is doubled to 200
         // damage = (200 * 20) / 10 = 400
         assertEq(damage, 400, "Special attack damage calculation incorrect");
     }

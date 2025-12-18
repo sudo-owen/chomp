@@ -91,7 +91,7 @@ contract StatBoostsTest is Test, BattleHelper {
                 defense: 100,
                 specialAttack: 100,
                 specialDefense: 100,
-                type1: Type.Water,
+                type1: Type.Liquid,
                 type2: Type.None
             }),
             moves: moves,
@@ -265,7 +265,7 @@ contract StatBoostsTest is Test, BattleHelper {
                 defense: 100,
                 specialAttack: 100,
                 specialDefense: 100,
-                type1: Type.Water,
+                type1: Type.Liquid,
                 type2: Type.None
             }),
             moves: moves,

@@ -411,10 +411,10 @@ contract CPUTest is Test {
     function test_okayCPUSelectsTypeResist() public {
         OkayCPU okayCPU = new OkayCPU(4, engine, mockCPURNG, typeCalc);
 
-        // Both teams have Water, Nature, Fire, Air
+        // Both teams have Liquid, Nature, Fire, Air
         Mon[] memory team = new Mon[](4);
         team[0] = _createMon(Type.Fire);
-        team[1] = _createMon(Type.Water);
+        team[1] = _createMon(Type.Liquid);
         team[2] = _createMon(Type.Nature);
         team[3] = _createMon(Type.Air);
 
