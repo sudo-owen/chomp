@@ -70,13 +70,15 @@ contract ChainExpansion is IMoveSet, BasicEffect {
      *  Effect implementation
      */
 
+    // Pack into uint96-compatible layout: [chargesLeft (8 bits) | playerIndex (8 bits)]
     function _encodeState(uint128 chargesLeft, uint128 playerIndex) internal pure returns (bytes32) {
-        return bytes32((uint256(chargesLeft) << 128) | playerIndex);
+        return bytes32((uint256(chargesLeft) << 8) | (uint256(playerIndex) & 0xFF));
     }
 
     function _decodeState(bytes32 data) internal pure returns (uint256 chargesLeft, uint256 playerIndex) {
-        chargesLeft = uint256(data) >> 128;
-        playerIndex = uint256(data) & type(uint128).max;
+        uint256 packed = uint256(data);
+        chargesLeft = (packed >> 8) & 0xFF;
+        playerIndex = packed & 0xFF;
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {

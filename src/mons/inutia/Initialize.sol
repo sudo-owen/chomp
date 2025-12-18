@@ -85,13 +85,15 @@ contract Initialize is IMoveSet, BasicEffect {
     /**
      *  Effect implementation
      */
+    // Pack into uint96-compatible layout: [playerIndex (8 bits) | monIndex (8 bits)]
     function _encodeState(uint256 playerIndex, uint256 monIndex) internal pure returns (bytes32) {
-        return bytes32((playerIndex << 128) | monIndex);
+        return bytes32((playerIndex << 8) | (monIndex & 0xFF));
     }
 
     function _decodeState(bytes32 data) internal pure returns (uint256 playerIndex, uint256 monIndex) {
-        playerIndex = uint256(data) >> 128;
-        monIndex = uint256(data) & type(uint128).max;
+        uint256 packed = uint256(data);
+        playerIndex = (packed >> 8) & 0xFF;
+        monIndex = packed & 0xFF;
     }
 
     function shouldRunAtStep(EffectStep step) external pure override returns (bool) {

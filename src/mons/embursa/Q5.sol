@@ -28,13 +28,15 @@ contract Q5 is IMoveSet, BasicEffect {
         return "Q5";
     }
 
+    // Pack into uint96-compatible layout: [turnCount (8 bits) | attackerPlayerIndex (8 bits)]
     function _packExtraData(uint256 turnCount, uint256 attackerPlayerIndex) internal pure returns (bytes32) {
-        return bytes32((turnCount << 128) | attackerPlayerIndex);
+        return bytes32((turnCount << 8) | (attackerPlayerIndex & 0xFF));
     }
 
     function _unpackExtraData(bytes32 data) internal pure returns (uint256 turnCount, uint256 attackerPlayerIndex) {
-        turnCount = uint256(data) >> 128;
-        attackerPlayerIndex = uint256(data) & type(uint128).max;
+        uint256 packed = uint256(data);
+        turnCount = (packed >> 8) & 0xFF;
+        attackerPlayerIndex = packed & 0xFF;
     }
 
     function move(bytes32, uint256 attackerPlayerIndex, uint240, uint256) external {
