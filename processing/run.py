@@ -3,23 +3,21 @@
 Meta script to orchestrate the full deploy flow.
 
 Usage:
-    python processing/deploy.py <RPC_URL>
+    python processing/run.py <RPC_URL>
 
 Flow:
     1. Run createMonsAndMoves.py to validate data and update SetupMons.sol
-    2. Prompt for keystore password
-    3. Run forge scripts
-    4. Run createAddressAndABIs.py with all collected addresses
+    2. Run forge scripts (user handles interactive prompts)
+    3. Run createAddressAndABIs.py with all collected addresses
 """
 
 import argparse
-import getpass
+import io
 import os
-import pty
-import select
 import subprocess
 import sys
 from pathlib import Path
+import pexpect
 
 
 SENDER_ADDRESS = "0x4206957609f2936D166aF8E5d0870a11496302AD"
@@ -49,96 +47,29 @@ def run_create_mons_and_moves() -> bool:
     return response == 'y'
 
 
-def run_forge_script(script_name: str, rpc_url: str, password: str) -> tuple[bool, str]:
+def run_forge_script(script_name: str, rpc_url: str) -> tuple[bool, str]:
     """
     Run a forge script and return (success, output).
-    Uses a pseudo-terminal to handle interactive prompts (password, size limit).
+    Uses pexpect to hand control to user for interactive prompts (password, confirmations).
     """
     print(f"\n{'=' * 80}")
     print(f"Running forge script: {script_name}")
     print("=" * 80)
 
-    cmd = [
-        "forge", "script",
-        f"script/{script_name}.s.sol",
-        "--rpc-url", rpc_url,
-        "--account", ACCOUNT_NAME,
-        "--sender", SENDER_ADDRESS,
-        "--broadcast",
-        "--skip-simulation",
-        "--legacy"
-    ]
+    cmd = f"forge script script/{script_name}.s.sol --rpc-url {rpc_url} --account {ACCOUNT_NAME} --sender {SENDER_ADDRESS} --broadcast --skip-simulation --legacy"
 
-    # Create a pseudo-terminal so forge thinks it's running interactively
-    master_fd, slave_fd = pty.openpty()
+    # Use BytesIO to capture output (interact() logs bytes regardless of encoding setting)
+    log_buffer = io.BytesIO()
 
-    process = subprocess.Popen(
-        cmd,
-        stdin=slave_fd,
-        stdout=slave_fd,
-        stderr=slave_fd,
-        text=False,
-        cwd=os.getcwd()
-    )
+    child = pexpect.spawn(cmd, timeout=300)
+    child.logfile_read = log_buffer  # Capture all output that's read
 
-    os.close(slave_fd)
+    # Hand control to user for interactive prompts
+    child.interact()
+    child.wait()
 
-    output_bytes = []
-    password_sent = False
-    buffer = ""
-
-    try:
-        while True:
-            # Check if there's data to read
-            ready, _, _ = select.select([master_fd], [], [], 0.1)
-
-            if ready:
-                try:
-                    data = os.read(master_fd, 1024)
-                    if not data:
-                        break
-                    output_bytes.append(data)
-                    text = data.decode('utf-8', errors='replace')
-                    print(text, end='', flush=True)
-                    buffer += text
-
-                    # Send password when prompted
-                    if not password_sent and "Enter password" in buffer:
-                        os.write(master_fd, (password + "\n").encode())
-                        password_sent = True
-                        buffer = ""
-
-                    # Respond 'y' to contract size limit prompts
-                    if "Do you wish to continue?" in buffer:
-                        os.write(master_fd, b"y\n")
-                        buffer = ""
-
-                except OSError:
-                    break
-
-            # Check if process has exited
-            if process.poll() is not None:
-                # Read any remaining output
-                while True:
-                    ready, _, _ = select.select([master_fd], [], [], 0.1)
-                    if not ready:
-                        break
-                    try:
-                        data = os.read(master_fd, 1024)
-                        if not data:
-                            break
-                        output_bytes.append(data)
-                        text = data.decode('utf-8', errors='replace')
-                        print(text, end='', flush=True)
-                    except OSError:
-                        break
-                break
-
-    finally:
-        os.close(master_fd)
-
-    stdout = b''.join(output_bytes).decode('utf-8', errors='replace')
-    return process.returncode == 0, stdout
+    output = log_buffer.getvalue().decode('utf-8', errors='replace')
+    return child.exitstatus == 0, output
 
 
 def parse_deploy_output(output: str) -> list[str]:
@@ -203,7 +134,7 @@ DEPLOY_SCRIPTS = [
 ]
 
 
-def deploy_all_scripts(rpc_url: str, password: str) -> list[str]:
+def deploy_all_scripts(rpc_url: str) -> list[str]:
     """
     Deploy all forge scripts in order, updating .env after each.
     Returns all collected env lines.
@@ -215,7 +146,7 @@ def deploy_all_scripts(rpc_url: str, password: str) -> list[str]:
         print(f"STEP {i + 1}: Deploying {script_name}")
         print("=" * 80)
 
-        success, output = run_forge_script(script_name, rpc_url, password)
+        success, output = run_forge_script(script_name, rpc_url)
         if not success:
             print(f"\n❌ {script_name} deployment failed")
             sys.exit(1)
@@ -242,17 +173,11 @@ def main():
         print("\n❌ Deployment cancelled or createMonsAndMoves.py failed")
         sys.exit(1)
 
-    # Step 2: Prompt for keystore password
-    print(f"\n{'=' * 80}")
-    print("STEP 2: Keystore Password")
-    print("=" * 80)
-    password = getpass.getpass(f"Enter password for keystore account '{ACCOUNT_NAME}': ")
-
-    # Steps 3+: Deploy all forge scripts
-    all_env_lines = deploy_all_scripts(args.rpc_url, password)
+    # Step 2+: Deploy all forge scripts
+    all_env_lines = deploy_all_scripts(args.rpc_url)
 
     # Final step: Run createAddressAndABIs.py
-    final_step = len(DEPLOY_SCRIPTS) + 3
+    final_step = len(DEPLOY_SCRIPTS) + 2
     print(f"\n{'=' * 80}")
     print(f"STEP {final_step}: Updating TypeScript addresses and ABIs")
     print("=" * 80)

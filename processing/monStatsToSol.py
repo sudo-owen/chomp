@@ -5,7 +5,6 @@ import os
 import re
 import argparse
 from typing import Dict, List, Tuple
-from PIL import Image
 import numpy as np
 
 
@@ -122,60 +121,6 @@ def get_mon_directory_name(mon_name: str) -> str:
     return mon_name.lower()
 
 
-def analyze_gif(gif_path: str) -> dict:
-    """Analyze a GIF file and extract first frame data."""
-    print(f"\n  Analyzing: {os.path.basename(gif_path)}")
-
-    try:
-        with Image.open(gif_path) as img:
-            # Only extract the first frame
-            frame = img.convert('RGBA')
-            frame_array = np.array(frame)
-
-            # Collect all unique colors from first frame only
-            pixels = frame_array.reshape(-1, 4)  # RGBA
-            all_colors = set()
-            for pixel in pixels:
-                all_colors.add(tuple(pixel))
-
-            print(f"    Dimensions: {frame_array.shape[:2]} ")
-            print(f"    Unique colors: {len(all_colors)}")
-
-            # Check if more than 16 colors
-            if len(all_colors) > 16:
-                print(f"    ⚠️  WARNING: More than 16 colors detected! ({len(all_colors)} colors)")
-                print(f"        Consider reducing colors or using a different compression strategy.")
-
-            # Calculate bits needed
-            bits_needed = max(1, (len(all_colors) - 1).bit_length())
-            print(f"    Bits needed per pixel: {bits_needed}")
-
-            # Create color palette (sorted for consistency)
-            palette = sorted(list(all_colors))
-            color_to_index = {color: idx for idx, color in enumerate(palette)}
-
-            # Convert frame to indexed format
-            height, width = frame_array.shape[:2]
-            indexed_frame = np.zeros((height, width), dtype=np.uint8)
-            for y in range(height):
-                for x in range(width):
-                    color = tuple(frame_array[y, x])
-                    indexed_frame[y, x] = color_to_index[color]
-
-            return {
-                'path': gif_path,
-                'dimensions': frame_array.shape[:2],
-                'unique_colors': len(all_colors),
-                'bits_needed': bits_needed,
-                'palette': palette,
-                'indexed_frame': indexed_frame
-            }
-
-    except Exception as e:
-        print(f"    Error: {e}")
-        return None
-
-
 def compress_to_uint256(indexed_frame, bits_per_pixel: int) -> List[int]:
     """Convert indexed frame to compressed uint256 values using simple bit packing."""
     height, width = indexed_frame.shape
@@ -199,88 +144,6 @@ def compress_to_uint256(indexed_frame, bits_per_pixel: int) -> List[int]:
 
     return uint256_values
 
-
-def compress_palette_to_uint256(palette: List[Tuple[int, int, int, int]]) -> List[int]:
-    """Convert color palette to compressed uint256 values.
-
-    Packs colors into uint256 words with a maximum of 10 colors per word (240 bits used, 16 bits unused).
-    This ensures no color is split across word boundaries for easier decoding.
-
-    Args:
-        palette: List of RGBA tuples from GIF analysis
-
-    Returns:
-        List of uint256 integers representing compressed palette data
-    """
-    uint256_values = []
-    colors_per_word = 10  # Maximum colors per uint256 (10 * 24 = 240 bits, 16 bits unused)
-
-    # Process colors in chunks of 10
-    for chunk_start in range(0, len(palette), colors_per_word):
-        chunk_end = min(chunk_start + colors_per_word, len(palette))
-        chunk_colors = palette[chunk_start:chunk_end]
-
-        # Build bit string for this chunk
-        bit_string = ""
-        for rgba in chunk_colors:
-            r, g, b, a = rgba
-
-            # Handle transparent color (0,0,0,0) with sentinel value
-            color_as_bits = ""
-            if r == 0 and g == 0 and b == 0 and a == 0:
-                # Use sentinel value: RGB(1,1,1) = 000000010000000100000001 in binary
-                color_as_bits = "000000010000000100000001"  # 24 bits total
-            else:
-                # Encode RGB values (ignore alpha), 8 bits per channel
-                color_as_bits = (format(r, '08b') + format(g, '08b') + format(b, '08b'))  # 24 bits total
-            
-            # Prepend to bit string (since we're packing from LSB to MSB)
-            bit_string = color_as_bits + bit_string
-
-        # Pad to 256 bits (leave unused bits as zeros)
-        bit_string = bit_string.ljust(256, '0')
-
-        # Convert to integer and add to results
-        uint_value = int(bit_string, 2)
-        uint256_values.append(uint_value)
-
-    return uint256_values
-
-
-def analyze_sprite_images(base_path: str) -> Tuple[Dict[str, List[int]], Dict[str, List[int]]]:
-    """Analyze all mini GIF files and return sprite and palette data indexed by monster name."""
-    imgs_dir = os.path.join(base_path, "drool", "imgs")
-    sprite_data = {}
-    palette_data = {}
-
-    if not os.path.exists(imgs_dir):
-        print(f"Warning: Images directory not found: {imgs_dir}")
-        return sprite_data, palette_data
-
-    mini_gifs = [f for f in os.listdir(imgs_dir) if f.endswith('_mini.gif')]
-
-    for gif_file in sorted(mini_gifs):
-        # Extract monster name from filename (e.g., "inutia" from "inutia_mini.gif")
-        mon_name = gif_file.replace('_mini.gif', '').lower()
-
-        gif_path = os.path.join(imgs_dir, gif_file)
-        result = analyze_gif(gif_path)
-
-        if result:
-            # Compress frame to uint256 format
-            compressed_sprite = compress_to_uint256(result['indexed_frame'], result['bits_needed'])
-            sprite_data[mon_name] = compressed_sprite
-
-            # Compress palette to uint256 format
-            compressed_palette = compress_palette_to_uint256(result['palette'])
-            palette_data[mon_name] = compressed_palette
-
-            print(f"    Sprite: {len(compressed_sprite)} uint256 values")
-            print(f"    Palette: {len(compressed_palette)} uint256 values")
-        else:
-            print(f"    Failed to process {gif_file}")
-
-    return sprite_data, palette_data
 
 
 def analyze_contract_dependencies(contract_path: str, base_path: str) -> Tuple[List[str], List[str]]:
@@ -707,25 +570,6 @@ def main():
     read_moves_csv(os.path.join(base_path, "drool", "moves.csv"), mons)
     read_abilities_csv(os.path.join(base_path, "drool", "abilities.csv"), mons)
     print(f"Loaded {len(mons)} mons")
-
-    # Conditionally analyze sprite images if --color flag is set
-    if args.color:
-        print("\nAnalyzing sprite images...")
-        sprite_data, palette_data = analyze_sprite_images(base_path)
-
-        # Populate sprite and palette data in MonData objects
-        for mon_name, mon in mons.items():
-            mon_key = mon_name.lower()
-            if mon_key in sprite_data:
-                mon.sprite_data = sprite_data[mon_key]
-                mon.palette_data = palette_data.get(mon_key, [])
-                print(f"  {mon_name}: {len(mon.sprite_data)} sprite uint256 values, {len(mon.palette_data)} palette uint256 values")
-            else:
-                print(f"  {mon_name}: No sprite data found")
-
-        mons_with_sprites = len([m for m in mons.values() if m.sprite_data])
-        mons_with_palettes = len([m for m in mons.values() if m.palette_data])
-        print(f"Loaded sprite data for {mons_with_sprites} mons, palette data for {mons_with_palettes} mons")
 
     # Collect all contracts
     contracts = collect_all_contracts(mons, base_path)
