@@ -482,6 +482,9 @@ contract Engine is IEngine, MappingAllocator {
         if (battle.winnerIndex != 2) {
             address winner = (battle.winnerIndex == 0) ? battle.p0 : battle.p1;
             _handleGameOver(battleKey, winner);
+
+            // Still emit execute event
+            emit EngineExecute(battleKey, turnId, playerSwitchForTurnFlag, priorityPlayerIndex);
             return;
         }
 
@@ -1457,8 +1460,8 @@ contract Engine is IEngine, MappingAllocator {
         uint256 p0TeamSize = teamSizes & 0xF;
         uint256 p1TeamSize = (teamSizes >> 4) & 0xF;
 
-        EffectInstance[] memory p0Effects = _buildPlayerEffectsArray(config.p0Effects, config.packedP0EffectsCount, p0TeamSize);
-        EffectInstance[] memory p1Effects = _buildPlayerEffectsArray(config.p1Effects, config.packedP1EffectsCount, p1TeamSize);
+        EffectInstance[][] memory p0Effects = _buildPlayerEffectsArray(config.p0Effects, config.packedP0EffectsCount, p0TeamSize);
+        EffectInstance[][] memory p1Effects = _buildPlayerEffectsArray(config.p1Effects, config.packedP1EffectsCount, p1TeamSize);
 
         // Build teams array from mappings
         Mon[][] memory teams = new Mon[][](2);
@@ -1508,31 +1511,31 @@ contract Engine is IEngine, MappingAllocator {
         mapping(uint256 => EffectInstance) storage effects,
         uint96 packedCounts,
         uint256 teamSize
-    ) private view returns (EffectInstance[] memory) {
-        // Calculate max possible size from packed counts (no storage reads)
-        uint256 maxSize = 0;
-        for (uint256 m = 0; m < teamSize; m++) {
-            maxSize += _getMonEffectCount(packedCounts, m);
-        }
+    ) private view returns (EffectInstance[][] memory) {
+        // Allocate outer array for each mon
+        EffectInstance[][] memory result = new EffectInstance[][](teamSize);
 
-        // Allocate max size and populate in single pass
-        EffectInstance[] memory result = new EffectInstance[](maxSize);
-        uint256 idx = 0;
         for (uint256 m = 0; m < teamSize; m++) {
             uint256 monCount = _getMonEffectCount(packedCounts, m);
             uint256 baseSlot = _getEffectSlotIndex(m, 0);
+
+            // Allocate max size for this mon's effects
+            EffectInstance[] memory monEffects = new EffectInstance[](monCount);
+            uint256 idx = 0;
             for (uint256 i = 0; i < monCount; ++i) {
                 if (address(effects[baseSlot + i].effect) != TOMBSTONE_ADDRESS) {
-                    result[idx] = effects[baseSlot + i];
+                    monEffects[idx] = effects[baseSlot + i];
                     idx++;
                 }
             }
+
+            // Resize array to actual count
+            assembly ("memory-safe") {
+                mstore(monEffects, idx)
+            }
+            result[m] = monEffects;
         }
 
-        // Resize array to actual count
-        assembly ("memory-safe") {
-            mstore(result, idx)
-        }
         return result;
     }
 

@@ -106,8 +106,8 @@ struct BattleConfigView {
     MoveDecision p0Move;
     MoveDecision p1Move;
     EffectInstance[] globalEffects;
-    EffectInstance[] p0Effects;
-    EffectInstance[] p1Effects;
+    EffectInstance[][] p0Effects; // Returns effects per mon in team
+    EffectInstance[][] p1Effects;
     Mon[][] teams;
     MonState[][] monStates;
 }

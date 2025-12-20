@@ -416,6 +416,7 @@ contract StatBoosts is BasicEffect {
         _accumulateBoosts(baseStats, finalPercents, finalCounts, finalIsMultiply, numBoostsPerStat, accumulatedNumeratorPerStat);
 
         // Update effect storage
+        ENGINE.setUpstreamCaller(msg.sender);
         if (found) {
             ENGINE.editEffect(targetIndex, monIndex, foundEffectIndex, newData);
         } else {
