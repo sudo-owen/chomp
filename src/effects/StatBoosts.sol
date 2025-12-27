@@ -114,6 +114,15 @@ contract StatBoosts is BasicEffect {
         }
     }
 
+    function _generateKeyNoSalt(uint256 targetIndex, uint256 monIndex, address caller)
+        internal
+        pure
+        returns (uint168)
+    {
+        // Layout: [160 bits address | 7 bits monIndex | 1 bit targetIndex]
+        return uint168((uint256(uint160(caller)) << 8) | (monIndex << 1) | targetIndex);
+    }
+
     function _generateKey(uint256 targetIndex, uint256 monIndex, address caller, string memory salt)
         internal
         pure
@@ -337,7 +346,7 @@ contract StatBoosts is BasicEffect {
         StatBoostToApply[] memory statBoostsToApply,
         StatBoostFlag boostFlag
     ) public {
-        uint168 key = _generateKey(targetIndex, monIndex, msg.sender, name());
+        uint168 key = _generateKeyNoSalt(targetIndex, monIndex, msg.sender);
         _addStatBoostsWithKey(targetIndex, monIndex, statBoostsToApply, boostFlag, key);
     }
 
@@ -428,7 +437,7 @@ contract StatBoosts is BasicEffect {
     }
 
     function removeStatBoosts(uint256 targetIndex, uint256 monIndex, StatBoostFlag boostFlag) public {
-        uint168 key = _generateKey(targetIndex, monIndex, msg.sender, name());
+        uint168 key = _generateKeyNoSalt(targetIndex, monIndex, msg.sender);
         _removeStatBoostsWithKey(targetIndex, monIndex, key, boostFlag);
     }
 

@@ -39,4 +39,8 @@ abstract contract MappingAllocator {
         freeStorageKeys.push(storageKey);
         delete battleKeyToStorageKey[battleKey];
     }
+
+    function getFreeStorageKeys() view public returns (bytes32[] memory) {
+        return freeStorageKeys;
+    }
 }
