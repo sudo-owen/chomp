@@ -23,7 +23,6 @@ import {Baselight} from "./Baselight.sol";
  * - Effect lasts until swap out (uses temp stat boost)
  */
 contract Loop is IMoveSet {
-    string public constant LOOP_KEY = "Loop";
     uint8 public constant BOOST_PERCENT_LEVEL_1 = 15;
     uint8 public constant BOOST_PERCENT_LEVEL_2 = 30;
     uint8 public constant BOOST_PERCENT_LEVEL_3 = 40;
@@ -43,7 +42,7 @@ contract Loop is IMoveSet {
     }
 
     function _loopActiveKey(uint256 playerIndex, uint256 monIndex) internal pure returns (bytes32) {
-        return keccak256(abi.encode(playerIndex, monIndex, LOOP_KEY));
+        return keccak256(abi.encode(playerIndex, monIndex, name()));
     }
 
     function isLoopActive(bytes32 battleKey, uint256 playerIndex, uint256 monIndex) public view returns (bool) {
@@ -115,7 +114,7 @@ contract Loop is IMoveSet {
         });
 
         // Use Temp flag so boosts are removed on switch out
-        STAT_BOOSTS.addKeyedStatBoosts(attackerPlayerIndex, monIndex, statBoosts, StatBoostFlag.Temp, LOOP_KEY);
+        STAT_BOOSTS.addStatBoosts(attackerPlayerIndex, monIndex, statBoosts, StatBoostFlag.Temp);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {

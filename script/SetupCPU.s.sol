@@ -17,6 +17,10 @@ contract SetupCPU is Script {
     function run() external returns (DeployData[] memory) {
         vm.startBroadcast();
 
+        GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
+        string[] memory cpuPlayers = new string[](1);
+        cpuPlayers[0] = "OKAY_CPU";
+
         // Create team of Ghouliath, Malalien, Pengym, and Volthare for cpu player
         uint256[] memory monIndices = new uint256[](4);
         monIndices[0] = 0; // Ghouliath
@@ -24,11 +28,6 @@ contract SetupCPU is Script {
         monIndices[2] = 6; // Pengym
         monIndices[3] = 8; // Volthare
 
-        GachaTeamRegistry gachaTeamRegistry = GachaTeamRegistry(vm.envAddress("GACHA_TEAM_REGISTRY"));
-        string[] memory cpuPlayers = new string[](1);
-        cpuPlayers[0] = "OKAY_CPU";
-        // cpuPlayers[1] = "PLAYER_CPU";
-        // cpuPlayers[2] = "OKAY_CPU";
         for (uint256 i; i < cpuPlayers.length; i++) {
             gachaTeamRegistry.createTeamForUser(vm.envAddress(cpuPlayers[i]), monIndices);
         }

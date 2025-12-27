@@ -11,7 +11,7 @@ Unbounded Strike,Iblivion,?,?,100,0,Air,Physical,"Consume 3 Baselight stacks to 
 Loop,Iblivion,0,1,100,0,Yin,Self,"Raises all stats by 15/30/40% based on Baselight level.".,,No
 Brightback,Iblivion,70,2,100,0,Yin,Physical,"Deals damage. Consume 1 Baselight stack to heal for 50% of damage dealt.",,No
 Renormalize,Iblivion,0,0,100,-1,Yin,Self,"Sets Baselight level to 3. Clears all stat boosts, positive or negative.",,No
-Chain Expansion,Inutia,0,1,100,0,Mythic,Other,Sets up long-lasting battlefield effect. Triggers on switch in for both opponent and self. Damages opponent and heals self for 1/8 of max HP. Lasts for 3-5 turns.,,No
+Chain Expansion,Inutia,0,1,100,0,Mythic,Other,Sets up long-lasting battlefield effect. Triggers on switch ins. Damages opponent and heals self for 1/8 of max HP. Has 4 charges.,,No
 Initialize,Inutia,0,2,100,0,Mythic,Self,"Boosts ATK/SpATK by 50%. Can only be used once each time Inutia is sent out. When Inutia switches out, half of the bonus is transferred to the next incoming mon.",,No
 Big Bite,Inutia,85,2,100,0,Wild,Physical,Deals damage.,,No
 Hit And Dip,Inutia,30,2,100,0,Mythic,Special,"Deals damage, then swaps out.",,Yes

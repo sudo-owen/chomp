@@ -91,11 +91,11 @@ contract Tinderclaws is IAbility, BasicEffect {
                 boostPercent: SP_ATTACK_BOOST_PERCENT,
                 boostType: StatBoostType.Multiply
             });
-            STAT_BOOSTS.addKeyedStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm, name());
+            STAT_BOOSTS.addStatBoosts(targetIndex, monIndex, statBoosts, StatBoostFlag.Perm);
             return (bytes32(uint256(1)), false);
         } else if (!isBurned && hasBoost) {
             // Remove SpATK boost
-            STAT_BOOSTS.removeKeyedStatBoosts(targetIndex, monIndex, StatBoostFlag.Perm, name());
+            STAT_BOOSTS.removeStatBoosts(targetIndex, monIndex, StatBoostFlag.Perm);
             return (bytes32(0), false);
         }
 
