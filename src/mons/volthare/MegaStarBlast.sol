@@ -21,13 +21,13 @@ contract MegaStarBlast is IMoveSet {
     IEngine immutable ENGINE;
     ITypeCalculator immutable TYPE_CALCULATOR;
     IEffect immutable ZAP_STATUS;
-    IEffect immutable STORM;
+    IEffect immutable OVERLOAD;
 
-    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, IEffect _ZAP_STATUS, IEffect _STORM) {
+    constructor(IEngine _ENGINE, ITypeCalculator _TYPE_CALCULATOR, IEffect _ZAP_STATUS, IEffect _OVERLOAD) {
         ENGINE = _ENGINE;
         TYPE_CALCULATOR = _TYPE_CALCULATOR;
         ZAP_STATUS = _ZAP_STATUS;
-        STORM = _STORM;
+        OVERLOAD = _OVERLOAD;
     }
 
     function name() public pure override returns (string memory) {
@@ -35,10 +35,10 @@ contract MegaStarBlast is IMoveSet {
     }
 
     function _checkForOverclock(bytes32 battleKey) internal view returns (int32) {
-        // Check all global effects to see if Storm is active
+        // Check all global effects to see if Overload is active
         (EffectInstance[] memory effects, uint256[] memory indices) = ENGINE.getEffects(battleKey, 2, 2);
         for (uint256 i; i < effects.length; i++) {
-            if (address(effects[i].effect) == address(STORM)) {
+            if (address(effects[i].effect) == address(OVERLOAD)) {
                 return int32(int256(indices[i]));
             }
         }
@@ -46,12 +46,12 @@ contract MegaStarBlast is IMoveSet {
     }
 
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, uint240, uint256 rng) external {
-        // Check if Storm is active
+        // Check if Overload is active
         uint32 acc = BASE_ACCURACY;
-        int32 stormIndex = _checkForOverclock(battleKey);
-        if (stormIndex >= 0) {
-            // Remove Storm
-            ENGINE.removeEffect(2, 2, uint256(uint32(stormIndex)));
+        int32 overloadIndex = _checkForOverclock(battleKey);
+        if (overloadIndex >= 0) {
+            // Remove Overload
+            ENGINE.removeEffect(2, 2, uint256(uint32(overloadIndex)));
             // Upgrade accuracy
             acc = 100;
         }

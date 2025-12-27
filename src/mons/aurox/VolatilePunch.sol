@@ -12,7 +12,7 @@ import {StandardAttack} from "../../moves/StandardAttack.sol";
 import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
 
 contract VolatilePunch is StandardAttack {
-    uint32 public constant STATUS_EFFECT_CHANCE = 30; // 15% chance for each status
+    uint32 public constant STATUS_EFFECT_CHANCE = 50; // 20% chance for each status
 
     IEffect immutable BURN_STATUS;
     IEffect immutable FROSTBITE_STATUS;

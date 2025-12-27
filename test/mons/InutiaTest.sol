@@ -15,7 +15,6 @@ import {IAbility} from "../../src/abilities/IAbility.sol";
 import {IEffect} from "../../src/effects/IEffect.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 import {IMoveSet} from "../../src/moves/IMoveSet.sol";
-import {StandardAttack} from "../../src/moves/StandardAttack.sol";
 import {StandardAttackFactory} from "../../src/moves/StandardAttackFactory.sol";
 import {ATTACK_PARAMS} from "../../src/moves/StandardAttackStructs.sol";
 import {ITypeCalculator} from "../../src/types/ITypeCalculator.sol";

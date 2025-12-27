@@ -646,7 +646,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        MegaStarBlast megastarblast = new MegaStarBlast(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), IEffect(vm.envAddress("STORM")));
+        MegaStarBlast megastarblast = new MegaStarBlast(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), IEffect(vm.envAddress("OVERLOAD")));
         deployedContracts[contractIndex] = DeployData({
             name: "Mega Star Blast",
             contractAddress: address(megastarblast)

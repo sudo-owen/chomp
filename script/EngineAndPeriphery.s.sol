@@ -30,7 +30,7 @@ import {FrostbiteStatus} from "../src/effects/status/FrostbiteStatus.sol";
 import {PanicStatus} from "../src/effects/status/PanicStatus.sol";
 import {SleepStatus} from "../src/effects/status/SleepStatus.sol";
 import {ZapStatus} from "../src/effects/status/ZapStatus.sol";
-import {Storm} from "../src/effects/weather/Storm.sol";
+import {Overload} from "../src/effects/battlefield/Overload.sol";
 
 struct DeployData {
     string name;
@@ -108,8 +108,8 @@ contract EngineAndPeriphery is Script {
         StatBoosts statBoosts = new StatBoosts(engine);
         deployedContracts.push(DeployData({name: "STAT BOOSTS", contractAddress: address(statBoosts)}));
 
-        Storm storm = new Storm(engine, statBoosts);
-        deployedContracts.push(DeployData({name: "STORM", contractAddress: address(storm)}));
+        Overload overload = new Overload(engine, statBoosts);
+        deployedContracts.push(DeployData({name: "OVERLOAD", contractAddress: address(overload)}));
 
         SleepStatus sleepStatus = new SleepStatus(engine);
         deployedContracts.push(DeployData({name: "SLEEP STATUS", contractAddress: address(sleepStatus)}));

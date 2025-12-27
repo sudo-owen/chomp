@@ -21,8 +21,8 @@ contract ChillOut is StandardAttack {
             ATTACK_PARAMS({
                 NAME: "Chill Out",
                 BASE_POWER: 0,
-                STAMINA_COST: 2,
-                ACCURACY: 90,
+                STAMINA_COST: 0,
+                ACCURACY: 100,
                 MOVE_TYPE: Type.Ice,
                 MOVE_CLASS: MoveClass.Other,
                 PRIORITY: DEFAULT_PRIORITY,

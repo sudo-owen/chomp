@@ -36,7 +36,7 @@ contract IronWall is IMoveSet, BasicEffect {
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {
-        return DEFAULT_PRIORITY;
+        return DEFAULT_PRIORITY + 1;
     }
 
     function moveType(bytes32) public pure returns (Type) {

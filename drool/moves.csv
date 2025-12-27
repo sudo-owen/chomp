@@ -19,7 +19,7 @@ Triple Think,Malalien,0,2,100,0,Math,Self,Boosts SpATK by 75%.,,No
 Federal Investigation,Malalien,100,3,100,0,Cyber,Special,Deals damage.,,No
 Negative Thoughts,Malalien,80,3,100,0,Math,Special,"Deals damage, 10% chance to cause Panic.",,No
 Infinite Love,Malalien,90,3,100,0,Cosmic,Special,"Deals damage, 10% chance to cause Sleep.",,No
-Chill Out,Pengym,0,2,90,0,Ice,Other,"Inflicts Frostbite. Frostbite deals 1/16 damage every turn, and also halves SpATK.",,No
+Chill Out,Pengym,0,0,100,0,Ice,Other,"Inflicts Frostbite. Frostbite deals 1/16 damage every turn, and also halves SpATK.",,No
 Deadlift,Pengym,0,2,100,0,Metal,Self,Increases ATK and DEF by 50%.,,No
 Deep Freeze,Pengym,90,3,100,0,Ice,Physical,"If the target has Frostbite, consumes Frostbite and does double damage.",,No
 Pistol Squat,Pengym,80,2,100,-1,Metal,Physical,"Deals damage, forces enemy mon to switch.",,No
@@ -29,15 +29,15 @@ Unexpected Carrot,Sofabbi,120,4,100,0,Nature,Physical,Deals damage.,,No
 Snack Break,Sofabbi,0,1,100,0,Nature,Self,"Heal for 1/2 of health. Effectiveness reduces by half each time, until a min of 1/16.",,No
 Electrocute,Volthare,90,2,100,0,Lightning,Special,"Deals damage, 10% chance to cause Zap. A Zapped mon skips its next turn.",,No
 Round Trip,Volthare,30,1,100,0,Lightning,Special,"Deals damage, then switches out.",,Yes
-Mega Star Blast,Volthare,150,3,?,2,Lightning,Special,"+2 priority. If used during Storm, clears Storm and accuracy is 100%. Otherwise accuracy is 50%. Deals damage, 30% chance to cause Zap.",,No
-Dual Shock,Volthare,60,0,100,0,Lightning,Special,Deals damage and inflicts Zap on self.,,No
+Mega Star Blast,Volthare,150,3,?,2,Lightning,Special,"+2 priority. If used during Overclock, clears Overclock and accuracy is 100%. Otherwise accuracy is 50%. Deals damage, 30% chance to cause Zap.",,No
+Dual Shock,Volthare,60,0,100,0,Cyber,Special,Deals damage and inflicts Zap on self. Also Overclocks your team,,No
 Honey Bribe,Embursa,0,2,100,0,Nature,Self,Heals both self and opponent by 1/2 of max HP. (Each subsequent use cuts HP healed in half). Lowers opponent SpDEF by 50%.,,No
 Set Ablaze,Embursa,90,3,100,0,Fire,Special,"Deals damage, 30% chance of Burn.",,No
 Heat Beacon,Embursa,0,2,100,0,Fire,Self,+1 priority to next turn's move. Inflict Burn on the opposing mon.,,No
 Q5,Embursa,150,2,100,0,Fire,Special,Deals damage in 5 turns and Burns the enemy.,,No
-Volatile Punch,Aurox,40,3,100,0,Metal,Physical,Deals damage. 15% chance of Burn and 15% chance of Frostbite.,,No
+Volatile Punch,Aurox,40,3,100,0,Metal,Physical,Deals damage. 25% chance of Burn and 25% chance of Frostbite.,,No
 Gilded Recovery,Aurox,0,2,100,0,Mythic,Self,"Heals a target friendly mon from a status condition. If successful, Aurox heals 50% of max HP, and the target mon gains +1 stamina.",,Yes
-Iron Wall,Aurox,0,3,100,0,Metal,Self,"Until Aurox switches out, regenerate 50% of all damage taken.",,
+Iron Wall,Aurox,0,3,100,1,Metal,Self,"Until Aurox switches out, regenerate 50% of all damage taken.",,
 Bull Rush,Aurox,80,2,100,0,Metal,Physical,Deals damage. Also deals 10% of max HP to Aurox.,,
 Contagious Slumber,Xmon,0,2,100,0,Cosmic,Other,"Inflicts Sleep on self and opponent. When asleep, you are forced to rest.",,No
 Vital Siphon,Xmon,40,2,90,0,Cosmic,Special,"Deals damage, 50% chance to steal 1 stamina from opponent.",,No
