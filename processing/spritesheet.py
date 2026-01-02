@@ -33,12 +33,22 @@ def find_96x96_gifs(directory: str) -> List[str]:
     return gif_files
 
 
-def extract_all_frames(gif_path: str) -> List[Image.Image]:
-    """Extract all frames from a GIF file."""
+def extract_all_frames(gif_path: str) -> Tuple[List[Image.Image], int]:
+    """
+    Extract all frames from a GIF file.
+
+    Returns:
+        Tuple of (frames, frame_rate_ms) where frame_rate_ms is duration per frame in milliseconds
+    """
     frames = []
+    frame_rate_ms = 100  # Default to 100ms if not specified
 
     try:
         with Image.open(gif_path) as img:
+            # Get frame duration from the first frame
+            if 'duration' in img.info:
+                frame_rate_ms = img.info['duration']
+
             # Iterate through all frames
             for frame_num in range(img.n_frames):
                 img.seek(frame_num)
@@ -48,7 +58,7 @@ def extract_all_frames(gif_path: str) -> List[Image.Image]:
     except Exception as e:
         print(f"Error extracting frames from {gif_path}: {e}")
 
-    return frames
+    return frames, frame_rate_ms
 
 
 def calculate_optimal_grid(total_frames: int) -> Tuple[int, int]:
@@ -71,16 +81,18 @@ def create_spritesheet_and_metadata(
         Tuple of (spritesheet_path, json_path)
     """
     # Extract all frames from all GIFs
-    all_frames_data = []  # List of (filename, frame_index, frame_image)
+    all_frames_data = []  # List of (filename, frame_image, frame_rate_ms)
+    file_frame_rates = {}  # Store frame rate per file
 
     for gif_path in gif_files:
         filename = Path(gif_path).name
-        frames = extract_all_frames(gif_path)
+        frames, frame_rate_ms = extract_all_frames(gif_path)
+        file_frame_rates[filename] = frame_rate_ms
 
-        for frame_idx, frame in enumerate(frames):
-            all_frames_data.append((filename, frame_idx, frame))
+        for frame in frames:
+            all_frames_data.append((filename, frame))
 
-        print(f"Extracted {len(frames)} frames from {filename}")
+        print(f"Extracted {len(frames)} frames from {filename} (frame rate: {frame_rate_ms}ms)")
 
     total_frames = len(all_frames_data)
     if total_frames == 0:
@@ -101,7 +113,7 @@ def create_spritesheet_and_metadata(
     metadata = {}
 
     # Place frames on spritesheet and record positions
-    for idx, (filename, frame_idx, frame) in enumerate(all_frames_data):
+    for idx, (filename, frame) in enumerate(all_frames_data):
         col = idx % cols
         row = idx // cols
 
@@ -113,13 +125,12 @@ def create_spritesheet_and_metadata(
 
         # Add to metadata
         if filename not in metadata:
-            metadata[filename] = []
+            metadata[filename] = {
+                "msPerFrame": file_frame_rates[filename],
+                "frames": []
+            }
 
-        metadata[filename].append({
-            "frame": frame_idx,
-            "x": x,
-            "y": y
-        })
+        metadata[filename]["frames"].append([x, y])
 
     # Save spritesheet
     spritesheet_path = os.path.join(output_dir, "spritesheet.png")
