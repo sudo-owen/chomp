@@ -39,7 +39,7 @@ contract GachaTest is Test, BattleHelper {
     }
 
     function test_firstRoll() public {
-        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG);
+        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG, 1);
 
         // Set up mon IDs 0 to INITIAL ROLLS
         for (uint256 i = 0; i < gachaRegistry.INITIAL_ROLLS(); i++) {
@@ -74,7 +74,7 @@ contract GachaTest is Test, BattleHelper {
     }
 
     function test_assignPoints() public {
-        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG);
+        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG, 1);
 
         // Set up mon IDs 0 to INITIAL ROLLS
         for (uint256 i = 0; i < gachaRegistry.INITIAL_ROLLS(); i++) {
@@ -142,7 +142,7 @@ contract GachaTest is Test, BattleHelper {
     }
 
     function test_spendPoints() public {
-        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG);
+        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG, 1);
 
         // Set up mon IDs 0 to INITIAL ROLLS + 1
         for (uint256 i = 0; i < gachaRegistry.INITIAL_ROLLS(); i++) {
@@ -166,7 +166,7 @@ contract GachaTest is Test, BattleHelper {
             );
         }
 
-        // Start battle (do it 6 times so Alice has enough to spend on a roll)
+        // Start battle (do it COST / POINTS_PER_LOSS, rounded up, times)
         Mon[] memory team = new Mon[](1);
         team[0] = Mon({
             stats: MonStats({
@@ -185,7 +185,7 @@ contract GachaTest is Test, BattleHelper {
         });
         defaultRegistry.setTeam(ALICE, team);
         defaultRegistry.setTeam(BOB, team);
-        for (uint256 i = 0; i < 6; i++) {
+        for (uint256 i = 0; i < ((gachaRegistry.ROLL_COST() / gachaRegistry.POINTS_PER_WIN()) + 1); i++) {
             vm.warp(gachaRegistry.BATTLE_COOLDOWN() * (i + 1) + (i + 1));
             DefaultValidator validator = new DefaultValidator(
                 engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0})
@@ -207,7 +207,7 @@ contract GachaTest is Test, BattleHelper {
         }
 
         // Assert Alice has enough points to roll
-        assertEq(gachaRegistry.pointsBalance(ALICE), 6 * gachaRegistry.POINTS_PER_WIN());
+        assertGe(gachaRegistry.pointsBalance(ALICE), gachaRegistry.ROLL_COST());
 
         // Alice rolls
         vm.startPrank(ALICE);
@@ -240,71 +240,13 @@ contract GachaTest is Test, BattleHelper {
         monIds = gachaRegistry.roll(1);
         assertEq(monIds.length, 1);
 
-        // Verify points are correct
-        assertEq(gachaRegistry.pointsBalance(ALICE), 0);
-
         // Verify Alice cannot roll again (should underflow)
         vm.expectRevert();
         gachaRegistry.roll(1);
-
-        // Verify Alice balance is 0
-        assertEq(gachaRegistry.pointsBalance(ALICE), 0);
-    }
-
-    function test_bonusPoints() public {
-        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, IGachaRNG(address(0)));
-        DefaultValidator validator =
-            new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
-        Mon[] memory team = new Mon[](1);
-        team[0] = Mon({
-            stats: MonStats({
-                hp: 10,
-                stamina: 2,
-                speed: 2,
-                attack: 1,
-                defense: 1,
-                specialAttack: 1,
-                specialDefense: 1,
-                type1: Type.Fire,
-                type2: Type.None
-            }),
-            moves: new IMoveSet[](0),
-            ability: IAbility(address(0))
-        });
-        defaultRegistry.setTeam(ALICE, team);
-        defaultRegistry.setTeam(BOB, team);
-        vm.warp(gachaRegistry.BATTLE_COOLDOWN() + 1);
-
-        IEngineHook[] memory hooks = new IEngineHook[](1);
-        hooks[0] = gachaRegistry;
-        bytes32 battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, address(commitManager));
-
-        // Advance time to avoid GameStartsAndEndsSameBlock error
-        vm.warp(vm.getBlockTimestamp() + 1);
-
-        // Magic number to trigger the bonus points after all the hashing we do
-        bytes32 salt = keccak256(abi.encode(11));
-
-        bytes32 aliceMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, uint240(0)));
-        vm.startPrank(ALICE);
-        commitManager.commitMove(battleKey, aliceMoveHash);
-        vm.startPrank(BOB);
-        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, uint240(0), true);
-        vm.startPrank(ALICE);
-        commitManager.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, uint240(0), true);
-
-        // Alice wins the battle because timeout duration is 0, so we auto force a lose
-        // It's turn id 1 which means Bob had to commit, so any inaction is a lose from him
-        engine.end(battleKey);
-        assertEq(engine.getWinner(battleKey), ALICE);
-
-        // Verify points are correct
-        assertEq(gachaRegistry.pointsBalance(ALICE), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_WIN());
-        assertEq(gachaRegistry.pointsBalance(BOB), gachaRegistry.POINTS_MULTIPLIER() * gachaRegistry.POINTS_PER_LOSS());
     }
 
     function test_cooldown() public {
-        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, IGachaRNG(address(0)));
+        GachaRegistry gachaRegistry = new GachaRegistry(monRegistry, engine, IGachaRNG(address(0)), 3);
         DefaultValidator validator =
             new DefaultValidator(engine, DefaultValidator.Args({MONS_PER_TEAM: 1, MOVES_PER_MON: 0, TIMEOUT_DURATION: 0}));
         Mon[] memory team = new Mon[](1);
@@ -359,7 +301,7 @@ contract GachaTest is Test, BattleHelper {
         hooks[0] = gachaRegistry;
         battleKey = _startBattle(validator, engine, defaultOracle, defaultRegistry, matchmaker, hooks, address(commitManager));
 
-        // Advance time to avoid GameStartsAndEndsSameBlock error (but stay within cooldown)
+        // Advance time to avoid GameStartsAndEndsSameBlock error (but stay within gacha cooldown)
         vm.warp(vm.getBlockTimestamp() + 1);
 
         aliceMoveHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, salt, uint240(0)));

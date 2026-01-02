@@ -52,7 +52,7 @@ contract DualShock is StandardAttack {
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
         ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, ZAP_STATUS, "");
 
-        // Apply Overload to self
+        // Apply Overload to team
         OVERLOAD.applyOverload(attackerPlayerIndex);
     }
 }

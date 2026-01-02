@@ -12,6 +12,7 @@ import {IAbility} from "../src/abilities/IAbility.sol";
 import {IEngine} from "../src/IEngine.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
+import {Overload} from "../src/effects/battlefield/Overload.sol";
 import {BullRush} from "../src/mons/aurox/BullRush.sol";
 import {GildedRecovery} from "../src/mons/aurox/GildedRecovery.sol";
 import {IronWall} from "../src/mons/aurox/IronWall.sol";
@@ -163,7 +164,7 @@ contract SetupMons is Script {
             defense: 202,
             specialAttack: 151,
             specialDefense: 202,
-            type1: Type.Yang,
+            type1: Type.Yin,
             type2: Type.Fire
         });
         IMoveSet[] memory moves = new IMoveSet[](4);
@@ -355,7 +356,7 @@ contract SetupMons is Script {
             defense: 164,
             specialAttack: 240,
             specialDefense: 168,
-            type1: Type.Yin,
+            type1: Type.Yang,
             type2: Type.Air
         });
         IMoveSet[] memory moves = new IMoveSet[](4);
@@ -653,7 +654,7 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")));
+        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), Overload(vm.envAddress("OVERLOAD")));
         deployedContracts[contractIndex] = DeployData({
             name: "Dual Shock",
             contractAddress: address(dualshock)

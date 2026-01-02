@@ -3,24 +3,24 @@ pragma solidity ^0.8.0;
 
 import {EnumerableSetLib} from "../lib/EnumerableSetLib.sol";
 
+import {MonStats, Mon} from "../Structs.sol";
 import {IEngine} from "../IEngine.sol";
 import {IEngineHook} from "../IEngineHook.sol";
-import {Ownable} from "../lib/Ownable.sol";
 import {IGachaRNG} from "../rng/IGachaRNG.sol";
-import "../teams/IMonRegistry.sol";
+import {IMonRegistry} from "../teams/IMonRegistry.sol";
 import {IOwnableMon} from "./IOwnableMon.sol";
+import {IAbility} from "../abilities/IAbility.sol";
+import {IMoveSet} from "../moves/IMoveSet.sol";
 
-contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Ownable {
+contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG {
     using EnumerableSetLib for EnumerableSetLib.Uint256Set;
 
     uint256 public constant INITIAL_ROLLS = 4;
-    uint256 public constant ROLL_COST = 300;
-    uint256 public constant POINTS_PER_WIN = 50;
-    uint256 public constant POINTS_PER_LOSS = 20;
-    uint256 public constant POINTS_MULTIPLIER = 3;
-    uint256 public constant POINTS_MULTIPLIER_CHANCE_DENOM = 10;
-    uint256 public constant BATTLE_COOLDOWN = 1 seconds;
-    uint256 public constant MAGIC_WINNING_NUMBER = 4;
+    uint256 public constant ROLL_COST = 7;
+    uint256 public constant POINTS_PER_WIN = 2;
+    uint256 public constant POINTS_PER_LOSS = 1;
+
+    uint256 public immutable BATTLE_COOLDOWN;
 
     IMonRegistry public immutable MON_REGISTRY;
     IEngine public immutable ENGINE;
@@ -39,7 +39,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Own
     event PointsSpent(address indexed player, uint256 points);
     event BonusPoints(bytes32 indexed battleKey);
 
-    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG) {
+    constructor(IMonRegistry _MON_REGISTRY, IEngine _ENGINE, IGachaRNG _RNG, uint256 _BATTLE_COOLDOWN) {
         MON_REGISTRY = _MON_REGISTRY;
         ENGINE = _ENGINE;
         if (address(_RNG) == address(0)) {
@@ -47,10 +47,7 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Own
         } else {
             RNG = _RNG;
         }
-    }
-
-    function addPoints(address a, uint256 points) external onlyOwner {
-        pointsBalance[a] += points;
+        BATTLE_COOLDOWN = _BATTLE_COOLDOWN;
     }
 
     function firstRoll() external returns (uint256[] memory monIds) {
@@ -132,20 +129,14 @@ contract GachaRegistry is IMonRegistry, IEngineHook, IOwnableMon, IGachaRNG, Own
             p0Points = POINTS_PER_LOSS;
             p1Points = POINTS_PER_WIN;
         }
-        uint256 rng = uint256(RNG.getRNG(blockhash(block.number - 1))) % POINTS_MULTIPLIER_CHANCE_DENOM;
-        uint256 pointScale = 1;
-        if (rng == MAGIC_WINNING_NUMBER) {
-            pointScale = POINTS_MULTIPLIER;
-            emit BonusPoints(battleKey);
-        }
         if (lastBattleTimestamp[players[0]] + BATTLE_COOLDOWN < block.timestamp) {
-            uint256 pointsAwarded = p0Points * pointScale;
+            uint256 pointsAwarded = p0Points;
             pointsBalance[players[0]] += pointsAwarded;
             lastBattleTimestamp[players[0]] = block.timestamp;
             emit PointsAwarded(players[0], pointsAwarded);
         }
         if (lastBattleTimestamp[players[1]] + BATTLE_COOLDOWN < block.timestamp) {
-            uint256 pointsAwarded = p1Points * pointScale;
+            uint256 pointsAwarded = p1Points;
             pointsBalance[players[1]] += pointsAwarded;
             lastBattleTimestamp[players[1]] = block.timestamp;
             emit PointsAwarded(players[1], pointsAwarded);

@@ -41,7 +41,7 @@ contract GachaTeamRegistryTest is Test {
         engine = new Engine();
         mockRNG = new MockGachaRNG();
 
-        gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG);
+        gachaRegistry = new GachaRegistry(monRegistry, engine, mockRNG, 1);
 
         gachaTeamRegistry = new GachaTeamRegistry(
             LookupTeamRegistry.Args({
