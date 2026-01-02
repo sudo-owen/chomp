@@ -3122,4 +3122,24 @@ contract EngineTest is Test, BattleHelper {
         (effects, ) = engine.getEffects(battleKey, 1, 0);
         assertEq(effects[0].data, bytes32(uint256(69)));
     }
+
+    function test_maxBattleDuration() public {
+        Mon memory mon = _createMon();
+        mon.moves = new IMoveSet[](0);
+        Mon[] memory team = new Mon[](1);
+        team[0] = mon;
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validatorToUse = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: mon.moves.length, TIMEOUT_DURATION: MAX_BATTLE_DURATION * 2})
+        );
+        // Assert there are no free battle config slots
+        assertEq(engine.getFreeStorageKeys().length, 0);
+        bytes32 battleKey = _startBattle(validatorToUse, engine, defaultOracle, defaultRegistry, matchmaker, address(commitManager));
+        vm.warp(block.timestamp + MAX_BATTLE_DURATION + 1);
+        engine.end(battleKey);
+        // Assert that there is now 1 free battle config slot
+        assertEq(engine.getFreeStorageKeys().length, 1);
+    }
 }

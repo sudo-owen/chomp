@@ -1,6 +1,7 @@
 # TODO
 
-1) Add tests / fix test to ensure battles cannot start/end on same timestamp
+1) Add max timeout of 1 hr for battles, allow forcible end
+2) Simplify gacha flow dramatically
 
 ---------------------------------------------------------------------------------------------
 LATER FEATURES

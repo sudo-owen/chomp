@@ -28,7 +28,7 @@ contract InfiniteLove is StandardAttack {
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
-                EFFECT_ACCURACY: 100,
+                EFFECT_ACCURACY: 10,
                 EFFECT: _SLEEP_STATUS
             })
         )

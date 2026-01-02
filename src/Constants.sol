@@ -41,3 +41,5 @@ uint256 constant EFFECT_SLOTS_PER_MON = 64; // Stride for per-mon effect storage
 uint256 constant EFFECT_COUNT_MASK = 0x3F; // 6 bits = max count of 63
 
 address constant TOMBSTONE_ADDRESS = address(0xdead);
+
+uint256 constant MAX_BATTLE_DURATION = 1 hours;

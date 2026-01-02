@@ -518,6 +518,11 @@ contract Engine is IEngine, MappingAllocator {
                 return;
             }
         }
+        // Allow forcible end of battle after max duration
+        if (block.timestamp - config.startTimestamp > MAX_BATTLE_DURATION) {
+            _handleGameOver(battleKey, data.p0);
+            return;
+        }
     }
 
     function _handleGameOver(bytes32 battleKey, address winner) internal {
