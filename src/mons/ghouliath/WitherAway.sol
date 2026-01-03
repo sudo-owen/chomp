@@ -23,7 +23,7 @@ contract WitherAway is StandardAttack {
                 BASE_POWER: 60,
                 STAMINA_COST: 3,
                 ACCURACY: 100,
-                MOVE_TYPE: Type.Yang,
+                MOVE_TYPE: Type.Yin,
                 MOVE_CLASS: MoveClass.Special,
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,

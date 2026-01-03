@@ -62,7 +62,7 @@ contract EternalGrudge is IMoveSet {
     }
 
     function moveType(bytes32) public pure returns (Type) {
-        return Type.Yang;
+        return Type.Yin;
     }
 
     function isValidTarget(bytes32, uint240) external pure returns (bool) {
