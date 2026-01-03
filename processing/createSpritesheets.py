@@ -5,6 +5,7 @@ import json
 import math
 import random
 import re
+import subprocess
 import sys
 from pathlib import Path
 from PIL import Image
@@ -99,6 +100,34 @@ def build_spritesheet(frames: list[Image.Image]) -> tuple[Image.Image, list[tupl
     return sheet, positions
 
 
+def run_pngout(png_path: Path) -> None:
+    """Run pngout compression on a PNG file."""
+    try:
+        result = subprocess.run(
+            ["pngout", str(png_path)],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode == 0:
+            print(f"  ✓ Compressed with pngout")
+        else:
+            print(f"  ⚠ pngout warning (non-zero exit): {result.returncode}")
+    except FileNotFoundError:
+        print(f"  ⚠ pngout not found, skipping compression")
+    except subprocess.TimeoutExpired:
+        print(f"  ⚠ pngout timed out")
+    except Exception as e:
+        print(f"  ⚠ pngout error: {e}")
+
+
+def save_and_compress_png(sheet: Image.Image, path: Path, description: str) -> None:
+    """Save a PNG and run pngout compression on it."""
+    sheet.save(path, "PNG")
+    print(f"✅ {description} saved: {sheet.size[0]}x{sheet.size[1]} -> {path}")
+    run_pngout(path)
+
+
 def create_spritesheets(gif_files: list[str], output_dir: str):
     """Create main and switch spritesheets with combined metadata."""
     metadata = {}
@@ -125,13 +154,33 @@ def create_spritesheets(gif_files: list[str], output_dir: str):
 
     # Build main spritesheet
     sheet, positions = build_spritesheet(all_frames)
-    sheet.save(Path(output_dir) / "spritesheet.png", "PNG")
-    print(f"\n✅ Spritesheet saved: {sheet.size[0]}x{sheet.size[1]}")
+    output_path = Path(output_dir)
+
+    # Save to output directory
+    main_sheet_path = output_path / "mon_spritesheet.png"
+    save_and_compress_png(sheet, main_sheet_path, "Spritesheet")
 
     # Build switch spritesheet
     switch_sheet, switch_positions = build_spritesheet(all_switch_frames)
-    switch_sheet.save(Path(output_dir) / "switch.png", "PNG")
-    print(f"✅ Switch spritesheet saved: {switch_sheet.size[0]}x{switch_sheet.size[1]}")
+    switch_sheet_path = output_path / "mon_switch.png"
+    save_and_compress_png(switch_sheet, switch_sheet_path, "Switch spritesheet")
+
+    # Determine munch output location (similar to drool/combine.py)
+    base_path = Path(__file__).parent
+    game_dir = base_path.parent.parent
+    munch_assets_dir = game_dir / "munch" / "src" / "assets" / "mons" / "all"
+
+    # Copy to munch if directory exists
+    if munch_assets_dir.exists():
+        print(f"\n📋 Copying to munch repository: {munch_assets_dir}")
+
+        munch_main_path = munch_assets_dir / "mon_spritesheet.png"
+        save_and_compress_png(sheet, munch_main_path, "Munch spritesheet")
+
+        munch_switch_path = munch_assets_dir / "mon_switch.png"
+        save_and_compress_png(switch_sheet, munch_switch_path, "Munch switch spritesheet")
+    else:
+        print(f"\n⚠ Munch directory not found, skipping copy: {munch_assets_dir}")
 
     # Finalize metadata
     for name, data in metadata.items():
@@ -144,11 +193,25 @@ def create_spritesheets(gif_files: list[str], output_dir: str):
 
     # Save JSON with compact coordinate arrays
     json_path = Path(output_dir) / "spritesheet.json"
-    content = json.dumps(metadata, indent=2)
-    content = re.sub(r'\[\s*\n\s*(\d+),\s*\n\s*(\d+)\s*\n\s*]', r'[\1, \2]', content)
-    json_path.write_text(content)
+    json_path.write_text(compact_json(metadata))
     print(f"✅ Metadata saved to: {json_path}")
 
+def compact_json(obj, indent=2):
+    """JSON with objects indented but all arrays inline."""
+    def format_value(v, level):
+        if isinstance(v, dict):
+            if not v:
+                return '{}'
+            items = []
+            for k, val in v.items():
+                items.append(' ' * (level + indent) + json.dumps(k) + ': ' + format_value(val, level + indent))
+            return '{\n' + ',\n'.join(items) + '\n' + ' ' * level + '}'
+        elif isinstance(v, list):
+            return json.dumps(v)  # All arrays inline, no indentation
+        else:
+            return json.dumps(v)
+    
+    return format_value(obj, 0)
 
 def main():
     if len(sys.argv) < 2:
