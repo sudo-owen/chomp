@@ -219,8 +219,6 @@ export type Mon = {{
   readonly id: number;
   readonly name: string;
   readonly flavor: string;
-  readonly frontImage: string;
-  readonly backImage: string;
   readonly mini: string;
   readonly sprites: {{
     readonly frontIdle: SpriteAnimationConfig;
