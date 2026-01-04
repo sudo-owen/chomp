@@ -9,53 +9,80 @@ import sys
 from pathlib import Path
 from PIL import Image
 
-FRAME_SIZE = 96
+DEFAULT_FRAME_SIZE = 96
+
+# Special case: files with non-standard frame sizes (source_size, output_size)
+# If only one value, it's used for both source and output
+SPECIAL_FRAME_SIZES = {
+    "stat_boost_player": (106, 106),
+    "stat_debuff_player": (128, 106),  # Source 128, cropped to 106
+}
+
+# Special case: files that need cropping (top, right, bottom, left) - applied before flip
+FRAME_CROP = {
+    "stat_debuff_player": (22, 11, 0, 11),  # Crop 128x128 to 106x106
+}
 
 # Special case: gachachacha variants share many frames
 GACHACHACHA_VARIANTS = ["gachachacha_bunnies", "gachachacha_carrots", "gachachacha_skulls"]
 
 # Special case: files that need vertical flip applied to each frame
-VERTICAL_FLIP_FILES = {"stat_boost_enemy"}
+VERTICAL_FLIP_FILES = {"stat_boost_enemy", "stat_debuff_player"}
 
 # Output files to exclude from input scanning
-OUTPUT_FILES = {"attack_spritesheet.png"}
+OUTPUT_FILES = {"attack_spritesheet.png", "attack_spritesheet_106.png"}
 
 
-def find_valid_attack_pngs(directory: str) -> list[tuple[str, int, int]]:
-    """Find all PNG files whose dimensions are evenly divisible by 96.
+def find_valid_attack_pngs(directory: str) -> list[tuple[str, int, int, int, int]]:
+    """Find all PNG files whose dimensions are evenly divisible by their frame size.
 
-    Returns list of (path, cols, rows) tuples.
+    Returns list of (path, cols, rows, source_frame_size, output_frame_size) tuples.
     """
     result = []
     for f in sorted(Path(directory).glob("*.png")):
         if f.name in OUTPUT_FILES:
             continue
         try:
+            name = f.stem
+            size_info = SPECIAL_FRAME_SIZES.get(name)
+            if size_info:
+                source_size, output_size = size_info
+            else:
+                source_size = output_size = DEFAULT_FRAME_SIZE
             with Image.open(f) as img:
                 w, h = img.size
-                if w % FRAME_SIZE == 0 and h % FRAME_SIZE == 0:
-                    cols = w // FRAME_SIZE
-                    rows = h // FRAME_SIZE
-                    result.append((str(f), cols, rows))
+                if w % source_size == 0 and h % source_size == 0:
+                    cols = w // source_size
+                    rows = h // source_size
+                    result.append((str(f), cols, rows, source_size, output_size))
                 else:
-                    print(f"⚠ Skipping {f.name}: {w}x{h} not divisible by {FRAME_SIZE}")
+                    print(f"⚠ Skipping {f.name}: {w}x{h} not divisible by {source_size}")
         except Exception as e:
             print(f"Warning: Could not read {f}: {e}")
     return result
 
 
 def extract_frames_from_spritesheet(
-    png_path: str, cols: int, rows: int, vertical_flip: bool = False
+    png_path: str, cols: int, rows: int, frame_size: int = DEFAULT_FRAME_SIZE,
+    crop: tuple[int, int, int, int] | None = None, vertical_flip: bool = False
 ) -> list[Image.Image]:
-    """Extract all 96x96 frames from a spritesheet PNG (left-to-right, top-to-bottom)."""
+    """Extract all frames from a spritesheet PNG (left-to-right, top-to-bottom).
+
+    Args:
+        crop: Optional (top, right, bottom, left) pixels to crop from each frame.
+              Applied before vertical flip.
+    """
     frames = []
     with Image.open(png_path) as img:
         img = img.convert('RGBA')
         for row in range(rows):
             for col in range(cols):
-                x = col * FRAME_SIZE
-                y = row * FRAME_SIZE
-                frame = img.crop((x, y, x + FRAME_SIZE, y + FRAME_SIZE))
+                x = col * frame_size
+                y = row * frame_size
+                frame = img.crop((x, y, x + frame_size, y + frame_size))
+                if crop:
+                    top, right, bottom, left = crop
+                    frame = frame.crop((left, top, frame_size - right, frame_size - bottom))
                 if vertical_flip:
                     frame = frame.transpose(Image.FLIP_TOP_BOTTOM)
                 frames.append(frame.copy())
@@ -68,7 +95,7 @@ def frame_hash(frame: Image.Image) -> str:
 
 
 def process_gachachacha_variants(
-    variant_data: list[tuple[str, int, int]]
+    variant_data: list[tuple[str, int, int, int]]
 ) -> tuple[list[Image.Image], dict[str, list[int]]]:
     """Process gachachacha variants, deduplicating shared frames.
 
@@ -78,9 +105,9 @@ def process_gachachacha_variants(
     """
     # Extract frames from all variants
     variant_frames: dict[str, list[Image.Image]] = {}
-    for png_path, cols, rows in variant_data:
+    for png_path, cols, rows, source_size in variant_data:
         name = Path(png_path).stem
-        variant_frames[name] = extract_frames_from_spritesheet(png_path, cols, rows)
+        variant_frames[name] = extract_frames_from_spritesheet(png_path, cols, rows, source_size)
         print(f"Extracted {len(variant_frames[name])} frames from {Path(png_path).name} ({cols}x{rows} grid)")
 
     # All variants should have same frame count
@@ -124,14 +151,14 @@ def process_gachachacha_variants(
     return unique_frames, variant_indices
 
 
-def build_spritesheet(frames: list[Image.Image]) -> tuple[Image.Image, list[tuple[int, int]]]:
+def build_spritesheet(frames: list[Image.Image], frame_size: int) -> tuple[Image.Image, list[tuple[int, int]]]:
     """Create spritesheet image and return frame positions."""
     cols = math.ceil(math.sqrt(len(frames)))
     rows = math.ceil(len(frames) / cols)
-    sheet = Image.new('RGBA', (cols * FRAME_SIZE, rows * FRAME_SIZE), (0, 0, 0, 0))
+    sheet = Image.new('RGBA', (cols * frame_size, rows * frame_size), (0, 0, 0, 0))
     positions = []
     for i, frame in enumerate(frames):
-        x, y = (i % cols) * FRAME_SIZE, (i // cols) * FRAME_SIZE
+        x, y = (i % cols) * frame_size, (i // cols) * frame_size
         sheet.paste(frame, (x, y))
         positions.append((x, y))
     return sheet, positions
@@ -182,87 +209,130 @@ def compact_json(obj, indent=2):
     return format_value(obj, 0)
 
 
-def create_attack_spritesheets(png_files: list[tuple[str, int, int]], output_dir: str):
+def create_attack_spritesheets(png_files: list[tuple[str, int, int, int, int]], output_dir: str):
     """Create combined attack spritesheet with metadata."""
-    metadata = {}
-    all_frames = []
-
-    # Separate gachachacha variants from regular files
-    gachachacha_files = []
-    regular_files = []
-    for png_path, cols, rows in png_files:
-        name = Path(png_path).stem
-        if name in GACHACHACHA_VARIANTS:
-            gachachacha_files.append((png_path, cols, rows))
-        else:
-            regular_files.append((png_path, cols, rows))
-
-    # Process regular files
-    for png_path, cols, rows in regular_files:
-        name = Path(png_path).stem
-        vertical_flip = name in VERTICAL_FLIP_FILES
-        frames = extract_frames_from_spritesheet(png_path, cols, rows, vertical_flip)
-        flip_note = " (flipped)" if vertical_flip else ""
-        print(f"Extracted {len(frames)} frames from {Path(png_path).name} ({cols}x{rows} grid){flip_note}")
-
-        frame_start = len(all_frames)
-        all_frames.extend(frames)
-        metadata[name] = {"_start": frame_start, "_count": len(frames)}
-
-    # Process gachachacha variants with deduplication
-    if gachachacha_files:
-        print(f"\nProcessing gachachacha variants with deduplication...")
-        gacha_frames, gacha_indices = process_gachachacha_variants(gachachacha_files)
-        gacha_frame_start = len(all_frames)
-        all_frames.extend(gacha_frames)
-
-        # Store indices (will be converted to positions later)
-        for name, indices in gacha_indices.items():
-            metadata[name] = {"_gacha_start": gacha_frame_start, "_gacha_indices": indices}
-
-    if not all_frames:
-        print("No frames extracted!")
-        return
-
-    # Build combined spritesheet
-    sheet, positions = build_spritesheet(all_frames)
     output_path = Path(output_dir)
 
-    # Save to output directory
-    sheet_path = output_path / "attack_spritesheet.png"
-    save_and_compress_png(sheet, sheet_path, "Attack spritesheet")
+    # Load existing JSON to preserve msPerFrame values
+    json_path = output_path / "attack_spritesheet.json"
+    existing_metadata = {}
+    if json_path.exists():
+        try:
+            existing_metadata = json.loads(json_path.read_text())
+            print(f"📖 Loaded existing metadata from {json_path}")
+        except Exception as e:
+            print(f"⚠ Could not load existing JSON: {e}")
+
+    # Group files by OUTPUT frame size (after cropping)
+    files_by_size: dict[int, list[tuple[str, int, int, int]]] = {}
+    for png_path, cols, rows, source_size, output_size in png_files:
+        if output_size not in files_by_size:
+            files_by_size[output_size] = []
+        files_by_size[output_size].append((png_path, cols, rows, source_size))
+
+    metadata = {}
 
     # Determine munch output location
     base_path = Path(__file__).parent
     game_dir = base_path.parent.parent
     munch_assets_dir = game_dir / "munch" / "src" / "assets" / "attacks"
 
-    # Copy to munch if directory exists
-    if munch_assets_dir.exists():
-        print(f"\n📋 Copying to munch repository: {munch_assets_dir}")
-        munch_sheet_path = munch_assets_dir / "attack_spritesheet.png"
-        save_and_compress_png(sheet, munch_sheet_path, "Munch attack spritesheet")
-    else:
+    # Process each frame size group
+    for output_size, size_files in sorted(files_by_size.items()):
+        print(f"\n{'=' * 50}")
+        print(f"Processing {output_size}x{output_size} frames...")
+        print(f"{'=' * 50}")
+
+        all_frames = []
+        size_metadata = {}
+
+        # Separate gachachacha variants from regular files
+        gachachacha_files = []
+        regular_files = []
+        for png_path, cols, rows, source_size in size_files:
+            name = Path(png_path).stem
+            if name in GACHACHACHA_VARIANTS:
+                gachachacha_files.append((png_path, cols, rows, source_size))
+            else:
+                regular_files.append((png_path, cols, rows, source_size))
+
+        # Process regular files
+        for png_path, cols, rows, source_size in regular_files:
+            name = Path(png_path).stem
+            vertical_flip = name in VERTICAL_FLIP_FILES
+            crop = FRAME_CROP.get(name)
+            frames = extract_frames_from_spritesheet(png_path, cols, rows, source_size, crop, vertical_flip)
+            flip_note = " (flipped)" if vertical_flip else ""
+            crop_note = " (cropped)" if crop else ""
+            print(f"Extracted {len(frames)} frames from {Path(png_path).name} ({cols}x{rows} grid){crop_note}{flip_note}")
+
+            frame_start = len(all_frames)
+            all_frames.extend(frames)
+            size_metadata[name] = {"_start": frame_start, "_count": len(frames), "_size": output_size}
+
+        # Process gachachacha variants with deduplication
+        if gachachacha_files:
+            print(f"\nProcessing gachachacha variants with deduplication...")
+            gacha_frames, gacha_indices = process_gachachacha_variants(gachachacha_files)
+            gacha_frame_start = len(all_frames)
+            all_frames.extend(gacha_frames)
+
+            # Store indices (will be converted to positions later)
+            for name, indices in gacha_indices.items():
+                size_metadata[name] = {"_gacha_start": gacha_frame_start, "_gacha_indices": indices, "_size": output_size}
+
+        if not all_frames:
+            print(f"No frames extracted for {output_size}x{output_size}!")
+            continue
+
+        # Build spritesheet for this frame size
+        sheet, positions = build_spritesheet(all_frames, output_size)
+
+        # Determine output filename
+        if output_size == DEFAULT_FRAME_SIZE:
+            sheet_filename = "attack_spritesheet.png"
+        else:
+            sheet_filename = f"attack_spritesheet_{output_size}.png"
+
+        sheet_path = output_path / sheet_filename
+        save_and_compress_png(sheet, sheet_path, f"Attack spritesheet ({output_size}px)")
+
+        # Copy to munch if directory exists
+        if munch_assets_dir.exists():
+            print(f"\n📋 Copying to munch repository: {munch_assets_dir}")
+            munch_sheet_path = munch_assets_dir / sheet_filename
+            save_and_compress_png(sheet, munch_sheet_path, f"Munch attack spritesheet ({output_size}px)")
+
+        # Finalize metadata - convert internal indices to actual positions
+        for name, data in size_metadata.items():
+            anim_size = data.pop("_size")
+            # Get existing msPerFrame or use default
+            existing_ms = existing_metadata.get(name, {}).get("msPerFrame", 100)
+
+            if "_start" in data:
+                # Regular attack
+                start, count = data.pop("_start"), data.pop("_count")
+                data["msPerFrame"] = existing_ms
+                data["width"] = anim_size
+                data["height"] = anim_size
+                data["frames"] = [list(positions[start + i]) for i in range(count)]
+            elif "_gacha_start" in data:
+                # Gachachacha variant - use deduplicated indices
+                gacha_start = data.pop("_gacha_start")
+                indices = data.pop("_gacha_indices")
+                data["msPerFrame"] = existing_ms
+                data["width"] = anim_size
+                data["height"] = anim_size
+                data["frames"] = [list(positions[gacha_start + idx]) for idx in indices]
+
+        metadata.update(size_metadata)
+
+    if not munch_assets_dir.exists():
         print(f"\n⚠ Munch directory not found, skipping copy: {munch_assets_dir}")
 
-    # Finalize metadata - convert internal indices to actual positions
-    for name, data in metadata.items():
-        if "_start" in data:
-            # Regular attack
-            start, count = data.pop("_start"), data.pop("_count")
-            data["msPerFrame"] = 100
-            data["frames"] = [list(positions[start + i]) for i in range(count)]
-        elif "_gacha_start" in data:
-            # Gachachacha variant - use deduplicated indices
-            gacha_start = data.pop("_gacha_start")
-            indices = data.pop("_gacha_indices")
-            data["msPerFrame"] = 100
-            data["frames"] = [list(positions[gacha_start + idx]) for idx in indices]
-
     # Save JSON
-    json_path = output_path / "attack_spritesheet.json"
     json_path.write_text(compact_json(metadata))
-    print(f"✅ Metadata saved to: {json_path}")
+    print(f"\n✅ Metadata saved to: {json_path}")
 
 
 def main():
@@ -279,14 +349,14 @@ def main():
     png_files = find_valid_attack_pngs(target_dir)
 
     if not png_files:
-        print("No valid attack PNG files found (dimensions must be divisible by 96)")
+        print("No valid attack PNG files found (dimensions must be divisible by frame size)")
         sys.exit(1)
 
     print(f"\nFound {len(png_files)} valid PNG files:")
-    for png_path, cols, rows in png_files:
-        print(f"  - {Path(png_path).name} ({cols}x{rows} = {cols * rows} frames)")
+    for png_path, cols, rows, source_size, output_size in png_files:
+        size_info = f"{source_size}→{output_size}px" if source_size != output_size else f"{output_size}px"
+        print(f"  - {Path(png_path).name} ({cols}x{rows} = {cols * rows} frames @ {size_info})")
 
-    print("\n" + "=" * 50)
     create_attack_spritesheets(png_files, target_dir)
     print("\n✅ Done!")
 
