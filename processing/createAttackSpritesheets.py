@@ -250,11 +250,13 @@ def create_attack_spritesheets(png_files: list[tuple[str, int, int]], output_dir
         if "_start" in data:
             # Regular attack
             start, count = data.pop("_start"), data.pop("_count")
+            data["msPerFrame"] = 100
             data["frames"] = [list(positions[start + i]) for i in range(count)]
         elif "_gacha_start" in data:
             # Gachachacha variant - use deduplicated indices
             gacha_start = data.pop("_gacha_start")
             indices = data.pop("_gacha_indices")
+            data["msPerFrame"] = 100
             data["frames"] = [list(positions[gacha_start + idx]) for idx in indices]
 
     # Save JSON
