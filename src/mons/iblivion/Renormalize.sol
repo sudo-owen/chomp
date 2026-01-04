@@ -59,7 +59,7 @@ contract Renormalize is IMoveSet {
     }
 
     function moveType(bytes32) public pure returns (Type) {
-        return Type.Yin;
+        return Type.Yang;
     }
 
     function isValidTarget(bytes32, uint240) external pure returns (bool) {
