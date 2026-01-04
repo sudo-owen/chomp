@@ -15,6 +15,11 @@ def to_address_key(name: str) -> str:
     return re.sub(r"_+", "_", re.sub(r"[^a-zA-Z0-9]", "_", name)).strip("_").upper()
 
 
+def to_spritesheet_key(name: str) -> str:
+    """Convert name to lowercase_snake_case for spritesheet key."""
+    return re.sub(r"_+", "_", re.sub(r"[^a-zA-Z0-9]", "_", name)).strip("_").lower()
+
+
 def read_csv(file_path: str) -> List[Dict[str, str]]:
     """Read a CSV file and return list of row dicts."""
     with open(file_path, "r", encoding="utf-8") as f:
@@ -25,6 +30,36 @@ def read_json(file_path: str) -> Dict[str, Any]:
     """Read a JSON file and return the data."""
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def build_sprite_config(
+    spritesheet_url: str,
+    source: Dict[str, Any],
+    frame_size: int,
+    loop: bool,
+) -> Dict[str, Any]:
+    """Build a sprite animation config from source data."""
+    return {
+        "spritesheetUrl": spritesheet_url,
+        "frames": source["frames"],
+        "frameWidth": frame_size,
+        "frameHeight": frame_size,
+        "frameDurationMs": source.get("msPerFrame", 100),
+        "loop": loop,
+    }
+
+
+def build_attack_sprite(move_name: str, attack_spritesheet_data: Dict[str, Any]) -> Dict[str, Any] | None:
+    """Build sprite config for an attack move, or None if no sprite data exists."""
+    key = to_spritesheet_key(move_name)
+    if key not in attack_spritesheet_data:
+        return None
+    return build_sprite_config(
+        "/assets/attacks/attack_spritesheet.png",
+        attack_spritesheet_data[key],
+        frame_size=96,
+        loop=False,
+    )
 
 
 def build_sprites(mon_name_lower: str, spritesheet_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -51,14 +86,12 @@ def build_sprites(mon_name_lower: str, spritesheet_data: Dict[str, Any]) -> Dict
         if not source or "frames" not in source:
             continue
             
-        sprites[output_key] = {
-            "spritesheetUrl": f"/assets/mons/all/{sheet}",
-            "frames": source["frames"],
-            "frameWidth": 96,
-            "frameHeight": 96,
-            "frameDurationMs": source.get("msPerFrame", 100),
-            "loop": loops,
-        }
+        sprites[output_key] = build_sprite_config(
+            f"/assets/mons/all/{sheet}",
+            source,
+            frame_size=96,
+            loop=loops,
+        )
     
     return sprites
 
@@ -95,18 +128,19 @@ def read_mons_data(file_path: str, spritesheet_data: Dict[str, Any]) -> Dict[int
     return mons_data
 
 
-def read_moves_data(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
+def read_moves_data(file_path: str, attack_spritesheet_data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
     """Read moves.csv and return a dictionary keyed by mon name."""
     moves_by_mon: Dict[str, List[Dict[str, Any]]] = {}
-    
+
     def parse_int_or_unknown(val: str) -> int | str:
         return int(val) if val.isdigit() else '?'
-    
+
     for row in read_csv(file_path):
         mon_name = row["Mon"]
-        moves_by_mon.setdefault(mon_name, []).append({
-            "address": f"Address.{to_address_key(row['Name'])}",
-            "name": row["Name"],
+        move_name = row["Name"]
+        move_data: Dict[str, Any] = {
+            "address": f"Address.{to_address_key(move_name)}",
+            "name": move_name,
             "power": parse_int_or_unknown(row["Power"]),
             "stamina": parse_int_or_unknown(row["Stamina"]),
             "accuracy": parse_int_or_unknown(row["Accuracy"]),
@@ -115,8 +149,12 @@ def read_moves_data(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
             "class": row["Class"],
             "description": row["DevDescription"],
             "extraDataNeeded": row["ExtraData"] == "Yes",
-        })
-    
+        }
+        sprite = build_attack_sprite(move_name, attack_spritesheet_data)
+        if sprite:
+            move_data["sprite"] = sprite
+        moves_by_mon.setdefault(mon_name, []).append(move_data)
+
     return moves_by_mon
 
 
@@ -213,6 +251,7 @@ export type Move = {{
   readonly class: MoveClass;
   readonly description: string;
   readonly extraDataNeeded: boolean;
+  readonly sprite?: SpriteAnimationConfig;
 }};
 
 export type Mon = {{
@@ -263,6 +302,7 @@ def main():
         "moves": base_path / "moves.csv",
         "abilities": base_path / "abilities.csv",
         "spritesheet": base_path / "imgs" / "spritesheet.json",
+        "attack_spritesheet": base_path / "imgs" / "attacks" / "attack_spritesheet.json",
     }
     
     # Determine output location
@@ -280,8 +320,9 @@ def main():
     print("Reading CSV files and spritesheet data...")
     
     spritesheet_data = read_json(str(files["spritesheet"]))
+    attack_spritesheet_data = read_json(str(files["attack_spritesheet"]))
     mons_data = read_mons_data(str(files["mons"]), spritesheet_data)
-    moves_by_mon = read_moves_data(str(files["moves"]))
+    moves_by_mon = read_moves_data(str(files["moves"]), attack_spritesheet_data)
     abilities_by_mon = read_abilities_data(str(files["abilities"]))
     
     print(f"Loaded {len(mons_data)} mons, moves for {len(moves_by_mon)} mons, abilities for {len(abilities_by_mon)} mons")
