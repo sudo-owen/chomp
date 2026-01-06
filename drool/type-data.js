@@ -2,16 +2,16 @@ export const typeData = {
     'Yin': {
       bgColor: '#ffffff',
       textColor: '#000000',
-      abbreviation: 'YIN',
+      abbreviation: 'YANG',
       emoji: '⚪',
-      name: 'Yin'
+      name: 'Yang'
     },
     'Yang': {
       bgColor: '#000000',
       textColor: '#FFFFFF',
-      abbreviation: 'YNG',
+      abbreviation: 'YIN',
       emoji: '🌚',
-      name: 'Yang'
+      name: 'Yin'
     },
     'Earth': {
       bgColor: '#8B4513',
@@ -23,7 +23,7 @@ export const typeData = {
     'Liquid': {
       bgColor: '#1E90FF',
       textColor: '#000000',
-      abbreviation: 'WTR',
+      abbreviation: 'LIQ',
       emoji: '🌊',
       name: 'Liquid'
     },
@@ -79,7 +79,7 @@ export const typeData = {
     'Math': {
       bgColor: '#FF1493',
       textColor: '#FFFFFF',
-      abbreviation: 'MND',
+      abbreviation: 'MTH',
       emoji: '🧠',
       name: 'Math'
     },
