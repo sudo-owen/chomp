@@ -12,7 +12,7 @@ import {ATTACK_PARAMS} from "../../moves/StandardAttackStructs.sol";
 import {IEffect} from "../../effects/IEffect.sol";
 
 contract BullRush is StandardAttack {
-    int32 public constant SELF_DAMAGE_PERCENT = 10; // 10% of max HP
+    int32 public constant SELF_DAMAGE_PERCENT = 20;
 
     constructor(IEngine ENGINE, ITypeCalculator TYPE_CALCULATOR)
         StandardAttack(
@@ -21,7 +21,7 @@ contract BullRush is StandardAttack {
             TYPE_CALCULATOR,
             ATTACK_PARAMS({
                 NAME: "Bull Rush",
-                BASE_POWER: 80,
+                BASE_POWER: 120,
                 STAMINA_COST: 2,
                 ACCURACY: 100,
                 MOVE_TYPE: Type.Metal,
@@ -29,7 +29,7 @@ contract BullRush is StandardAttack {
                 PRIORITY: DEFAULT_PRIORITY,
                 CRIT_RATE: DEFAULT_CRIT_RATE,
                 VOLATILITY: DEFAULT_VOL,
-                EFFECT_ACCURACY: 0,
+                EFFECT_ACCURACY: 100,
                 EFFECT: IEffect(address(0))
             })
         )
@@ -42,7 +42,7 @@ contract BullRush is StandardAttack {
         // Deal the damage to opponent
         (int32 damage,) = _move(battleKey, attackerPlayerIndex, rng);
 
-        // Deal self-damage (10% of max HP)
+        // Deal self-damage
         if (damage > 0) {
             uint256[] memory activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey);
             uint256 attackerMonIndex = activeMonIndex[attackerPlayerIndex];

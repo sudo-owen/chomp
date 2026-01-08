@@ -39,6 +39,8 @@ import {VolatilePunch} from "../../src/mons/aurox/VolatilePunch.sol";
         - Gilded Recovery heals for HEAL_PERCENT of max hp if there is a status effect [x]
         - Gilded Recovery gives +1 stamina if there is a status effect [x]
         - Iron Wall correctly heals damage dealt until mon switches out [x]
+        - Iron Wall provides initial heal when first used [x]
+        - Iron Wall does nothing if used again when already active [x]
         - Up Only correctly boosts on damage, and it stays on switch in/out [x]
         - Volatile Punch correctly deals damage and can trigger status effects
             - rng of 2 should trigger frostbite
@@ -395,6 +397,176 @@ contract AuroxTest is Test, BattleHelper {
         //Verify that HP delta is -100
         int32 hpDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
         assertEq(hpDelta, -100, "Alice's mon should have -100 HP delta");
+    }
+
+    /**
+     * Iron Wall provides an initial heal of INITIAL_HEAL_PERCENT when first used.
+     * Verifies: mon is damaged, uses Iron Wall, receives initial heal, and doesn't overheal.
+     */
+    function test_ironWallProvidesInitialHeal() public {
+        uint32 maxHp = 100;
+
+        IronWall ironWall = new IronWall(IEngine(address(engine)));
+        StandardAttack attack = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: maxHp / 2,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: DEFAULT_PRIORITY,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack",
+                EFFECT: IEffect(address(0))
+            })
+        );
+
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = ironWall;
+        moves[1] = attack;
+
+        Mon memory mon = _createMon();
+        mon.moves = moves;
+        mon.stats.hp = maxHp;
+        Mon[] memory team = new Mon[](1);
+        team[0] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Both players select their first mon
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Alice does nothing, Bob attacks
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, 0, 0);
+
+        // Verify that Alice's mon has taken damage
+        int32 aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(aliceDamage, -50, "Alice's mon should have taken 50 damage");
+
+        // Alice uses Iron Wall, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
+
+        // Verify that Alice's mon has been healed by INITIAL_HEAL_PERCENT (20% of 100 = 20)
+        aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        int32 expectedHeal = int32(maxHp) * int32(ironWall.INITIAL_HEAL_PERCENT()) / 100;
+        assertEq(aliceDamage, -50 + expectedHeal, "Alice's mon should be healed by initial heal amount");
+
+        // Verify that the Iron Wall effect is active
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
+        bool hasIronWall = false;
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(ironWall)) {
+                hasIronWall = true;
+                break;
+            }
+        }
+        assertTrue(hasIronWall, "Alice's mon should have Iron Wall effect");
+    }
+
+    /**
+     * Iron Wall does nothing if used again when the effect is already active.
+     * Verifies: Iron Wall is used once, effect is active, using it again doesn't add another effect or provide another heal.
+     */
+    function test_ironWallDoesNothingIfAlreadyActive() public {
+        uint32 maxHp = 100;
+
+        IronWall ironWall = new IronWall(IEngine(address(engine)));
+        StandardAttack attack = attackFactory.createAttack(
+            ATTACK_PARAMS({
+                BASE_POWER: maxHp / 2,
+                STAMINA_COST: 1,
+                ACCURACY: 100,
+                PRIORITY: DEFAULT_PRIORITY,
+                MOVE_TYPE: Type.Fire,
+                EFFECT_ACCURACY: 0,
+                MOVE_CLASS: MoveClass.Physical,
+                CRIT_RATE: 0,
+                VOLATILITY: 0,
+                NAME: "Attack",
+                EFFECT: IEffect(address(0))
+            })
+        );
+
+        IMoveSet[] memory moves = new IMoveSet[](2);
+        moves[0] = ironWall;
+        moves[1] = attack;
+
+        Mon memory mon = _createMon();
+        mon.moves = moves;
+        mon.stats.hp = maxHp;
+        Mon[] memory team = new Mon[](1);
+        team[0] = mon;
+
+        defaultRegistry.setTeam(ALICE, team);
+        defaultRegistry.setTeam(BOB, team);
+
+        DefaultValidator validator = new DefaultValidator(
+            IEngine(address(engine)), DefaultValidator.Args({MONS_PER_TEAM: team.length, MOVES_PER_MON: moves.length, TIMEOUT_DURATION: 10})
+        );
+
+        bytes32 battleKey = _startBattle(validator, engine, mockOracle, defaultRegistry, matchmaker, address(commitManager));
+
+        // Both players select their first mon
+        _commitRevealExecuteForAliceAndBob(
+            engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
+        );
+
+        // Alice does nothing, Bob attacks
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, NO_OP_MOVE_INDEX, 1, 0, 0);
+
+        // Verify that Alice's mon has taken damage
+        int32 aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(aliceDamage, -50, "Alice's mon should have taken 50 damage");
+
+        // Alice uses Iron Wall, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
+
+        // Verify that Alice's mon has been healed by INITIAL_HEAL_PERCENT
+        aliceDamage = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        int32 expectedHeal = int32(maxHp) * int32(ironWall.INITIAL_HEAL_PERCENT()) / 100;
+        assertEq(aliceDamage, -50 + expectedHeal, "Alice's mon should be healed by initial heal amount");
+
+        // Count the number of Iron Wall effects
+        (EffectInstance[] memory effects, ) = engine.getEffects(battleKey, 0, 0);
+        uint256 ironWallCount = 0;
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(ironWall)) {
+                ironWallCount++;
+            }
+        }
+        assertEq(ironWallCount, 1, "Alice's mon should have exactly 1 Iron Wall effect");
+
+        // Alice uses Iron Wall again, Bob does nothing
+        _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, 0, 0);
+
+        // Verify that Alice's mon HP hasn't changed (no additional heal)
+        int32 aliceDamageAfterSecondIronWall = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp);
+        assertEq(aliceDamageAfterSecondIronWall, aliceDamage, "Alice's mon HP should not change when using Iron Wall again");
+
+        // Verify that there is still only 1 Iron Wall effect
+        (effects, ) = engine.getEffects(battleKey, 0, 0);
+        ironWallCount = 0;
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(ironWall)) {
+                ironWallCount++;
+            }
+        }
+        assertEq(ironWallCount, 1, "Alice's mon should still have exactly 1 Iron Wall effect");
+
+        // Verify that stamina was still consumed
+        int32 staminaDelta = engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Stamina);
+        assertEq(staminaDelta, -6, "Alice's mon should have consumed stamina for both Iron Wall uses");
     }
 
     function test_upOnlyBoostsOnDamage() public {

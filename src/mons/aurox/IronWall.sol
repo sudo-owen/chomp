@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import "../../Constants.sol";
-import "../../Enums.sol";
-
+import {DEFAULT_PRIORITY} from "../../Constants.sol";
+import {EffectStep, ExtraDataType, MoveClass, Type, MonStateIndexName} from "../../Enums.sol";
+import {EffectInstance} from "../../Structs.sol";
 import {IEngine} from "../../IEngine.sol";
 import {BasicEffect} from "../../effects/BasicEffect.sol";
 import {IEffect} from "../../effects/IEffect.sol";
@@ -13,6 +13,7 @@ import {IMoveSet} from "../../moves/IMoveSet.sol";
 contract IronWall is IMoveSet, BasicEffect {
     
     int32 public constant HEAL_PERCENT = 50;
+    int32 public constant INITIAL_HEAL_PERCENT = 20;
 
     IEngine immutable ENGINE;
 
@@ -27,8 +28,29 @@ contract IronWall is IMoveSet, BasicEffect {
     function move(bytes32 battleKey, uint256 attackerPlayerIndex, uint240, uint256) external {
         // Get the active mon index
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(battleKey)[attackerPlayerIndex];
+
+        // Check to see if the effect is already active
+        (EffectInstance[] memory effects, ) = ENGINE.getEffects(battleKey, attackerPlayerIndex, activeMonIndex);
+        for (uint256 i = 0; i < effects.length; i++) {
+            if (address(effects[i].effect) == address(this)) {
+                return;
+            }
+        }
+
         // The effect will last until Aurox switches out
         ENGINE.addEffect(attackerPlayerIndex, activeMonIndex, IEffect(address(this)), bytes32(0));
+
+        // Also, heal for INITIAL_HEAL_PERCENT
+        int32 maxHp =
+            int32(ENGINE.getMonValueForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp));
+        int32 healAmount = (maxHp * INITIAL_HEAL_PERCENT) / 100;
+        // Prevent overhealing
+        int32 currentHpDelta =
+            ENGINE.getMonStateForBattle(battleKey, attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp);
+        if (currentHpDelta + healAmount > 0) {
+            healAmount = -currentHpDelta;
+        }
+        ENGINE.updateMonState(attackerPlayerIndex, activeMonIndex, MonStateIndexName.Hp, healAmount);
     }
 
     function stamina(bytes32, uint256, uint256) external pure returns (uint32) {
@@ -36,7 +58,7 @@ contract IronWall is IMoveSet, BasicEffect {
     }
 
     function priority(bytes32, uint256) external pure returns (uint32) {
-        return DEFAULT_PRIORITY + 1;
+        return DEFAULT_PRIORITY;
     }
 
     function moveType(bytes32) public pure returns (Type) {
