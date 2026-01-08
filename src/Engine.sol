@@ -1512,6 +1512,8 @@ contract Engine is IEngine, MappingAllocator {
             p1Salt: config.p1Salt,
             p0Move: config.p0Move,
             p1Move: config.p1Move,
+            p0Move2: config.p0Move2,
+            p1Move2: config.p1Move2,
             globalEffects: globalEffects,
             p0Effects: p0Effects,
             p1Effects: p1Effects,
