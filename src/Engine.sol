@@ -1715,6 +1715,32 @@ contract Engine is IEngine, MappingAllocator {
         return result;
     }
 
+    function getGameMode(bytes32 battleKey) external view returns (GameMode) {
+        uint8 slotSwitchFlagsAndGameMode = battleData[battleKey].slotSwitchFlagsAndGameMode;
+        return (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
+    }
+
+    function getActiveMonIndexForSlot(bytes32 battleKey, uint256 playerIndex, uint256 slotIndex)
+        external
+        view
+        returns (uint256)
+    {
+        BattleData storage data = battleData[battleKey];
+        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
+        bool isDoubles = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+
+        if (isDoubles) {
+            // Doubles: 4 bits per slot
+            // Bits 0-3: p0 slot 0, Bits 4-7: p0 slot 1, Bits 8-11: p1 slot 0, Bits 12-15: p1 slot 1
+            uint256 shift = (playerIndex * 2 + slotIndex) * ACTIVE_MON_INDEX_BITS;
+            return (data.activeMonIndex >> shift) & ACTIVE_MON_INDEX_MASK;
+        } else {
+            // Singles: only slot 0 is valid, 8 bits per player
+            if (slotIndex != 0) return 0;
+            return _unpackActiveMonIndex(data.activeMonIndex, playerIndex);
+        }
+    }
+
     function getPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
         return battleData[battleKey].playerSwitchForTurnFlag;
     }
