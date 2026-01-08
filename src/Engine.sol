@@ -1721,10 +1721,20 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getActiveMonIndexForBattleState(bytes32 battleKey) external view returns (uint256[] memory) {
-        uint16 packed = battleData[battleKey].activeMonIndex;
+        BattleData storage data = battleData[battleKey];
+        uint16 packed = data.activeMonIndex;
+        bool isDoubles = (data.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+
         uint256[] memory result = new uint256[](2);
-        result[0] = _unpackActiveMonIndex(packed, 0);
-        result[1] = _unpackActiveMonIndex(packed, 1);
+        if (isDoubles) {
+            // For doubles, return slot 0 active mon for each player
+            result[0] = _unpackActiveMonIndexForSlot(packed, 0, 0);
+            result[1] = _unpackActiveMonIndexForSlot(packed, 1, 0);
+        } else {
+            // For singles, use original unpacking
+            result[0] = _unpackActiveMonIndex(packed, 0);
+            result[1] = _unpackActiveMonIndex(packed, 1);
+        }
         return result;
     }
 
@@ -1865,9 +1875,18 @@ contract Engine is IEngine, MappingAllocator {
         BattleData storage data = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
 
-        // Get active mon indices
-        uint256 attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
-        uint256 defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
+        // Get active mon indices (doubles-aware)
+        bool isDoubles = (data.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+        uint256 attackerMonIndex;
+        uint256 defenderMonIndex;
+        if (isDoubles) {
+            // For doubles, use slot 0 as default (targeting via extraData handled elsewhere)
+            attackerMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, attackerPlayerIndex, 0);
+            defenderMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, defenderPlayerIndex, 0);
+        } else {
+            attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
+            defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
+        }
 
         ctx.attackerMonIndex = uint8(attackerMonIndex);
         ctx.defenderMonIndex = uint8(defenderMonIndex);
