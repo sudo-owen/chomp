@@ -855,12 +855,19 @@ contract Engine is IEngine, MappingAllocator {
 
         MoveDecision memory newMove = MoveDecision({packedMoveIndex: packedMoveIndex, extraData: extraData});
 
+        // playerIndex 0-1: slot 0 moves, playerIndex 2-3: slot 1 moves (for doubles)
         if (playerIndex == 0) {
             config.p0Move = newMove;
             config.p0Salt = salt;
-        } else {
+        } else if (playerIndex == 1) {
             config.p1Move = newMove;
             config.p1Salt = salt;
+        } else if (playerIndex == 2) {
+            // p0 slot 1 move (doubles)
+            config.p0Move2 = newMove;
+        } else if (playerIndex == 3) {
+            // p1 slot 1 move (doubles)
+            config.p1Move2 = newMove;
         }
     }
 
