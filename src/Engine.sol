@@ -177,14 +177,24 @@ contract Engine is IEngine, MappingAllocator {
         config.koBitmaps = 0;
 
         // Store the battle data with initial state
+        // For doubles: activeMonIndex packs 4 slots (p0s0=0, p0s1=1, p1s0=0, p1s1=1)
+        // For singles: only lower 8 bits used (p0=0, p1=0)
+        uint16 initialActiveMonIndex = battle.gameMode == GameMode.Doubles
+            ? uint16(0) | (uint16(1) << 4) | (uint16(0) << 8) | (uint16(1) << 12) // p0s0=0, p0s1=1, p1s0=0, p1s1=1
+            : uint16(0); // Singles: both players start with mon 0
+
+        // Pack game mode into slotSwitchFlagsAndGameMode (bit 4 = game mode)
+        uint8 slotSwitchFlagsAndGameMode = battle.gameMode == GameMode.Doubles ? GAME_MODE_BIT : 0;
+
         battleData[battleKey] = BattleData({
             p0: battle.p0,
             p1: battle.p1,
             winnerIndex: 2, // Initialize to 2 (uninitialized/no winner)
             prevPlayerSwitchForTurnFlag: 0,
             playerSwitchForTurnFlag: 2, // Set flag to be 2 which means both players act
-            activeMonIndex: 0, // Defaults to 0 (both players start with mon index 0)
-            turnId: 0
+            activeMonIndex: initialActiveMonIndex,
+            turnId: 0,
+            slotSwitchFlagsAndGameMode: slotSwitchFlagsAndGameMode
         });
 
         // Set the team for p0 and p1 in the reusable config storage
@@ -1761,8 +1771,26 @@ contract Engine is IEngine, MappingAllocator {
         ctx.turnId = data.turnId;
         ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
         ctx.prevPlayerSwitchForTurnFlag = data.prevPlayerSwitchForTurnFlag;
-        ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & 0xFF);
-        ctx.p1ActiveMonIndex = uint8(data.activeMonIndex >> 8);
+
+        // Extract game mode and active mon indices based on mode
+        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
+        ctx.gameMode = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
+        ctx.slotSwitchFlags = slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+
+        if (ctx.gameMode == GameMode.Doubles) {
+            // Doubles: 4 bits per slot
+            ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & ACTIVE_MON_INDEX_MASK);
+            ctx.p0ActiveMonIndex2 = uint8((data.activeMonIndex >> 4) & ACTIVE_MON_INDEX_MASK);
+            ctx.p1ActiveMonIndex = uint8((data.activeMonIndex >> 8) & ACTIVE_MON_INDEX_MASK);
+            ctx.p1ActiveMonIndex2 = uint8((data.activeMonIndex >> 12) & ACTIVE_MON_INDEX_MASK);
+        } else {
+            // Singles: 8 bits per player (backwards compatible)
+            ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & 0xFF);
+            ctx.p1ActiveMonIndex = uint8(data.activeMonIndex >> 8);
+            ctx.p0ActiveMonIndex2 = 0;
+            ctx.p1ActiveMonIndex2 = 0;
+        }
+
         ctx.validator = address(config.validator);
         ctx.moveManager = config.moveManager;
     }
@@ -1778,6 +1806,12 @@ contract Engine is IEngine, MappingAllocator {
         ctx.winnerIndex = data.winnerIndex;
         ctx.turnId = data.turnId;
         ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
+
+        // Extract game mode and slot switch flags
+        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
+        ctx.gameMode = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
+        ctx.slotSwitchFlags = slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+
         ctx.validator = address(config.validator);
     }
 
