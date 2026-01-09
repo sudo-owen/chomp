@@ -895,91 +895,118 @@ contract Engine is IEngine, MappingAllocator {
         battleKey = keccak256(abi.encode(pairHash, pairHashNonce));
     }
 
+    // Shared game over check - returns winner index (0, 1, or 2 if no winner)
+    function _checkForGameOver(BattleConfig storage config, BattleData storage battle)
+        internal
+        view
+        returns (uint256 winnerIndex, uint256 p0KOBitmap, uint256 p1KOBitmap)
+    {
+        // First check if we already calculated a winner
+        if (battle.winnerIndex != 2) {
+            return (battle.winnerIndex, 0, 0);
+        }
+
+        // Load KO bitmaps and team sizes
+        uint256 p0TeamSize = config.teamSizes & 0x0F;
+        uint256 p1TeamSize = config.teamSizes >> 4;
+        p0KOBitmap = _getKOBitmap(config, 0);
+        p1KOBitmap = _getKOBitmap(config, 1);
+
+        // Full team mask: (1 << teamSize) - 1, e.g. teamSize=3 -> 0b111
+        uint256 p0FullMask = (1 << p0TeamSize) - 1;
+        uint256 p1FullMask = (1 << p1TeamSize) - 1;
+
+        // Check if all mons are KO'd for either player
+        if (p0KOBitmap == p0FullMask) {
+            winnerIndex = 1; // p1 wins
+        } else if (p1KOBitmap == p1FullMask) {
+            winnerIndex = 0; // p0 wins
+        } else {
+            winnerIndex = 2; // No winner yet
+        }
+    }
+
     function _checkForGameOverOrKO(
         BattleConfig storage config,
         BattleData storage battle,
         uint256 priorityPlayerIndex
     ) internal returns (uint256 playerSwitchForTurnFlag, bool isGameOver) {
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
-        uint8 existingWinnerIndex = battle.winnerIndex;
 
-        // First check if we already calculated a winner
-        if (existingWinnerIndex != 2) {
+        // Use shared game over check
+        (uint256 winnerIndex, uint256 p0KOBitmap, uint256 p1KOBitmap) = _checkForGameOver(config, battle);
+
+        if (winnerIndex != 2) {
+            battle.winnerIndex = uint8(winnerIndex);
             return (playerSwitchForTurnFlag, true);
         }
 
-        // Check for game over using KO bitmaps (O(1) instead of O(n) loop)
-        // A game is over if all of a player's mons are KOed (all bits set up to teamSize)
-        uint256 newWinnerIndex = 2;
-        uint256 p0TeamSize = config.teamSizes & 0x0F;
-        uint256 p1TeamSize = config.teamSizes >> 4;
-        uint256 p0KOBitmap = _getKOBitmap(config, 0);
-        uint256 p1KOBitmap = _getKOBitmap(config, 1);
-        // Full team mask: (1 << teamSize) - 1, e.g. teamSize=3 -> 0b111
-        uint256 p0FullMask = (1 << p0TeamSize) - 1;
-        uint256 p1FullMask = (1 << p1TeamSize) - 1;
+        // No game over - check for KOs and set player switch for turn flag
+        playerSwitchForTurnFlag = 2;
 
-        if (p0KOBitmap == p0FullMask) {
-            newWinnerIndex = 1; // p1 wins
-        } else if (p1KOBitmap == p1FullMask) {
-            newWinnerIndex = 0; // p0 wins
+        // Use already-loaded KO bitmaps to check active mon KO status
+        uint256 priorityActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
+        uint256 otherActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
+        uint256 priorityKOBitmap = priorityPlayerIndex == 0 ? p0KOBitmap : p1KOBitmap;
+        uint256 otherKOBitmap = priorityPlayerIndex == 0 ? p1KOBitmap : p0KOBitmap;
+        bool isPriorityPlayerActiveMonKnockedOut = (priorityKOBitmap & (1 << priorityActiveMonIndex)) != 0;
+        bool isNonPriorityPlayerActiveMonKnockedOut = (otherKOBitmap & (1 << otherActiveMonIndex)) != 0;
+
+        // If the priority player mon is KO'ed (and the other player isn't), next turn only other player acts
+        if (isPriorityPlayerActiveMonKnockedOut && !isNonPriorityPlayerActiveMonKnockedOut) {
+            playerSwitchForTurnFlag = priorityPlayerIndex;
         }
-        // If we found a winner, set it on the battle data and return
-        if (newWinnerIndex != 2) {
-            battle.winnerIndex = uint8(newWinnerIndex);
-            return (playerSwitchForTurnFlag, true);
-        }
-        // Otherwise if it isn't a game over, we check for KOs and set the player switch for turn flag
-        else {
-            // Always set default switch to be 2 (allow both players to make a move)
-            playerSwitchForTurnFlag = 2;
 
-            // Use already-loaded KO bitmaps to check active mon KO status (avoids SLOAD)
-            uint256 priorityActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
-            uint256 otherActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
-            uint256 priorityKOBitmap = priorityPlayerIndex == 0 ? p0KOBitmap : p1KOBitmap;
-            uint256 otherKOBitmap = priorityPlayerIndex == 0 ? p1KOBitmap : p0KOBitmap;
-            bool isPriorityPlayerActiveMonKnockedOut = (priorityKOBitmap & (1 << priorityActiveMonIndex)) != 0;
-            bool isNonPriorityPlayerActiveMonKnockedOut = (otherKOBitmap & (1 << otherActiveMonIndex)) != 0;
-
-            // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
-            if (isPriorityPlayerActiveMonKnockedOut && !isNonPriorityPlayerActiveMonKnockedOut) {
-                playerSwitchForTurnFlag = priorityPlayerIndex;
-            }
-
-            // If the non priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the priority player
-            if (!isPriorityPlayerActiveMonKnockedOut && isNonPriorityPlayerActiveMonKnockedOut) {
-                playerSwitchForTurnFlag = otherPlayerIndex;
-            }
+        // If the non priority player mon is KO'ed (and the other player isn't), next turn only priority player acts
+        if (!isPriorityPlayerActiveMonKnockedOut && isNonPriorityPlayerActiveMonKnockedOut) {
+            playerSwitchForTurnFlag = otherPlayerIndex;
         }
     }
 
     function _handleSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex, address source) internal {
-        // NOTE: We will check for game over after the switch in the engine for two player turns, so we don't do it here
-        // But this also means that the current flow of OnMonSwitchOut effects -> OnMonSwitchIn effects -> ability activateOnSwitch
-        // will all resolve before checking for KOs or winners
-        // (could break this up even more, but that's for a later version / PR)
+        BattleData storage battle = battleData[battleKey];
+        uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
 
+        // Run switch-out effects
+        _handleSwitchCore(battleKey, playerIndex, currentActiveMonIndex, monToSwitchIndex, source);
+
+        // Update active mon index (singles packing)
+        battle.activeMonIndex = _setActiveMonIndex(battle.activeMonIndex, playerIndex, monToSwitchIndex);
+
+        // Run switch-in effects
+        _completeSwitchIn(battleKey, playerIndex, monToSwitchIndex);
+    }
+
+    // Core switch logic shared between singles and doubles
+    function _handleSwitchCore(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 currentActiveMonIndex,
+        uint256 monToSwitchIndex,
+        address source
+    ) internal {
         BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKeyForWrite];
-        uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         MonState storage currentMonState = _getMonState(config, playerIndex, currentActiveMonIndex);
 
         // Emit event first, then run effects
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
 
-        // If the current mon is not KO'ed
-        // Go through each effect to see if it should be cleared after a switch,
-        // If so, remove the effect and the extra data
+        // If the current mon is not KO'ed, run switch-out effects
         if (!currentMonState.isKnockedOut) {
             _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
-
-            // Then run the global on mon switch out hook as well
             _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
         }
 
-        // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
-        battle.activeMonIndex = _setActiveMonIndex(battle.activeMonIndex, playerIndex, monToSwitchIndex);
+        // Note: Caller is responsible for updating activeMonIndex with appropriate packing
+
+        // Run onMonSwitchIn hooks (these run after the index is updated by the caller)
+    }
+
+    // Complete switch-in effects (called after activeMonIndex is updated)
+    function _completeSwitchIn(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex) internal {
+        BattleData storage battle = battleData[battleKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         // Run onMonSwitchIn hook for local effects
         _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
@@ -987,7 +1014,7 @@ contract Engine is IEngine, MappingAllocator {
         // Run onMonSwitchIn hook for global effects
         _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
-        // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
+        // Run ability for the newly switched in mon
         Mon memory mon = _getTeamMon(config, playerIndex, monToSwitchIndex);
         if (
             address(mon.ability) != address(0) && battle.turnId != 0
@@ -2095,60 +2122,35 @@ contract Engine is IEngine, MappingAllocator {
         return currentMonState.isKnockedOut;
     }
 
-    // Handle switch for a specific slot in doubles
+    // Handle switch for a specific slot in doubles (uses shared core functions)
     function _handleSwitchForSlot(bytes32 battleKey, uint256 playerIndex, uint256 slotIndex, uint256 monToSwitchIndex, address source) internal {
         BattleData storage battle = battleData[battleKey];
-        BattleConfig storage config = battleConfig[storageKeyForWrite];
         uint256 currentActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, slotIndex);
-        MonState storage currentMonState = _getMonState(config, playerIndex, currentActiveMonIndex);
 
-        emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
+        // Run switch-out effects (shared)
+        _handleSwitchCore(battleKey, playerIndex, currentActiveMonIndex, monToSwitchIndex, source);
 
-        // Run switch-out effects if mon is not KO'd
-        if (!currentMonState.isKnockedOut) {
-            _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
-            _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
-        }
-
-        // Update active mon for this slot
+        // Update active mon for this slot (doubles packing)
         battle.activeMonIndex = _setActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, slotIndex, monToSwitchIndex);
 
-        // Run switch-in effects
-        _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
-        _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
-
-        // Run ability for newly switched in mon
-        Mon memory mon = _getTeamMon(config, playerIndex, monToSwitchIndex);
-        if (
-            address(mon.ability) != address(0) && battle.turnId != 0
-                && !_getMonState(config, playerIndex, monToSwitchIndex).isKnockedOut
-        ) {
-            mon.ability.activateOnSwitch(battleKey, playerIndex, monToSwitchIndex);
-        }
+        // Run switch-in effects (shared)
+        _completeSwitchIn(battleKey, playerIndex, monToSwitchIndex);
     }
 
-    // Check for game over or KO in doubles mode, returns true if game is over
+    // Check for game over or KO in doubles mode (uses shared game over check)
     function _checkForGameOverOrKO_Doubles(
         BattleConfig storage config,
         BattleData storage battle
     ) internal returns (bool isGameOver) {
-        // Check for game over using KO bitmaps
-        uint256 p0TeamSize = config.teamSizes & 0x0F;
-        uint256 p1TeamSize = config.teamSizes >> 4;
-        uint256 p0KOBitmap = _getKOBitmap(config, 0);
-        uint256 p1KOBitmap = _getKOBitmap(config, 1);
-        uint256 p0FullMask = (1 << p0TeamSize) - 1;
-        uint256 p1FullMask = (1 << p1TeamSize) - 1;
+        // Use shared game over check
+        (uint256 winnerIndex, uint256 p0KOBitmap, uint256 p1KOBitmap) = _checkForGameOver(config, battle);
 
-        if (p0KOBitmap == p0FullMask) {
-            battle.winnerIndex = 1;
-            return true;
-        } else if (p1KOBitmap == p1FullMask) {
-            battle.winnerIndex = 0;
+        if (winnerIndex != 2) {
+            battle.winnerIndex = uint8(winnerIndex);
             return true;
         }
 
-        // Check each slot for KO and set switch flags
+        // No game over - check each slot for KO and set switch flags
         _clearSlotSwitchFlags(battle);
         for (uint256 p = 0; p < 2; p++) {
             uint256 koBitmap = p == 0 ? p0KOBitmap : p1KOBitmap;
