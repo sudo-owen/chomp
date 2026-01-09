@@ -1990,6 +1990,44 @@ contract Engine is IEngine, MappingAllocator {
         battle.slotSwitchFlagsAndGameMode &= ~SWITCH_FLAGS_MASK;
     }
 
+    /**
+     * @dev Check if a player has any KO'd slot that has a valid switch target
+     * @param config Battle config
+     * @param battle Battle data
+     * @param playerIndex Which player to check (0 or 1)
+     * @param koBitmap Bitmap of KO'd mons for this player
+     * @return needsSwitch True if player has a KO'd slot with valid switch target
+     */
+    function _playerNeedsSwitchTurn(
+        BattleConfig storage config,
+        BattleData storage battle,
+        uint256 playerIndex,
+        uint256 koBitmap
+    ) internal view returns (bool needsSwitch) {
+        uint256 teamSize = playerIndex == 0 ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
+
+        // Check each slot
+        for (uint256 s = 0; s < 2; s++) {
+            uint256 activeMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, s);
+            bool isSlotKOed = (koBitmap & (1 << activeMonIndex)) != 0;
+
+            if (isSlotKOed) {
+                // This slot is KO'd - check if there's a valid switch target
+                uint256 otherSlotMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, 1 - s);
+
+                for (uint256 m = 0; m < teamSize; m++) {
+                    // Skip if mon is KO'd
+                    if ((koBitmap & (1 << m)) != 0) continue;
+                    // Skip if mon is active in other slot
+                    if (m == otherSlotMonIndex) continue;
+                    // Found a valid switch target
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // Struct for tracking move order in doubles
     struct MoveOrder {
         uint256 playerIndex;
@@ -2013,6 +2051,14 @@ contract Engine is IEngine, MappingAllocator {
                 moveOrder[idx].slotIndex = s;
 
                 MoveDecision memory move = _getMoveDecisionForSlot(config, p, s);
+
+                // If move wasn't set (single-player turn), treat as NO_OP for ordering
+                if ((move.packedMoveIndex & IS_REAL_TURN_BIT) == 0) {
+                    moveOrder[idx].priority = 0; // Lowest priority - will be skipped anyway
+                    moveOrder[idx].speed = 0;
+                    continue;
+                }
+
                 uint8 storedMoveIndex = move.packedMoveIndex & MOVE_INDEX_MASK;
                 uint8 moveIndex = storedMoveIndex >= SWITCH_MOVE_INDEX ? storedMoveIndex : storedMoveIndex - MOVE_INDEX_OFFSET;
 
@@ -2089,8 +2135,8 @@ contract Engine is IEngine, MappingAllocator {
             return false;
         }
 
-        // Skip if mon is already KO'd
-        if (currentMonState.isKnockedOut) {
+        // Skip if mon is already KO'd (unless it's a switch - switching away from KO'd mon is allowed)
+        if (currentMonState.isKnockedOut && moveIndex != SWITCH_MOVE_INDEX) {
             return false;
         }
 
@@ -2161,6 +2207,25 @@ contract Engine is IEngine, MappingAllocator {
                     _setSlotSwitchFlag(battle, p, s);
                 }
             }
+        }
+
+        // Determine if either player needs a switch turn (has KO'd slot with valid target)
+        bool p0NeedsSwitch = _playerNeedsSwitchTurn(config, battle, 0, p0KOBitmap);
+        bool p1NeedsSwitch = _playerNeedsSwitchTurn(config, battle, 1, p1KOBitmap);
+
+        // Set playerSwitchForTurnFlag based on who needs to switch
+        if (p0NeedsSwitch && p1NeedsSwitch) {
+            // Both players have KO'd mons with valid targets - both act (switch-only turn)
+            battle.playerSwitchForTurnFlag = 2;
+        } else if (p0NeedsSwitch) {
+            // Only p0 needs to switch
+            battle.playerSwitchForTurnFlag = 0;
+        } else if (p1NeedsSwitch) {
+            // Only p1 needs to switch
+            battle.playerSwitchForTurnFlag = 1;
+        } else {
+            // Neither needs switch - normal turn (both act)
+            battle.playerSwitchForTurnFlag = 2;
         }
 
         return false;
@@ -2291,9 +2356,8 @@ contract Engine is IEngine, MappingAllocator {
         // End of turn cleanup
         battle.turnId += 1;
 
-        // For doubles, playerSwitchForTurnFlag is always 2 (both players act)
-        // Individual slot switch requirements are tracked in slotSwitchFlagsAndGameMode
-        battle.playerSwitchForTurnFlag = 2;
+        // playerSwitchForTurnFlag was already set by _checkForGameOverOrKO_Doubles
+        // based on whether players need to switch (have KO'd slots with valid targets)
 
         // Clear move flags for next turn
         config.p0Move.packedMoveIndex = 0;

@@ -674,6 +674,7 @@ contract DoublesValidationTest is Test {
 
     /**
      * @notice Test that reveal fails when trying to use attack for KO'd slot with valid targets
+     * @dev After KO with valid switch target, it's a single-player switch turn (Alice only)
      */
     function test_revealFailsForInvalidMoveOnKOdSlot() public {
         IMoveSet[] memory moves = new IMoveSet[](4);
@@ -683,12 +684,12 @@ contract DoublesValidationTest is Test {
         moves[3] = strongAttack;
 
         Mon[] memory aliceTeam = new Mon[](3);
-        aliceTeam[0] = _createMon(1, 10, moves);
+        aliceTeam[0] = _createMon(1, 5, moves);     // Slow, will be KO'd
         aliceTeam[1] = _createMon(100, 8, moves);
-        aliceTeam[2] = _createMon(100, 6, moves);
+        aliceTeam[2] = _createMon(100, 6, moves);   // Reserve
 
         Mon[] memory bobTeam = new Mon[](3);
-        bobTeam[0] = _createMon(100, 20, moves);
+        bobTeam[0] = _createMon(100, 20, moves);    // Fast, attacks first
         bobTeam[1] = _createMon(100, 18, moves);
         bobTeam[2] = _createMon(100, 16, moves);
 
@@ -702,32 +703,85 @@ contract DoublesValidationTest is Test {
         // Turn 1: Bob KOs Alice's slot 0
         _doublesCommitRevealExecute(
             battleKey,
-            0, 0, NO_OP_MOVE_INDEX, 0,
+            NO_OP_MOVE_INDEX, 0, NO_OP_MOVE_INDEX, 0,  // Alice: both no-op
+            0, 0, NO_OP_MOVE_INDEX, 0                   // Bob: slot 0 attacks
+        );
+
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice mon 0 KO'd");
+
+        // Verify it's a single-player switch turn (playerSwitchForTurnFlag = 0 for Alice only)
+        BattleContext memory ctx = engine.getBattleContext(battleKey);
+        assertEq(ctx.playerSwitchForTurnFlag, 0, "Should be Alice-only switch turn");
+
+        // Turn 2: Single-player switch turn - only Alice acts (no commits needed)
+        // Alice tries to reveal with attack for KO'd slot 0 - should fail with InvalidMove
+        bytes32 aliceSalt = bytes32("alicesalt");
+
+        vm.startPrank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(DoublesCommitManager.InvalidMove.selector, ALICE, 0));
+        commitManager.revealMoves(battleKey, uint8(0), 0, uint8(NO_OP_MOVE_INDEX), 0, aliceSalt, false);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test single-player switch turn: only the player with KO'd mon acts
+     */
+    function test_singlePlayerSwitchTurn() public {
+        IMoveSet[] memory moves = new IMoveSet[](4);
+        moves[0] = strongAttack;
+        moves[1] = strongAttack;
+        moves[2] = strongAttack;
+        moves[3] = strongAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(1, 5, moves);     // Slow, will be KO'd
+        aliceTeam[1] = _createMon(100, 8, moves);
+        aliceTeam[2] = _createMon(100, 6, moves);   // Reserve
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 20, moves);    // Fast
+        bobTeam[1] = _createMon(100, 18, moves);
+        bobTeam[2] = _createMon(100, 16, moves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Turn 1: Bob KOs Alice's slot 0
+        _doublesCommitRevealExecute(
+            battleKey,
+            NO_OP_MOVE_INDEX, 0, NO_OP_MOVE_INDEX, 0,
             0, 0, NO_OP_MOVE_INDEX, 0
         );
 
-        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1);
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice mon 0 KO'd");
 
-        // Turn 2: Alice tries to use attack for KO'd slot 0 (should revert)
-        uint256 turnId = engine.getTurnIdForBattleState(battleKey);
-        bytes32 aliceSalt = bytes32("alicesalt");
-        bytes32 bobSalt = bytes32("bobsalt");
+        // Verify it's a single-player switch turn
+        BattleContext memory ctx = engine.getBattleContext(battleKey);
+        assertEq(ctx.playerSwitchForTurnFlag, 0, "Should be Alice-only switch turn");
 
-        // Alice commits (even turn)
-        bytes32 aliceHash = keccak256(abi.encodePacked(uint8(0), uint240(0), uint8(0), uint240(0), aliceSalt));
-        vm.startPrank(ALICE);
-        commitManager.commitMoves(battleKey, aliceHash);
-        vm.stopPrank();
-
-        // Bob reveals first
+        // Bob should NOT be able to commit (it's not his turn)
         vm.startPrank(BOB);
-        commitManager.revealMoves(battleKey, uint8(0), 0, uint8(0), 0, bobSalt, false);
+        bytes32 bobHash = keccak256(abi.encodePacked(uint8(0), uint240(0), uint8(0), uint240(0), bytes32("bobsalt")));
+        vm.expectRevert(DoublesCommitManager.PlayerNotAllowed.selector);
+        commitManager.commitMoves(battleKey, bobHash);
         vm.stopPrank();
 
-        // Alice reveals - should revert because slot 0 is KO'd but she's trying to attack
+        // Alice reveals her switch (no commit needed for single-player turns)
+        bytes32 aliceSalt = bytes32("alicesalt");
         vm.startPrank(ALICE);
-        vm.expectRevert(abi.encodeWithSelector(DoublesCommitManager.InvalidMove.selector, ALICE, 0));
-        commitManager.revealMoves(battleKey, uint8(0), 0, uint8(0), 0, aliceSalt, false);
+        commitManager.revealMoves(battleKey, SWITCH_MOVE_INDEX, 2, NO_OP_MOVE_INDEX, 0, aliceSalt, true);
         vm.stopPrank();
+
+        // Verify switch happened and turn advanced
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 2, "Alice slot 0 should now have mon 2");
+        assertEq(engine.getTurnIdForBattleState(battleKey), 3);
+
+        // Next turn should be normal (both players act)
+        ctx = engine.getBattleContext(battleKey);
+        assertEq(ctx.playerSwitchForTurnFlag, 2, "Should be normal turn now");
     }
 }
