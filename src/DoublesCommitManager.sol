@@ -193,12 +193,12 @@ contract DoublesCommitManager {
             revert AlreadyRevealed();
         }
 
-        // Validate both moves are legal
+        // Validate both moves are legal for their respective slots
         IValidator validator = IValidator(ctx.validator);
-        if (!validator.validatePlayerMove(battleKey, moveIndex0, currentPlayerIndex, extraData0)) {
+        if (!validator.validatePlayerMoveForSlot(battleKey, moveIndex0, currentPlayerIndex, 0, extraData0)) {
             revert InvalidMove(msg.sender, 0);
         }
-        if (!validator.validatePlayerMove(battleKey, moveIndex1, currentPlayerIndex, extraData1)) {
+        if (!validator.validatePlayerMoveForSlot(battleKey, moveIndex1, currentPlayerIndex, 1, extraData1)) {
             revert InvalidMove(msg.sender, 1);
         }
 
