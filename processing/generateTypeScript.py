@@ -36,15 +36,16 @@ def read_json(file_path: str) -> Dict[str, Any]:
 def build_sprite_config(
     spritesheet_url: str,
     source: Dict[str, Any],
-    frame_size: int,
+    frame_width: int,
+    frame_height: int,
     loop: bool,
 ) -> Dict[str, Any]:
     """Build a sprite animation config from source data."""
     return {
         "spritesheetUrl": spritesheet_url,
         "frames": source["frames"],
-        "frameWidth": frame_size,
-        "frameHeight": frame_size,
+        "frameWidth": frame_width,
+        "frameHeight": frame_height,
         "frameDurationMs": source.get("msPerFrame", 100),
         "loop": loop,
     }
@@ -64,17 +65,19 @@ def build_attack_sprite(
         return build_sprite_config(
             "/assets/attacks/attack_spritesheet.png",
             source_data,
-            frame_size=source_data.get("width", 96),
+            frame_width=source_data.get("width", 96),
+            frame_height=source_data.get("height", 96),
             loop=False,
         )
 
-    # Check non-standard spritesheet (106x106, 180x180, etc.)
+    # Check non-standard spritesheet (variable sizes)
     if key in non_standard_spritesheet_data:
         source_data = non_standard_spritesheet_data[key]
         return build_sprite_config(
             "/assets/attacks/non_standard_spritesheet.png",
             source_data,
-            frame_size=source_data.get("width", 106),
+            frame_width=source_data.get("width", 106),
+            frame_height=source_data.get("height", 106),
             loop=False,
         )
 
@@ -108,7 +111,8 @@ def build_sprites(mon_name_lower: str, spritesheet_data: Dict[str, Any]) -> Dict
         sprites[output_key] = build_sprite_config(
             f"/assets/mons/all/{sheet}",
             source,
-            frame_size=96,
+            frame_width=96,
+            frame_height=96,
             loop=loops,
         )
     
@@ -199,7 +203,8 @@ def find_unmatched_sprites(
             unmatched[key] = build_sprite_config(
                 "/assets/attacks/attack_spritesheet.png",
                 source_data,
-                frame_size=source_data.get("width", 96),
+                frame_width=source_data.get("width", 96),
+                frame_height=source_data.get("height", 96),
                 loop=False,
             )
 
@@ -209,7 +214,8 @@ def find_unmatched_sprites(
             unmatched[key] = build_sprite_config(
                 "/assets/attacks/non_standard_spritesheet.png",
                 source_data,
-                frame_size=source_data.get("width", 106),
+                frame_width=source_data.get("width", 106),
+                frame_height=source_data.get("height", 106),
                 loop=False,
             )
 
