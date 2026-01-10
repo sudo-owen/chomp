@@ -83,4 +83,11 @@ interface IEngine {
         external
         view
         returns (DamageCalcContext memory);
+
+    // Doubles-specific getters
+    function getGameMode(bytes32 battleKey) external view returns (GameMode);
+    function getActiveMonIndexForSlot(bytes32 battleKey, uint256 playerIndex, uint256 slotIndex)
+        external
+        view
+        returns (uint256);
 }

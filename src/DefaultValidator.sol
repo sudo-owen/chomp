@@ -235,6 +235,125 @@ contract DefaultValidator is IValidator {
         return true;
     }
 
+    /**
+     * @notice Validates a move for a specific slot in doubles mode
+     * @dev Enforces:
+     *      - If slot's mon is KO'd, must switch (unless no valid targets → NO_OP allowed)
+     *      - Switch target can't be KO'd or already active in another slot
+     *      - Standard move validation for non-switch moves
+     */
+    function validatePlayerMoveForSlot(
+        bytes32 battleKey,
+        uint256 moveIndex,
+        uint256 playerIndex,
+        uint256 slotIndex,
+        uint240 extraData
+    ) external view returns (bool) {
+        // Get the active mon index for this slot
+        uint256 activeMonIndex = ENGINE.getActiveMonIndexForSlot(battleKey, playerIndex, slotIndex);
+        uint256 otherSlotActiveMonIndex = ENGINE.getActiveMonIndexForSlot(battleKey, playerIndex, 1 - slotIndex);
+
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+
+        // Check if this slot's mon is KO'd
+        bool isActiveMonKnockedOut = ENGINE.getMonStateForBattle(
+            battleKey, playerIndex, activeMonIndex, MonStateIndexName.IsKnockedOut
+        ) == 1;
+
+        // Turn 0: must switch to set initial mon
+        // KO'd mon: must switch (unless no valid targets)
+        if (ctx.turnId == 0 || isActiveMonKnockedOut) {
+            if (moveIndex != SWITCH_MOVE_INDEX) {
+                // Check if NO_OP is allowed (no valid switch targets)
+                if (moveIndex == NO_OP_MOVE_INDEX && !_hasValidSwitchTargetForSlot(battleKey, playerIndex, otherSlotActiveMonIndex)) {
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        // Validate move index range
+        if (moveIndex != NO_OP_MOVE_INDEX && moveIndex != SWITCH_MOVE_INDEX) {
+            if (moveIndex >= MOVES_PER_MON) {
+                return false;
+            }
+        }
+        // NO_OP is always valid (if we got past the KO check)
+        else if (moveIndex == NO_OP_MOVE_INDEX) {
+            return true;
+        }
+        // Switch validation
+        else if (moveIndex == SWITCH_MOVE_INDEX) {
+            uint256 monToSwitchIndex = uint256(extraData);
+            return _validateSwitchForSlot(battleKey, playerIndex, monToSwitchIndex, activeMonIndex, otherSlotActiveMonIndex, ctx);
+        }
+
+        // Validate specific move selection
+        return _validateSpecificMoveSelectionInternal(battleKey, moveIndex, playerIndex, extraData, activeMonIndex);
+    }
+
+    /**
+     * @dev Checks if there's any valid switch target for a slot (excluding other slot's active mon)
+     */
+    function _hasValidSwitchTargetForSlot(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 otherSlotActiveMonIndex
+    ) internal view returns (bool) {
+        for (uint256 i = 0; i < MONS_PER_TEAM; i++) {
+            // Skip if it's the other slot's active mon
+            if (i == otherSlotActiveMonIndex) {
+                continue;
+            }
+            // Check if mon is not KO'd
+            bool isKnockedOut = ENGINE.getMonStateForBattle(
+                battleKey, playerIndex, i, MonStateIndexName.IsKnockedOut
+            ) == 1;
+            if (!isKnockedOut) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @dev Validates switch for a specific slot in doubles (can't switch to other slot's active mon)
+     */
+    function _validateSwitchForSlot(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 monToSwitchIndex,
+        uint256 currentSlotActiveMonIndex,
+        uint256 otherSlotActiveMonIndex,
+        BattleContext memory ctx
+    ) internal view returns (bool) {
+        if (monToSwitchIndex >= MONS_PER_TEAM) {
+            return false;
+        }
+
+        // Can't switch to a KO'd mon
+        bool isNewMonKnockedOut = ENGINE.getMonStateForBattle(
+            battleKey, playerIndex, monToSwitchIndex, MonStateIndexName.IsKnockedOut
+        ) == 1;
+        if (isNewMonKnockedOut) {
+            return false;
+        }
+
+        // Can't switch to mon already active in the other slot
+        if (monToSwitchIndex == otherSlotActiveMonIndex) {
+            return false;
+        }
+
+        // Can't switch to same mon (except turn 0)
+        if (ctx.turnId != 0) {
+            if (monToSwitchIndex == currentSlotActiveMonIndex) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /*
         Check switch for turn flag:
 
