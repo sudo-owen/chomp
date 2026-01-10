@@ -189,29 +189,16 @@ def read_moves_data(
     return moves_by_mon, all_move_keys
 
 
-def find_unmatched_sprites(
-    attack_spritesheet_data: Dict[str, Any],
+def find_non_standard_sprites(
     non_standard_spritesheet_data: Dict[str, Any],
     matched_move_keys: set[str]
 ) -> Dict[str, Dict[str, Any]]:
-    """Find spritesheet animations that don't match any move on a mon."""
-    unmatched: Dict[str, Dict[str, Any]] = {}
+    """Find non-standard spritesheet animations that don't match any move on a mon."""
+    non_standard: Dict[str, Dict[str, Any]] = {}
 
-    # Check standard spritesheet
-    for key, source_data in attack_spritesheet_data.items():
-        if key not in matched_move_keys:
-            unmatched[key] = build_sprite_config(
-                "/assets/attacks/attack_spritesheet.png",
-                source_data,
-                frame_width=source_data.get("width", 96),
-                frame_height=source_data.get("height", 96),
-                loop=False,
-            )
-
-    # Check non-standard spritesheet
     for key, source_data in non_standard_spritesheet_data.items():
         if key not in matched_move_keys:
-            unmatched[key] = build_sprite_config(
+            non_standard[key] = build_sprite_config(
                 "/assets/attacks/non_standard_spritesheet.png",
                 source_data,
                 frame_width=source_data.get("width", 106),
@@ -219,7 +206,7 @@ def find_unmatched_sprites(
                 loop=False,
             )
 
-    return unmatched
+    return non_standard
 
 
 def read_abilities_data(file_path: str) -> Dict[str, Dict[str, str]]:
@@ -357,17 +344,17 @@ export type MonDatabase = Record<number, Mon>;
         f.write(typescript_content)
 
 
-def generate_unmatched_sprites_file(unmatched: Dict[str, Dict[str, Any]], output_file: str):
-    """Generate TypeScript file for unmatched attack sprites."""
-    json_str = json.dumps(unmatched, indent=2, ensure_ascii=False)
+def generate_non_standard_sprites_file(sprites: Dict[str, Dict[str, Any]], output_file: str):
+    """Generate TypeScript file for non-standard attack sprites not matched to any mon's moves."""
+    json_str = json.dumps(sprites, indent=2, ensure_ascii=False)
 
     # Collapse frame arrays to single lines
     json_str = collapse_frame_arrays(json_str)
 
-    typescript_content = f"""// Auto-generated file for attack sprites not matched to any mon's moves
+    typescript_content = f"""// Auto-generated file for non-standard attack sprites not matched to any mon's moves
 import {{ SpriteAnimationConfig }} from '../types/animation';
 
-export const UnmatchedAttackSprites: Record<string, SpriteAnimationConfig> = {json_str};
+export const NonStandardAttackSprites: Record<string, SpriteAnimationConfig> = {json_str};
 """
 
     with open(output_file, "w", encoding="utf-8") as f:
@@ -423,14 +410,14 @@ def run() -> bool:
     generate_typescript_const(combined_data, str(output_file))
     print(f"✅ Generated TypeScript const in {output_file}")
 
-    # Find and generate unmatched sprites
-    unmatched = find_unmatched_sprites(attack_spritesheet_data, non_standard_spritesheet_data, all_move_keys)
-    if unmatched:
-        unmatched_output = munch_data_dir / "unmatched-sprites.ts" if munch_data_dir.exists() else base_path / "unmatched_sprites.ts"
-        generate_unmatched_sprites_file(unmatched, str(unmatched_output))
-        print(f"✅ Generated unmatched sprites ({len(unmatched)} animations) in {unmatched_output}")
+    # Find and generate non-standard sprites not matched to any mon's moves
+    non_standard = find_non_standard_sprites(non_standard_spritesheet_data, all_move_keys)
+    if non_standard:
+        non_standard_output = munch_data_dir / "non-standard-sprites.ts" if munch_data_dir.exists() else base_path / "non_standard_sprites.ts"
+        generate_non_standard_sprites_file(non_standard, str(non_standard_output))
+        print(f"✅ Generated non-standard sprites ({len(non_standard)} animations) in {non_standard_output}")
     else:
-        print("✅ All spritesheet animations matched to moves")
+        print("✅ All non-standard spritesheet animations matched to moves")
 
     return True
 
