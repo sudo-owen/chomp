@@ -1200,10 +1200,8 @@ contract DoublesValidationTest is Test {
 
     /**
      * @notice Test: P0 both slots KO'd with only one reserve (3-mon team)
-     * @dev When both slots are KO'd but only one reserve exists, both slots see it as valid.
-     *      This test verifies the switch turn is triggered correctly.
-     * @dev NOTE: Current engine behavior allows both slots to switch to the same mon.
-     *      This is an edge case that documents the current behavior.
+     * @dev When both slots try to switch to same mon, second switch becomes NO_OP.
+     *      Slot 0 switches to mon 2, slot 1 keeps KO'd mon 1 (plays with one mon).
      */
     function test_bothSlotsKO_oneReserve() public {
         // Use targeted attacks for Bob
@@ -1261,10 +1259,15 @@ contract DoublesValidationTest is Test {
         commitManager.revealMoves(battleKey, SWITCH_MOVE_INDEX, 2, SWITCH_MOVE_INDEX, 2, bytes32("alicesalt"), true);
         vm.stopPrank();
 
-        // Verify slot 0 has mon 2
+        // Slot 0 switches to mon 2 (executed first)
         assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 2, "Alice slot 0 should have mon 2");
 
-        // Game continues after switch turn
+        // Slot 1's switch becomes NO_OP because mon 2 is already in slot 0
+        // Slot 1 keeps its KO'd mon (mon 1)
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 1), 1, "Alice slot 1 should keep mon 1 (switch became NO_OP)");
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1, "Alice slot 1 mon is still KO'd");
+
+        // Game continues - Alice plays with just one mon in slot 0
         ctx = engine.getBattleContext(battleKey);
         assertEq(ctx.playerSwitchForTurnFlag, 2, "Should be normal turn now");
     }

@@ -2142,7 +2142,16 @@ contract Engine is IEngine, MappingAllocator {
 
         // Handle switch, no-op, or regular move
         if (moveIndex == SWITCH_MOVE_INDEX) {
-            _handleSwitchForSlot(battleKey, playerIndex, slotIndex, uint256(move.extraData), address(0));
+            uint256 targetMonIndex = uint256(move.extraData);
+            // Check if target mon is already active in other slot (handles case where both slots try to switch to same mon)
+            uint256 otherSlotIndex = 1 - slotIndex;
+            uint256 otherSlotActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, otherSlotIndex);
+            if (targetMonIndex == otherSlotActiveMonIndex) {
+                // Target mon is already active in other slot - treat as NO_OP
+                emit MonMove(battleKey, playerIndex, activeMonIndex, NO_OP_MOVE_INDEX, move.extraData, staminaCost);
+            } else {
+                _handleSwitchForSlot(battleKey, playerIndex, slotIndex, targetMonIndex, address(0));
+            }
         } else if (moveIndex == NO_OP_MOVE_INDEX) {
             emit MonMove(battleKey, playerIndex, activeMonIndex, moveIndex, move.extraData, staminaCost);
         } else {
