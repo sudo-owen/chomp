@@ -43,3 +43,8 @@ uint256 constant EFFECT_COUNT_MASK = 0x3F; // 6 bits = max count of 63
 address constant TOMBSTONE_ADDRESS = address(0xdead);
 
 uint256 constant MAX_BATTLE_DURATION = 1 hours;
+
+bytes32 constant MOVE_MISS_EVENT_TYPE = sha256(abi.encode("MoveMiss"));
+bytes32 constant MOVE_CRIT_EVENT_TYPE = sha256(abi.encode("MoveCrit"));
+bytes32 constant MOVE_TYPE_IMMUNITY_EVENT_TYPE = sha256(abi.encode("MoveTypeImmunity"));
+bytes32 constant NONE_EVENT_TYPE = bytes32(0);

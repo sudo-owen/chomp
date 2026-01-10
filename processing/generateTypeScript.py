@@ -6,6 +6,7 @@ Script to combine mons.csv, moves.csv, and abilities.csv into a TypeScript const
 import csv
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -49,17 +50,35 @@ def build_sprite_config(
     }
 
 
-def build_attack_sprite(move_name: str, attack_spritesheet_data: Dict[str, Any]) -> Dict[str, Any] | None:
+def build_attack_sprite(
+    move_name: str,
+    attack_spritesheet_data: Dict[str, Any],
+    non_standard_spritesheet_data: Dict[str, Any]
+) -> Dict[str, Any] | None:
     """Build sprite config for an attack move, or None if no sprite data exists."""
     key = to_spritesheet_key(move_name)
-    if key not in attack_spritesheet_data:
-        return None
-    return build_sprite_config(
-        "/assets/attacks/attack_spritesheet.png",
-        attack_spritesheet_data[key],
-        frame_size=96,
-        loop=False,
-    )
+
+    # Check standard spritesheet first (96x96)
+    if key in attack_spritesheet_data:
+        source_data = attack_spritesheet_data[key]
+        return build_sprite_config(
+            "/assets/attacks/attack_spritesheet.png",
+            source_data,
+            frame_size=source_data.get("width", 96),
+            loop=False,
+        )
+
+    # Check non-standard spritesheet (106x106, 180x180, etc.)
+    if key in non_standard_spritesheet_data:
+        source_data = non_standard_spritesheet_data[key]
+        return build_sprite_config(
+            "/assets/attacks/non_standard_spritesheet.png",
+            source_data,
+            frame_size=source_data.get("width", 106),
+            loop=False,
+        )
+
+    return None
 
 
 def build_sprites(mon_name_lower: str, spritesheet_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -128,9 +147,14 @@ def read_mons_data(file_path: str, spritesheet_data: Dict[str, Any]) -> Dict[int
     return mons_data
 
 
-def read_moves_data(file_path: str, attack_spritesheet_data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
-    """Read moves.csv and return a dictionary keyed by mon name."""
+def read_moves_data(
+    file_path: str,
+    attack_spritesheet_data: Dict[str, Any],
+    non_standard_spritesheet_data: Dict[str, Any]
+) -> tuple[Dict[str, List[Dict[str, Any]]], set[str]]:
+    """Read moves.csv and return a dictionary keyed by mon name, plus set of all move keys."""
     moves_by_mon: Dict[str, List[Dict[str, Any]]] = {}
+    all_move_keys: set[str] = set()
 
     def parse_int_or_unknown(val: str) -> int | str:
         return int(val) if val.isdigit() else '?'
@@ -138,6 +162,9 @@ def read_moves_data(file_path: str, attack_spritesheet_data: Dict[str, Any]) -> 
     for row in read_csv(file_path):
         mon_name = row["Mon"]
         move_name = row["Name"]
+        move_key = to_spritesheet_key(move_name)
+        all_move_keys.add(move_key)
+
         move_data: Dict[str, Any] = {
             "address": f"Address.{to_address_key(move_name)}",
             "name": move_name,
@@ -150,12 +177,43 @@ def read_moves_data(file_path: str, attack_spritesheet_data: Dict[str, Any]) -> 
             "description": row["DevDescription"],
             "extraDataNeeded": row["ExtraData"] == "Yes",
         }
-        sprite = build_attack_sprite(move_name, attack_spritesheet_data)
+        sprite = build_attack_sprite(move_name, attack_spritesheet_data, non_standard_spritesheet_data)
         if sprite:
             move_data["sprite"] = sprite
         moves_by_mon.setdefault(mon_name, []).append(move_data)
 
-    return moves_by_mon
+    return moves_by_mon, all_move_keys
+
+
+def find_unmatched_sprites(
+    attack_spritesheet_data: Dict[str, Any],
+    non_standard_spritesheet_data: Dict[str, Any],
+    matched_move_keys: set[str]
+) -> Dict[str, Dict[str, Any]]:
+    """Find spritesheet animations that don't match any move on a mon."""
+    unmatched: Dict[str, Dict[str, Any]] = {}
+
+    # Check standard spritesheet
+    for key, source_data in attack_spritesheet_data.items():
+        if key not in matched_move_keys:
+            unmatched[key] = build_sprite_config(
+                "/assets/attacks/attack_spritesheet.png",
+                source_data,
+                frame_size=source_data.get("width", 96),
+                loop=False,
+            )
+
+    # Check non-standard spritesheet
+    for key, source_data in non_standard_spritesheet_data.items():
+        if key not in matched_move_keys:
+            unmatched[key] = build_sprite_config(
+                "/assets/attacks/non_standard_spritesheet.png",
+                source_data,
+                frame_size=source_data.get("width", 106),
+                loop=False,
+            )
+
+    return unmatched
 
 
 def read_abilities_data(file_path: str) -> Dict[str, Dict[str, str]]:
@@ -293,44 +351,88 @@ export type MonDatabase = Record<number, Mon>;
         f.write(typescript_content)
 
 
-def main():
-    """Main function to orchestrate the data combination."""
-    base_path = Path(__file__).parent
-    
+def generate_unmatched_sprites_file(unmatched: Dict[str, Dict[str, Any]], output_file: str):
+    """Generate TypeScript file for unmatched attack sprites."""
+    json_str = json.dumps(unmatched, indent=2, ensure_ascii=False)
+
+    # Collapse frame arrays to single lines
+    json_str = collapse_frame_arrays(json_str)
+
+    typescript_content = f"""// Auto-generated file for attack sprites not matched to any mon's moves
+import {{ SpriteAnimationConfig }} from '../types/animation';
+
+export const UnmatchedAttackSprites: Record<string, SpriteAnimationConfig> = {json_str};
+"""
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(typescript_content)
+
+
+def run() -> bool:
+    """Run TypeScript generation. Returns True on success, False on failure."""
+    # Data is in drool/ directory (sibling to processing/)
+    base_path = Path(__file__).parent.parent / "drool"
+
     files = {
         "mons": base_path / "mons.csv",
         "moves": base_path / "moves.csv",
         "abilities": base_path / "abilities.csv",
         "spritesheet": base_path / "imgs" / "spritesheet.json",
         "attack_spritesheet": base_path / "imgs" / "attacks" / "attack_spritesheet.json",
+        "non_standard_spritesheet": base_path / "imgs" / "attacks" / "non_standard_spritesheet.json",
     }
-    
+
     # Determine output location
     game_dir = base_path.parent.parent
-    munch_output = game_dir / "munch" / "src" / "app" / "data" / "mon.ts"
-    output_file = munch_output if munch_output.parent.exists() else base_path / "mon_data.ts"
+    munch_data_dir = game_dir / "munch" / "src" / "app" / "data"
+    munch_output = munch_data_dir / "mon.ts"
+    output_file = munch_output if munch_data_dir.exists() else base_path / "mon_data.ts"
     print(f"Output target: {output_file}")
-    
-    # Verify all input files exist
-    missing = [name for name, path in files.items() if not path.exists()]
+
+    # Verify required input files exist (non_standard_spritesheet is optional)
+    required_files = {k: v for k, v in files.items() if k != "non_standard_spritesheet"}
+    missing = [name for name, path in required_files.items() if not path.exists()]
     if missing:
         print(f"Error: Missing files: {', '.join(missing)}")
-        return
-    
+        return False
+
     print("Reading CSV files and spritesheet data...")
-    
+
     spritesheet_data = read_json(str(files["spritesheet"]))
     attack_spritesheet_data = read_json(str(files["attack_spritesheet"]))
+
+    # Load non-standard spritesheet if it exists
+    non_standard_spritesheet_data = {}
+    if files["non_standard_spritesheet"].exists():
+        non_standard_spritesheet_data = read_json(str(files["non_standard_spritesheet"]))
+        print(f"  ✓ Loaded non-standard attack spritesheet")
+
     mons_data = read_mons_data(str(files["mons"]), spritesheet_data)
-    moves_by_mon = read_moves_data(str(files["moves"]), attack_spritesheet_data)
+    moves_by_mon, all_move_keys = read_moves_data(str(files["moves"]), attack_spritesheet_data, non_standard_spritesheet_data)
     abilities_by_mon = read_abilities_data(str(files["abilities"]))
-    
+
     print(f"Loaded {len(mons_data)} mons, moves for {len(moves_by_mon)} mons, abilities for {len(abilities_by_mon)} mons")
-    
+
     combined_data = combine_data(mons_data, moves_by_mon, abilities_by_mon)
     generate_typescript_const(combined_data, str(output_file))
-    
     print(f"✅ Generated TypeScript const in {output_file}")
+
+    # Find and generate unmatched sprites
+    unmatched = find_unmatched_sprites(attack_spritesheet_data, non_standard_spritesheet_data, all_move_keys)
+    if unmatched:
+        unmatched_output = munch_data_dir / "unmatched-sprites.ts" if munch_data_dir.exists() else base_path / "unmatched_sprites.ts"
+        generate_unmatched_sprites_file(unmatched, str(unmatched_output))
+        print(f"✅ Generated unmatched sprites ({len(unmatched)} animations) in {unmatched_output}")
+    else:
+        print("✅ All spritesheet animations matched to moves")
+
+    return True
+
+
+def main():
+    """CLI entry point."""
+    if not run():
+        sys.exit(1)
 
 
 if __name__ == "__main__":

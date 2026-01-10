@@ -669,11 +669,43 @@ class MoveValidator:
         print("="*80)
 
 
+def run(csv_path: str = "drool/moves.csv", src_path: str = "src/") -> bool:
+    """
+    Run move validation. Returns True if validation passes, False otherwise.
+
+    If validation fails and user accepts changes, re-runs validation until it passes or user declines.
+    """
+    # Validate paths exist
+    if not os.path.exists(csv_path):
+        print(f"Error: CSV file not found: {csv_path}")
+        return False
+
+    if not os.path.exists(src_path):
+        print(f"Error: Source directory not found: {src_path}")
+        return False
+
+    # Run validation in a loop - re-run if user accepts changes
+    while True:
+        validator = MoveValidator(csv_path, src_path)
+        validation_passed, changes_made = validator.run_validation()
+
+        if validation_passed:
+            print("\n✅ All move validations passed!")
+            return True
+        elif changes_made:
+            # User accepted changes, re-run validation to check if all issues are resolved
+            print("\n🔄 Re-running validation after changes...")
+            print()
+        else:
+            # User declined changes
+            return False
+
+
 def main():
-    """Main entry point"""
+    """CLI entry point."""
     import sys
 
-    # Default paths (relative to processing folder)
+    # Default paths
     csv_path = "drool/moves.csv"
     src_path = "src/"
 
@@ -683,18 +715,8 @@ def main():
     if len(sys.argv) > 2:
         src_path = sys.argv[2]
 
-    # Validate paths exist
-    if not os.path.exists(csv_path):
-        print(f"Error: CSV file not found: {csv_path}")
+    if not run(csv_path, src_path):
         sys.exit(1)
-
-    if not os.path.exists(src_path):
-        print(f"Error: Source directory not found: {src_path}")
-        sys.exit(1)
-
-    # Run validation
-    validator = MoveValidator(csv_path, src_path)
-    validator.run_validation()
 
 
 if __name__ == "__main__":

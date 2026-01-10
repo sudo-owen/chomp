@@ -73,13 +73,6 @@ enum StatBoostFlag {
     Perm
 }
 
-enum EngineEventType {
-    MoveMiss,
-    MoveCrit,
-    MoveTypeImmunity,
-    None
-}
-
 enum ExtraDataType {
     None,
     SelfTeamIndex

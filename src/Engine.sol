@@ -103,7 +103,7 @@ contract Engine is IEngine, MappingAllocator {
     );
     event BattleComplete(bytes32 indexed battleKey, address winner);
     event EngineEvent(
-        bytes32 indexed battleKey, EngineEventType eventType, bytes eventData, address source, uint256 step
+        bytes32 indexed battleKey, bytes32 eventType, bytes eventData, address source, uint256 step
     );
 
     function updateMatchmakers(address[] memory makersToAdd, address[] memory makersToRemove) external {
@@ -854,7 +854,7 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
-    function emitEngineEvent(EngineEventType eventType, bytes memory eventData) external {
+    function emitEngineEvent(bytes32 eventType, bytes memory eventData) external {
         bytes32 battleKey = battleKeyForWrite;
         emit EngineEvent(battleKey, eventType, eventData, _getUpstreamCallerAndResetValue(), currentStep);
     }
