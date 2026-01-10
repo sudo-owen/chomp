@@ -19,6 +19,7 @@ import {TestTeamRegistry} from "./mocks/TestTeamRegistry.sol";
 import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 import {CustomAttack} from "./mocks/CustomAttack.sol";
 import {DoublesTargetedAttack} from "./mocks/DoublesTargetedAttack.sol";
+import {ForceSwitchMove} from "./mocks/ForceSwitchMove.sol";
 
 /**
  * @title DoublesValidationTest
@@ -1649,4 +1650,150 @@ contract DoublesValidationTest is Test {
         // Verify Alice's slot 1 mon is still alive
         assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 0, "Alice mon 1 should be alive");
     }
+
+    // =========================================
+    // Forced Switch Move Tests (Doubles)
+    // =========================================
+
+    /**
+     * @notice Test: Force switch move cannot switch to mon already active in other slot
+     * @dev Uses validateSwitch which should check both slots in doubles mode
+     */
+    function test_forceSwitchMove_cannotSwitchToOtherSlotActiveMon() public {
+        // Create force switch move
+        ForceSwitchMove forceSwitchMove = new ForceSwitchMove(
+            engine, ForceSwitchMove.Args({TYPE: Type.Fire, STAMINA_COST: 1, PRIORITY: 0})
+        );
+
+        IMoveSet[] memory movesWithForceSwitch = new IMoveSet[](4);
+        movesWithForceSwitch[0] = forceSwitchMove;
+        movesWithForceSwitch[1] = customAttack;
+        movesWithForceSwitch[2] = customAttack;
+        movesWithForceSwitch[3] = customAttack;
+
+        IMoveSet[] memory regularMoves = new IMoveSet[](4);
+        regularMoves[0] = customAttack;
+        regularMoves[1] = customAttack;
+        regularMoves[2] = customAttack;
+        regularMoves[3] = customAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 10, movesWithForceSwitch);  // Has force switch move
+        aliceTeam[1] = _createMon(100, 10, regularMoves);
+        aliceTeam[2] = _createMon(100, 10, regularMoves);          // Reserve
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 10, regularMoves);
+        bobTeam[1] = _createMon(100, 10, regularMoves);
+        bobTeam[2] = _createMon(100, 10, regularMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // After initial switch: Alice has mon 0 in slot 0, mon 1 in slot 1
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 0, "Alice slot 0 has mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 1), 1, "Alice slot 1 has mon 1");
+
+        // validateSwitch should reject switching to mon 1 (already in slot 1)
+        assertFalse(validator.validateSwitch(battleKey, 0, 1), "Should not allow switching to mon already in slot 1");
+
+        // validateSwitch should allow switching to mon 2 (reserve)
+        assertTrue(validator.validateSwitch(battleKey, 0, 2), "Should allow switching to reserve mon 2");
+    }
+
+    /**
+     * @notice Test: validateSwitch rejects switching to slot 0's active mon
+     * @dev Tests the other direction - can't switch to mon that's in slot 0
+     */
+    function test_forceSwitchMove_cannotSwitchToSlot0ActiveMon() public {
+        IMoveSet[] memory regularMoves = new IMoveSet[](4);
+        regularMoves[0] = customAttack;
+        regularMoves[1] = customAttack;
+        regularMoves[2] = customAttack;
+        regularMoves[3] = customAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 10, regularMoves);
+        aliceTeam[1] = _createMon(100, 10, regularMoves);
+        aliceTeam[2] = _createMon(100, 10, regularMoves);
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 10, regularMoves);
+        bobTeam[1] = _createMon(100, 10, regularMoves);
+        bobTeam[2] = _createMon(100, 10, regularMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // After initial switch: Alice has mon 0 in slot 0, mon 1 in slot 1
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 0, "Alice slot 0 has mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 1), 1, "Alice slot 1 has mon 1");
+
+        // validateSwitch should reject switching to mon 0 (already in slot 0)
+        assertFalse(validator.validateSwitch(battleKey, 0, 0), "Should not allow switching to mon already in slot 0");
+
+        // validateSwitch should allow switching to mon 2 (reserve)
+        assertTrue(validator.validateSwitch(battleKey, 0, 2), "Should allow switching to reserve mon 2");
+    }
+
+    /**
+     * @notice Test: validateSwitch allows KO'd mon even if active (for replacement)
+     * @dev When a slot's mon is KO'd, it's still in that slot but should be switchable away from
+     */
+    function test_validateSwitch_allowsKOdMonReplacement() public {
+        // Use targeted attacks for Bob to KO Alice slot 0
+        IMoveSet[] memory targetedMoves = new IMoveSet[](4);
+        targetedMoves[0] = targetedStrongAttack;
+        targetedMoves[1] = targetedStrongAttack;
+        targetedMoves[2] = targetedStrongAttack;
+        targetedMoves[3] = targetedStrongAttack;
+
+        IMoveSet[] memory regularMoves = new IMoveSet[](4);
+        regularMoves[0] = strongAttack;
+        regularMoves[1] = strongAttack;
+        regularMoves[2] = strongAttack;
+        regularMoves[3] = strongAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(1, 5, regularMoves);       // Weak - will be KO'd
+        aliceTeam[1] = _createMon(100, 10, regularMoves);
+        aliceTeam[2] = _createMon(100, 10, regularMoves);
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 20, targetedMoves);     // Fast - KOs Alice slot 0
+        bobTeam[1] = _createMon(100, 10, targetedMoves);
+        bobTeam[2] = _createMon(100, 10, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Turn 1: Bob KOs Alice's slot 0
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, 0, 0, 0,  // Alice: both attack
+            0, 0, 0, 0   // Bob: slot 0 attacks Alice slot 0
+        );
+
+        // Alice mon 0 should be KO'd
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice mon 0 KO'd");
+
+        // validateSwitch should NOT allow switching to KO'd mon 0
+        assertFalse(validator.validateSwitch(battleKey, 0, 0), "Should not allow switching to KO'd mon");
+
+        // validateSwitch should allow switching to reserve mon 2
+        assertTrue(validator.validateSwitch(battleKey, 0, 2), "Should allow switching to reserve");
+    }
 }
+

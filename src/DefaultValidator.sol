@@ -78,6 +78,7 @@ contract DefaultValidator is IValidator {
     }
 
     // A switch is valid if the new mon isn't knocked out and the index is valid (not out of range or the same one)
+    // For doubles, also checks that the mon isn't already active in either slot
     function validateSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex)
         public
         view
@@ -99,6 +100,13 @@ contract DefaultValidator is IValidator {
         if (ctx.turnId != 0) {
             if (monToSwitchIndex == activeMonIndex) {
                 return false;
+            }
+            // For doubles, also check the second slot
+            if (ctx.gameMode == GameMode.Doubles) {
+                uint256 activeMonIndex2 = (playerIndex == 0) ? ctx.p0ActiveMonIndex2 : ctx.p1ActiveMonIndex2;
+                if (monToSwitchIndex == activeMonIndex2) {
+                    return false;
+                }
             }
         }
         return true;
