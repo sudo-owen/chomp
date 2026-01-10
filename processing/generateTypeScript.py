@@ -190,12 +190,25 @@ def read_moves_data(
 
 
 def find_non_standard_sprites(
+    attack_spritesheet_data: Dict[str, Any],
     non_standard_spritesheet_data: Dict[str, Any],
     matched_move_keys: set[str]
 ) -> Dict[str, Dict[str, Any]]:
-    """Find non-standard spritesheet animations that don't match any move on a mon."""
+    """Find spritesheet animations that don't match any move on a mon."""
     non_standard: Dict[str, Dict[str, Any]] = {}
 
+    # Check standard spritesheet for unmatched animations
+    for key, source_data in attack_spritesheet_data.items():
+        if key not in matched_move_keys:
+            non_standard[key] = build_sprite_config(
+                "/assets/attacks/attack_spritesheet.png",
+                source_data,
+                frame_width=source_data.get("width", 96),
+                frame_height=source_data.get("height", 96),
+                loop=False,
+            )
+
+    # Check non-standard spritesheet for unmatched animations
     for key, source_data in non_standard_spritesheet_data.items():
         if key not in matched_move_keys:
             non_standard[key] = build_sprite_config(
@@ -411,7 +424,7 @@ def run() -> bool:
     print(f"✅ Generated TypeScript const in {output_file}")
 
     # Find and generate non-standard sprites not matched to any mon's moves
-    non_standard = find_non_standard_sprites(non_standard_spritesheet_data, all_move_keys)
+    non_standard = find_non_standard_sprites(attack_spritesheet_data, non_standard_spritesheet_data, all_move_keys)
     if non_standard:
         non_standard_output = munch_data_dir / "non-standard-sprites.ts" if munch_data_dir.exists() else base_path / "non_standard_sprites.ts"
         generate_non_standard_sprites_file(non_standard, str(non_standard_output))

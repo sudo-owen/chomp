@@ -314,15 +314,17 @@ def create_attack_spritesheets(png_files: list[tuple[str, int, int, tuple[int, i
     """Create combined attack spritesheet with metadata."""
     output_path = Path(output_dir)
 
-    # Load existing JSON to preserve msPerFrame values
-    json_path = output_path / "attack_spritesheet.json"
+    # Load existing JSON files to preserve msPerFrame values
+    standard_json_path = output_path / "attack_spritesheet.json"
+    non_standard_json_path = output_path / "non_standard_spritesheet.json"
     existing_metadata = {}
-    if json_path.exists():
-        try:
-            existing_metadata = json.loads(json_path.read_text())
-            print(f"📖 Loaded existing metadata from {json_path}")
-        except Exception as e:
-            print(f"⚠ Could not load existing JSON: {e}")
+    for json_path in [standard_json_path, non_standard_json_path]:
+        if json_path.exists():
+            try:
+                existing_metadata.update(json.loads(json_path.read_text()))
+                print(f"📖 Loaded existing metadata from {json_path}")
+            except Exception as e:
+                print(f"⚠ Could not load existing JSON {json_path}: {e}")
 
     # Group files by OUTPUT frame size (after cropping)
     # Key is (width, height) tuple
@@ -332,7 +334,8 @@ def create_attack_spritesheets(png_files: list[tuple[str, int, int, tuple[int, i
             files_by_size[output_size] = []
         files_by_size[output_size].append((png_path, cols, rows, source_size))
 
-    metadata = {}
+    standard_metadata = {}
+    non_standard_metadata = {}
 
     # Determine munch output location
     base_path = Path(__file__).parent
@@ -362,7 +365,7 @@ def create_attack_spritesheets(png_files: list[tuple[str, int, int, tuple[int, i
                 munch_sheet_path = munch_assets_dir / "attack_spritesheet.png"
                 save_and_compress_png(sheet, munch_sheet_path, f"Munch attack spritesheet ({DEFAULT_FRAME_SIZE}x{DEFAULT_FRAME_SIZE})")
 
-            metadata.update(finalize_metadata(size_metadata, positions, existing_metadata))
+            standard_metadata.update(finalize_metadata(size_metadata, positions, existing_metadata))
 
     # Process non-standard frames - combine all sizes into one spritesheet
     if non_standard_sizes:
@@ -399,7 +402,7 @@ def create_attack_spritesheets(png_files: list[tuple[str, int, int, tuple[int, i
 
                 # Adjust positions with y_offset and finalize metadata
                 adjusted_positions = [(x, y + y_offset) for x, y in positions]
-                metadata.update(finalize_metadata(size_metadata, adjusted_positions, existing_metadata))
+                non_standard_metadata.update(finalize_metadata(size_metadata, adjusted_positions, existing_metadata))
 
                 y_offset += sheet.size[1]
 
@@ -415,9 +418,13 @@ def create_attack_spritesheets(png_files: list[tuple[str, int, int, tuple[int, i
     if not munch_assets_dir.exists():
         print(f"\n⚠ Munch directory not found, skipping copy: {munch_assets_dir}")
 
-    # Save JSON
-    json_path.write_text(compact_json(metadata))
-    print(f"\n✅ Metadata saved to: {json_path}")
+    # Save JSON files separately
+    if standard_metadata:
+        standard_json_path.write_text(compact_json(standard_metadata))
+        print(f"\n✅ Standard metadata saved to: {standard_json_path}")
+    if non_standard_metadata:
+        non_standard_json_path.write_text(compact_json(non_standard_metadata))
+        print(f"✅ Non-standard metadata saved to: {non_standard_json_path}")
 
 
 def run(target_dir: str = None) -> bool:
