@@ -184,10 +184,6 @@ When a target slot is KO'd mid-turn, moves targeting that slot should redirect o
 - Currently uses basic speed comparison
 - May need explicit tie-breaking rules (random, player advantage, etc.)
 
-#### Timeout Handling
-- Doubles timeout logic in `DefaultValidator.validateTimeout` needs review
-- Should account for per-slot switch requirements
-
 #### Mixed Switch + Attack Turns
 - Partially implemented: single-player switch turns work
 - Edge cases around mid-turn KOs creating new switch requirements need testing
