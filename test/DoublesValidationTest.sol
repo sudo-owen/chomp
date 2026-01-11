@@ -793,6 +793,79 @@ contract DoublesValidationTest is Test {
         assertEq(ctx.playerSwitchForTurnFlag, 2, "Should be normal turn now");
     }
 
+    /**
+     * @notice Test mixed switch + attack during single-player switch turn
+     * @dev When slot 0 is KO'd, slot 1 can attack while slot 0 switches
+     */
+    function test_singlePlayerSwitchTurn_withAttack() public {
+        // Use targeted attack for slot 1 so we can target specific opponent slot
+        IMoveSet[] memory aliceMoves = new IMoveSet[](4);
+        aliceMoves[0] = targetedStrongAttack;
+        aliceMoves[1] = targetedStrongAttack;
+        aliceMoves[2] = targetedStrongAttack;
+        aliceMoves[3] = targetedStrongAttack;
+
+        IMoveSet[] memory bobMoves = new IMoveSet[](4);
+        bobMoves[0] = strongAttack;
+        bobMoves[1] = strongAttack;
+        bobMoves[2] = strongAttack;
+        bobMoves[3] = strongAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(1, 5, aliceMoves);     // Slow, will be KO'd
+        aliceTeam[1] = _createMon(100, 15, aliceMoves);  // Alive, can attack with targeted move
+        aliceTeam[2] = _createMon(100, 6, aliceMoves);   // Reserve
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 20, bobMoves);    // Fast, KOs Alice slot 0
+        bobTeam[1] = _createMon(500, 18, bobMoves);    // High HP - will take damage but survive
+        bobTeam[2] = _createMon(100, 16, bobMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Turn 1: Bob KOs Alice's slot 0
+        _doublesCommitRevealExecute(
+            battleKey,
+            NO_OP_MOVE_INDEX, 0, NO_OP_MOVE_INDEX, 0,
+            0, 0, NO_OP_MOVE_INDEX, 0
+        );
+
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice mon 0 KO'd");
+
+        // Verify it's a single-player switch turn
+        BattleContext memory ctx = engine.getBattleContext(battleKey);
+        assertEq(ctx.playerSwitchForTurnFlag, 0, "Should be Alice-only switch turn");
+
+        // Record Bob's slot 1 HP before Alice's attack
+        int32 bobSlot1HpBefore = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Hp);
+
+        // Alice: slot 0 switches to reserve (mon 2), slot 1 attacks Bob's slot 1
+        // For DoublesTargetedAttack, extraData=1 means target opponent slot 1
+        bytes32 aliceSalt = bytes32("alicesalt");
+        vm.startPrank(ALICE);
+        commitManager.revealMoves(battleKey, SWITCH_MOVE_INDEX, 2, 0, 1, aliceSalt, true);
+        vm.stopPrank();
+
+        // Verify switch happened
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 2, "Alice slot 0 should now have mon 2");
+
+        // Verify attack dealt damage to Bob's slot 1
+        int32 bobSlot1HpAfter = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Hp);
+        assertTrue(bobSlot1HpAfter < bobSlot1HpBefore, "Bob slot 1 should have taken damage from Alice's attack");
+
+        // Turn advanced
+        assertEq(engine.getTurnIdForBattleState(battleKey), 3);
+
+        // Next turn should be normal
+        ctx = engine.getBattleContext(battleKey);
+        assertEq(ctx.playerSwitchForTurnFlag, 2, "Should be normal turn now");
+    }
+
     // =========================================
     // P1-Only Switch Turn Tests (mirrors of P0)
     // =========================================

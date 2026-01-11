@@ -186,7 +186,7 @@ When a target slot is KO'd mid-turn, moves targeting that slot should redirect o
 
 #### Mixed Switch + Attack Turns
 - Implemented and working: during single-player switch turns, the alive slot can attack while the KO'd slot switches
-- Consider adding explicit test coverage for attacks during single-player switch turns (current tests use NO_OP for alive slot)
+- Test coverage: `test_singlePlayerSwitchTurn_withAttack` verifies attacking during single-player switch turns
 
 #### Ability/Effect Integration
 - Abilities that affect both slots (e.g., Intimidate affecting both opponents)
