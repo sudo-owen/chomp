@@ -44,7 +44,7 @@ contract DoublesForceSwitchMove is IMoveSet {
     }
 
     function moveType(bytes32) external pure returns (Type) {
-        return Type.Normal;
+        return Type.None;
     }
 
     function moveClass(bytes32) external pure returns (MoveClass) {

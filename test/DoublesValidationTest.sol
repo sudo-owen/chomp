@@ -1799,6 +1799,122 @@ contract DoublesValidationTest is Test {
     }
 
     // =========================================
+    // Force Switch Tests (switchActiveMonForSlot)
+    // =========================================
+
+    /**
+     * @notice Test: switchActiveMonForSlot correctly switches a specific slot in doubles
+     * @dev Verifies the new slot-aware switch function doesn't corrupt storage
+     */
+    function test_switchActiveMonForSlot_correctlyUpdatesSingleSlot() public {
+        // Create a move set with the doubles force switch move
+        DoublesForceSwitchMove forceSwitchMove = new DoublesForceSwitchMove(engine);
+
+        IMoveSet[] memory aliceMoves = new IMoveSet[](4);
+        aliceMoves[0] = forceSwitchMove;  // Force switch move
+        aliceMoves[1] = targetedStrongAttack;
+        aliceMoves[2] = targetedStrongAttack;
+        aliceMoves[3] = targetedStrongAttack;
+
+        IMoveSet[] memory bobMoves = new IMoveSet[](4);
+        bobMoves[0] = targetedStrongAttack;
+        bobMoves[1] = targetedStrongAttack;
+        bobMoves[2] = targetedStrongAttack;
+        bobMoves[3] = targetedStrongAttack;
+
+        // Create teams - Alice will force Bob's slot 0 to switch to mon 2
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 20, aliceMoves);  // Fastest - uses force switch
+        aliceTeam[1] = _createMon(100, 15, aliceMoves);
+        aliceTeam[2] = _createMon(100, 10, aliceMoves);
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 5, bobMoves);  // Will be force-switched
+        bobTeam[1] = _createMon(100, 4, bobMoves);
+        bobTeam[2] = _createMon(100, 3, bobMoves);  // Reserve - will be switched in
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Verify initial state: Bob slot 0 = mon 0, slot 1 = mon 1
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 0), 0, "Bob slot 0 should be mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 1), 1, "Bob slot 1 should be mon 1");
+
+        // Turn 1: Alice slot 0 uses force switch on Bob slot 0, forcing switch to mon 2
+        // extraData format: lower 4 bits = target slot (0), next 4 bits = mon to switch to (2)
+        uint240 forceSlot0ToMon2 = 0 | (2 << 4);  // target slot 0, switch to mon 2
+
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, forceSlot0ToMon2, NO_OP_MOVE_INDEX, 0,  // Alice: slot 0 force-switch, slot 1 no-op
+            NO_OP_MOVE_INDEX, 0, NO_OP_MOVE_INDEX, 0   // Bob: both no-op (won't matter, Alice is faster)
+        );
+
+        // Verify: Bob slot 0 should now be mon 2, slot 1 should still be mon 1
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 0), 2, "Bob slot 0 should now be mon 2");
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 1), 1, "Bob slot 1 should still be mon 1");
+
+        // Verify Alice's slots are unchanged
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 0, "Alice slot 0 should still be mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 1), 1, "Alice slot 1 should still be mon 1");
+    }
+
+    /**
+     * @notice Test: switchActiveMonForSlot on slot 1 doesn't affect slot 0
+     * @dev Ensures slot isolation in force-switch operations
+     */
+    function test_switchActiveMonForSlot_slot1_doesNotAffectSlot0() public {
+        DoublesForceSwitchMove forceSwitchMove = new DoublesForceSwitchMove(engine);
+
+        IMoveSet[] memory aliceMoves = new IMoveSet[](4);
+        aliceMoves[0] = forceSwitchMove;
+        aliceMoves[1] = targetedStrongAttack;
+        aliceMoves[2] = targetedStrongAttack;
+        aliceMoves[3] = targetedStrongAttack;
+
+        IMoveSet[] memory bobMoves = new IMoveSet[](4);
+        bobMoves[0] = targetedStrongAttack;
+        bobMoves[1] = targetedStrongAttack;
+        bobMoves[2] = targetedStrongAttack;
+        bobMoves[3] = targetedStrongAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 20, aliceMoves);
+        aliceTeam[1] = _createMon(100, 15, aliceMoves);
+        aliceTeam[2] = _createMon(100, 10, aliceMoves);
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 5, bobMoves);
+        bobTeam[1] = _createMon(100, 4, bobMoves);
+        bobTeam[2] = _createMon(100, 3, bobMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Force Bob slot 1 to switch to mon 2
+        // extraData: target slot 1, switch to mon 2
+        uint240 forceSlot1ToMon2 = 1 | (2 << 4);
+
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, forceSlot1ToMon2, NO_OP_MOVE_INDEX, 0,
+            NO_OP_MOVE_INDEX, 0, NO_OP_MOVE_INDEX, 0
+        );
+
+        // Bob slot 1 should now be mon 2, slot 0 should still be mon 0
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 0), 0, "Bob slot 0 should still be mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 1), 2, "Bob slot 1 should now be mon 2");
+    }
+
+    // =========================================
     // Battle Transition Tests (Doubles <-> Singles)
     // =========================================
 
