@@ -26,7 +26,7 @@ interface IEngine {
     function switchActiveMonForSlot(uint256 playerIndex, uint256 slotIndex, uint256 monToSwitchIndex) external;
     function setMove(bytes32 battleKey, uint256 playerIndex, uint8 moveIndex, bytes32 salt, uint240 extraData) external;
     function execute(bytes32 battleKey) external;
-    function emitEngineEvent(EngineEventType eventType, bytes memory extraData) external;
+    function emitEngineEvent(bytes32 eventType, bytes memory extraData) external;
     function setUpstreamCaller(address caller) external;
 
     // Getters

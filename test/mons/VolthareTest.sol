@@ -26,7 +26,7 @@ import {TestTypeCalculator} from "../mocks/TestTypeCalculator.sol";
 import {StatBoosts} from "../../src/effects/StatBoosts.sol";
 
 import {ZapStatus} from "../../src/effects/status/ZapStatus.sol";
-import {Overload} from "../../src/effects/battlefield/Overload.sol";
+import {Overclock} from "../../src/effects/battlefield/Overclock.sol";
 
 import {DualShock} from "../../src/mons/volthare/DualShock.sol";
 import {MegaStarBlast} from "../../src/mons/volthare/MegaStarBlast.sol";
@@ -46,7 +46,7 @@ contract VolthareTest is Test, BattleHelper {
     TestTeamRegistry defaultRegistry;
     DefaultValidator validator;
     PreemptiveShock preemptiveShock;
-    Overload overload;
+    Overclock overclock;
     StatBoosts statBoost;
     StandardAttackFactory attackFactory;
     DefaultMatchmaker matchmaker;
@@ -61,7 +61,7 @@ contract VolthareTest is Test, BattleHelper {
         );
         commitManager = new DefaultCommitManager(IEngine(address(engine)));
         statBoost = new StatBoosts(IEngine(address(engine)));
-        overload = new Overload(IEngine(address(engine)), statBoost);
+        overclock = new Overclock(IEngine(address(engine)), statBoost);
         preemptiveShock = new PreemptiveShock(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         attackFactory = new StandardAttackFactory(IEngine(address(engine)), ITypeCalculator(address(typeCalc)));
         matchmaker = new DefaultMatchmaker(engine);
@@ -139,22 +139,22 @@ contract VolthareTest is Test, BattleHelper {
     }
 
     /**
-     * Test: MegaStarBlast with Overload active
-     * - Uses a mock move to apply Overload, then tests that MegaStarBlast has increased accuracy
-     *   and can apply Zap status when Overload is active
+     * Test: MegaStarBlast with Overclock active
+     * - Uses a mock move to apply Overclock, then tests that MegaStarBlast has increased accuracy
+     *   and can apply Zap status when Overclock is active
      */
     function test_megaStarBlast() public {
-        // Create moves: one to apply Overload, one is MegaStarBlast
+        // Create moves: one to apply Overclock, one is MegaStarBlast
         DummyStatus zapStatus = new DummyStatus();
-        MegaStarBlast msb = new MegaStarBlast(engine, typeCalc, zapStatus, overload);
-        GlobalEffectAttack overloadMove = new GlobalEffectAttack(
+        MegaStarBlast msb = new MegaStarBlast(engine, typeCalc, zapStatus, overclock);
+        GlobalEffectAttack overclockMove = new GlobalEffectAttack(
             engine,
-            overload,
+            overclock,
             GlobalEffectAttack.Args({TYPE: Type.Lightning, STAMINA_COST: 0, PRIORITY: 0})
         );
 
         IMoveSet[] memory moves = new IMoveSet[](2);
-        moves[0] = IMoveSet(address(overloadMove));
+        moves[0] = IMoveSet(address(overclockMove));
         moves[1] = IMoveSet(address(msb));
 
         // Create a mon with no ability
@@ -213,13 +213,13 @@ contract VolthareTest is Test, BattleHelper {
             engine, commitManager, battleKey, SWITCH_MOVE_INDEX, SWITCH_MOVE_INDEX, uint240(0), uint240(0)
         );
 
-        // Alice uses the Overload move (move index 0), Bob does nothing
+        // Alice uses the Overclock move (move index 0), Bob does nothing
         _commitRevealExecuteForAliceAndBob(engine, commitManager, battleKey, 0, NO_OP_MOVE_INDEX, uint240(0), 0);
 
-        // Verify that Overload is applied
+        // Verify that Overclock is applied
         (EffectInstance[] memory effects,) = engine.getEffects(battleKey, 2, 0);
-        assertEq(effects.length, 1, "Overload should be applied");
-        assertEq(address(effects[0].effect), address(overload), "Overload should be applied");
+        assertEq(effects.length, 1, "Overclock should be applied");
+        assertEq(address(effects[0].effect), address(overclock), "Overclock should be applied");
 
         // Set RNG so that Zap is applied
         mockOracle.setRNG(2);
@@ -236,7 +236,7 @@ contract VolthareTest is Test, BattleHelper {
         int32 bobHpDelta = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
         assertEq(bobHpDelta, -1 * int32(msb.BASE_POWER()), "Bob's mon should take 150 damage");
 
-        // Now that Overload has cleared, set RNG to be below 50, and ensure that nothing happens
+        // Now that Overclock has cleared, set RNG to be below 50, and ensure that nothing happens
         mockOracle.setRNG(51);
 
         // Alice uses Mega Star Blast, Bob does nothing
@@ -255,7 +255,7 @@ contract VolthareTest is Test, BattleHelper {
         // Create a team with a mon that knows Dual Shock
         IMoveSet[] memory moves = new IMoveSet[](1);
         ZapStatus zapStatus = new ZapStatus(engine);
-        DualShock dualShock = new DualShock(engine, typeCalc, zapStatus, overload);
+        DualShock dualShock = new DualShock(engine, typeCalc, zapStatus, overclock);
         moves[0] = IMoveSet(address(dualShock));
 
         // Create a mon with nice round stats

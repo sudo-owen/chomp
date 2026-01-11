@@ -66,3 +66,8 @@ uint8 constant SWITCH_FLAG_P1_SLOT0 = 0x04;
 uint8 constant SWITCH_FLAG_P1_SLOT1 = 0x08;
 uint8 constant SWITCH_FLAGS_MASK = 0x0F;
 uint8 constant GAME_MODE_BIT = 0x10; // Bit 4: 0 = singles, 1 = doubles
+
+bytes32 constant MOVE_MISS_EVENT_TYPE = sha256(abi.encode("MoveMiss"));
+bytes32 constant MOVE_CRIT_EVENT_TYPE = sha256(abi.encode("MoveCrit"));
+bytes32 constant MOVE_TYPE_IMMUNITY_EVENT_TYPE = sha256(abi.encode("MoveTypeImmunity"));
+bytes32 constant NONE_EVENT_TYPE = bytes32(0);

@@ -9,7 +9,7 @@ import {BasicEffect} from "../BasicEffect.sol";
 import {IEffect} from "../IEffect.sol";
 import {StatBoosts} from "../StatBoosts.sol";
 
-contract Overload is BasicEffect {
+contract Overclock is BasicEffect {
     uint256 public constant DEFAULT_DURATION = 3;
 
     uint8 public constant SPEED_PERCENT = 25;
@@ -24,7 +24,7 @@ contract Overload is BasicEffect {
     }
 
     function name() public pure override returns (string memory) {
-        return "Overload";
+        return "Overclock";
     }
 
     function shouldRunAtStep(EffectStep r) external pure override returns (bool) {
@@ -37,13 +37,13 @@ contract Overload is BasicEffect {
         return keccak256(abi.encode(playerIndex, name()));
     }
 
-    function applyOverload(uint256 playerIndex) public {
-        // Check if we have an active Overload effect
+    function applyOverclock(uint256 playerIndex) public {
+        // Check if we have an active Overclock effect
         bytes32 battleKey = ENGINE.battleKeyForWrite();
         uint256 duration = getDuration(battleKey, playerIndex);
         if (duration == 0) {
             // If not, add the effect to the global effects array
-            ENGINE.addEffect(2, 0, IEffect(address(this)), bytes32(playerIndex));
+            ENGINE.addEffect(2, playerIndex, IEffect(address(this)), bytes32(playerIndex));
         } else {
             // Otherwise, reset the duration
             setDuration(DEFAULT_DURATION, playerIndex);
@@ -89,7 +89,7 @@ contract Overload is BasicEffect {
         // Set default duration
         setDuration(DEFAULT_DURATION, playerIndex);
 
-        // Apply stat change to the team of the player who summoned Overload
+        // Apply stat change to the team of the player who summoned Overclock
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[playerIndex];
         _applyStatChange(playerIndex, activeMonIndex);
 
@@ -117,7 +117,7 @@ contract Overload is BasicEffect {
         returns (bytes32 updatedExtraData, bool removeAfterRun)
     {
         uint256 playerIndex = uint256(extraData);
-        // Apply stat change to the mon on the team of the player who summoned Overload
+        // Apply stat change to the mon on the team of the player who summoned Overclock
         if (targetIndex == playerIndex) {
             _applyStatChange(targetIndex, monIndex);
         }
@@ -127,7 +127,7 @@ contract Overload is BasicEffect {
     function onRemove(bytes32 extraData, uint256, uint256) external override {
         uint256 playerIndex = uint256(extraData);
         uint256 activeMonIndex = ENGINE.getActiveMonIndexForBattleState(ENGINE.battleKeyForWrite())[playerIndex];
-        // Reset stat changes from the mon on the team of the player who summoned Overload
+        // Reset stat changes from the mon on the team of the player who summoned Overclock
         _removeStatChange(playerIndex, activeMonIndex);
         // Clear the duration when we clear the effect
         setDuration(0, playerIndex);

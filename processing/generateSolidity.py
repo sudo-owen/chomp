@@ -555,50 +555,71 @@ def generate_solidity_script(mons: Dict[str, MonData], contracts: Dict[str, Cont
     return "\n".join(all_lines)
 
 
+def run(include_color: bool = False, base_path: str = ".") -> bool:
+    """
+    Run Solidity generation. Returns True on success, False on failure.
+
+    Args:
+        include_color: Whether to include sprite and palette color data
+        base_path: Base path to the repository root
+    """
+    try:
+        # Read CSV data
+        mons = read_mons_csv(os.path.join(base_path, "drool", "mons.csv"))
+        read_moves_csv(os.path.join(base_path, "drool", "moves.csv"), mons)
+        read_abilities_csv(os.path.join(base_path, "drool", "abilities.csv"), mons)
+        print(f"Loaded {len(mons)} mons")
+
+        # Collect all contracts
+        contracts = collect_all_contracts(mons, base_path)
+        print(f"Found {len(contracts)} unique contracts to deploy")
+
+        # Generate Solidity script
+        solidity_code = generate_solidity_script(mons, contracts, base_path, include_color)
+
+        # Write to output file
+        output_path = os.path.join(base_path, "script", "SetupMons.s.sol")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(solidity_code)
+
+        print(f"Generated deployment script: {output_path}")
+
+        if include_color:
+            print("Color data included in deployment script")
+        else:
+            print("Color data not included (use --color flag to include)")
+
+        # Print summary
+        print("\nSummary:")
+        for mon in sorted(mons.values(), key=lambda m: m.mon_id):
+            color_info = ""
+            if include_color and (mon.sprite_data or mon.palette_data):
+                color_info = f" (sprite: {len(mon.sprite_data)} uint256, palette: {len(mon.palette_data)} uint256)"
+            print(f"  {mon.name}: {len(mon.moves)} moves, {len(mon.abilities)} abilities{color_info}")
+
+        return True
+    except Exception as e:
+        print(f"Error generating Solidity: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main():
-    """Main function to generate the deployment script"""
+    """CLI entry point."""
+    import sys
+
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Generate Solidity deployment script for mons')
     parser.add_argument('--color', action='store_true',
                        help='Include sprite and palette color data in the generated script')
     args = parser.parse_args()
 
-    base_path = "."  # Assume script is run from repository root
+    if not run(include_color=args.color):
+        sys.exit(1)
 
-    # Read CSV data
-    mons = read_mons_csv(os.path.join(base_path, "drool", "mons.csv"))
-    read_moves_csv(os.path.join(base_path, "drool", "moves.csv"), mons)
-    read_abilities_csv(os.path.join(base_path, "drool", "abilities.csv"), mons)
-    print(f"Loaded {len(mons)} mons")
-
-    # Collect all contracts
-    contracts = collect_all_contracts(mons, base_path)
-    print(f"Found {len(contracts)} unique contracts to deploy")
-
-    # Generate Solidity script
-    solidity_code = generate_solidity_script(mons, contracts, base_path, args.color)
-
-    # Write to output file
-    output_path = os.path.join(base_path, "script", "SetupMons.s.sol")
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(solidity_code)
-
-    print(f"Generated deployment script: {output_path}")
-
-    if args.color:
-        print("Color data included in deployment script")
-    else:
-        print("Color data not included (use --color flag to include)")
-
-    # Print summary
-    print("\nSummary:")
-    for mon in sorted(mons.values(), key=lambda m: m.mon_id):
-        color_info = ""
-        if args.color and (mon.sprite_data or mon.palette_data):
-            color_info = f" (sprite: {len(mon.sprite_data)} uint256, palette: {len(mon.palette_data)} uint256)"
-        print(f"  {mon.name}: {len(mon.moves)} moves, {len(mon.abilities)} abilities{color_info}")
 
 if __name__ == "__main__":
     main()

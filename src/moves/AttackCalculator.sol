@@ -23,11 +23,11 @@ library AttackCalculator {
         MoveClass attackSupertype,
         uint256 rng,
         uint256 critRate // out of 100
-    ) internal returns (int32, EngineEventType) {
+    ) internal returns (int32, bytes32) {
         uint256 defenderPlayerIndex = (attackerPlayerIndex + 1) % 2;
         // Use batch getter to reduce external calls (7 -> 1)
         DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex, defenderPlayerIndex);
-        (int32 damage, EngineEventType eventType) = _calculateDamageFromContext(
+        (int32 damage, bytes32 eventType) = _calculateDamageFromContext(
             TYPE_CALCULATOR,
             ctx,
             basePower,
@@ -41,7 +41,7 @@ library AttackCalculator {
         if (damage != 0) {
             ENGINE.dealDamage(defenderPlayerIndex, ctx.defenderMonIndex, damage);
         }
-        if (eventType != EngineEventType.None) {
+        if (eventType != bytes32(0)) {
             ENGINE.emitEngineEvent(eventType, "");
         }
         return (damage, eventType);
@@ -60,7 +60,7 @@ library AttackCalculator {
         MoveClass attackSupertype,
         uint256 rng,
         uint256 critRate // out of 100
-    ) internal view returns (int32, EngineEventType) {
+    ) internal view returns (int32, bytes32) {
         // Use batch getter to reduce external calls (7 -> 1)
         DamageCalcContext memory ctx = ENGINE.getDamageCalcContext(battleKey, attackerPlayerIndex, defenderPlayerIndex);
         return _calculateDamageFromContext(
@@ -86,16 +86,16 @@ library AttackCalculator {
         MoveClass attackSupertype,
         uint256 rng,
         uint256 critRate // out of 100
-    ) internal view returns (int32, EngineEventType) {
+    ) internal view returns (int32, bytes32) {
         // Do accuracy check first to decide whether or not to short circuit
         // [0... accuracy] [accuracy + 1, ..., 100]
         // [succeeds     ] [fails                 ]
         if ((rng % 100) >= accuracy) {
-            return (0, EngineEventType.MoveMiss);
+            return (0, bytes32(0));
         }
 
         int32 damage;
-        EngineEventType eventType = EngineEventType.None;
+        bytes32 eventType = NONE_EVENT_TYPE;
         {
             uint32 attackStat;
             uint32 defenceStat;
@@ -151,14 +151,14 @@ library AttackCalculator {
             if ((rng3 % 100) <= critRate) {
                 critNum = CRIT_NUM;
                 critDenom = CRIT_DENOM;
-                eventType = EngineEventType.MoveCrit;
+                eventType = MOVE_CRIT_EVENT_TYPE;
             }
             damage = int32(
                 critNum * (scaledBasePower * attackStat * rngScaling) / (defenceStat * RNG_SCALING_DENOM * critDenom)
             );
             // Handle the case where the type immunity results in 0 damage
             if (scaledBasePower == 0) {
-                eventType = EngineEventType.MoveTypeImmunity;
+                eventType = MOVE_TYPE_IMMUNITY_EVENT_TYPE;
             }
         }
         return (damage, eventType);

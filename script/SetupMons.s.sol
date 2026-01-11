@@ -12,7 +12,7 @@ import {IAbility} from "../src/abilities/IAbility.sol";
 import {IEngine} from "../src/IEngine.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 import {StatBoosts} from "../src/effects/StatBoosts.sol";
-import {Overload} from "../src/effects/battlefield/Overload.sol";
+import {Overclock} from "../src/effects/battlefield/Overclock.sol";
 import {BullRush} from "../src/mons/aurox/BullRush.sol";
 import {GildedRecovery} from "../src/mons/aurox/GildedRecovery.sol";
 import {IronWall} from "../src/mons/aurox/IronWall.sol";
@@ -647,14 +647,14 @@ contract SetupMons is Script {
         });
         contractIndex++;
 
-        MegaStarBlast megastarblast = new MegaStarBlast(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), IEffect(vm.envAddress("OVERLOAD")));
+        MegaStarBlast megastarblast = new MegaStarBlast(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), IEffect(vm.envAddress("OVERCLOCK")));
         deployedContracts[contractIndex] = DeployData({
             name: "Mega Star Blast",
             contractAddress: address(megastarblast)
         });
         contractIndex++;
 
-        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), Overload(vm.envAddress("OVERLOAD")));
+        DualShock dualshock = new DualShock(IEngine(vm.envAddress("ENGINE")), ITypeCalculator(vm.envAddress("TYPE_CALCULATOR")), IEffect(vm.envAddress("ZAP_STATUS")), Overclock(vm.envAddress("OVERCLOCK")));
         deployedContracts[contractIndex] = DeployData({
             name: "Dual Shock",
             contractAddress: address(dualshock)

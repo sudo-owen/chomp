@@ -54,10 +54,10 @@ contract StandardAttack is IMoveSet, Ownable {
     function _move(bytes32 battleKey, uint256 attackerPlayerIndex, uint256 rng)
         internal
         virtual
-        returns (int32, EngineEventType)
+        returns (int32, bytes32)
     {
         int32 damage = 0;
-        EngineEventType eventType = EngineEventType.None;
+        bytes32 eventType = bytes32(0);
         if (basePower(battleKey) > 0) {
             (damage, eventType) = AttackCalculator._calculateDamage(
                 ENGINE,

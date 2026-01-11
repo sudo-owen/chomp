@@ -213,22 +213,26 @@ def compact_json(obj, indent=2):
     
     return format_value(obj, 0)
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python spritesheet.py <target_directory>")
-        sys.exit(1)
+def run(target_dir: str = None) -> bool:
+    """
+    Run mon spritesheet generation. Returns True on success, False on failure.
 
-    target_dir = sys.argv[1]
+    Args:
+        target_dir: Directory containing GIF files. Defaults to drool/imgs/
+    """
+    if target_dir is None:
+        target_dir = str(Path(__file__).parent.parent / "drool" / "imgs")
+
     if not Path(target_dir).is_dir():
         print(f"Error: Directory '{target_dir}' does not exist")
-        sys.exit(1)
+        return False
 
     print(f"Searching for 96x96 GIF files in: {target_dir}\n")
     gif_files = find_96x96_gifs(target_dir)
 
     if not gif_files:
         print("No 96x96 GIF files found")
-        sys.exit(1)
+        return False
 
     print(f"Found {len(gif_files)} GIF files:")
     for gif in gif_files:
@@ -237,6 +241,14 @@ def main():
     print("\n" + "=" * 50)
     create_spritesheets(gif_files, target_dir)
     print("\n✅ Done!")
+    return True
+
+
+def main():
+    """CLI entry point."""
+    target_dir = sys.argv[1] if len(sys.argv) >= 2 else None
+    if not run(target_dir):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

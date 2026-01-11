@@ -18,7 +18,7 @@ contract ZapStatus is StatusEffect {
 
     function shouldRunAtStep(EffectStep r) external pure override returns (bool) {
         return (r == EffectStep.OnApply || r == EffectStep.RoundStart || r == EffectStep.RoundEnd
-                || r == EffectStep.OnRemove || r == EffectStep.OnMonSwitchIn);
+                || r == EffectStep.OnRemove);
     }
 
     function onApply(uint256 rng, bytes32 data, uint256 targetIndex, uint256 monIndex)
@@ -55,15 +55,6 @@ contract ZapStatus is StatusEffect {
         // (If state was ALREADY_SKIPPED, effect would have been removed at previous RoundEnd)
         ENGINE.updateMonState(targetIndex, monIndex, MonStateIndexName.ShouldSkipTurn, 1);
         return (bytes32(uint256(ALREADY_SKIPPED)), false);
-    }
-
-    function onMonSwitchIn(uint256, bytes32 extraData, uint256, uint256)
-        external
-        override
-        pure
-        returns (bytes32 updatedExtraData, bool removeAfterRun)
-    {
-        return (extraData, false);
     }
 
     function onRemove(bytes32 data, uint256 targetIndex, uint256 monIndex) public override {

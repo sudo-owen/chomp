@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../src/Constants.sol";
 import {Engine} from "../../src/Engine.sol";
-import {EngineEventType, MoveClass, Type} from "../../src/Enums.sol";
+import { MoveClass, Type} from "../../src/Enums.sol";
 import "../../src/Structs.sol";
 
 import {DefaultCommitManager} from "../../src/DefaultCommitManager.sol";
@@ -186,7 +186,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // With rng = 50, attack should miss (rng >= accuracy)
-        (int32 damage2, EngineEventType eventType) = AttackCalculator._calculateDamageView(
+        (int32 damage2, bytes32 eventType) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -200,7 +200,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
             50,
             critRate
         );
-        assertEq(uint256(eventType), uint256(EngineEventType.MoveMiss), "Should emit miss");
+        assertEq(uint256(eventType), uint256(MOVE_MISS_EVENT_TYPE), "Should emit miss");
 
         assertGt(damage1, 0, "Attack should hit with rng < accuracy");
         assertEq(damage2, 0, "Attack should miss with rng >= accuracy");
@@ -238,7 +238,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
         );
 
         // Then, force a crit by setting critRate to 100
-        (int32 critDamage, EngineEventType eventType) = AttackCalculator._calculateDamageView(
+        (int32 critDamage, bytes32 eventType) = AttackCalculator._calculateDamageView(
             engine,
             typeCalc,
             battleKey,
@@ -255,7 +255,7 @@ contract AttackCalculatorTest is Test, BattleHelper {
 
         // Critical hits should double the damage
         assertEq(critDamage, int32(CRIT_NUM) * normalDamage / int32(CRIT_DENOM), "Critical hit should deal more damage");
-        assertEq(uint256(eventType), uint256(EngineEventType.MoveCrit), "Should emit crit");
+        assertEq(uint256(eventType), uint256(MOVE_CRIT_EVENT_TYPE), "Should emit crit");
     }
 
     function test_volatility() public view {
