@@ -8,6 +8,7 @@ import "../src/Enums.sol";
 import "../src/Structs.sol";
 
 import {DoublesCommitManager} from "../src/DoublesCommitManager.sol";
+import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
 import {DefaultValidator} from "../src/DefaultValidator.sol";
 import {IEngineHook} from "../src/IEngineHook.sol";
@@ -1794,6 +1795,328 @@ contract DoublesValidationTest is Test {
 
         // validateSwitch should allow switching to reserve mon 2
         assertTrue(validator.validateSwitch(battleKey, 0, 2), "Should allow switching to reserve");
+    }
+
+    // =========================================
+    // Battle Transition Tests (Doubles <-> Singles)
+    // =========================================
+
+    /**
+     * @notice Test: Doubles battle completes, then singles battle reuses storage correctly
+     * @dev Verifies storage reuse between game modes with actual damage/effects
+     */
+    function test_doublesThenSingles_storageReuse() public {
+        // Create singles commit manager
+        DefaultCommitManager singlesCommitManager = new DefaultCommitManager(engine);
+
+        IMoveSet[] memory targetedMoves = new IMoveSet[](4);
+        targetedMoves[0] = targetedStrongAttack;
+        targetedMoves[1] = targetedStrongAttack;
+        targetedMoves[2] = targetedStrongAttack;
+        targetedMoves[3] = targetedStrongAttack;
+
+        // Alice with weak slot 0 mon for quick KO
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(1, 5, targetedMoves);   // Will be KO'd quickly
+        aliceTeam[1] = _createMon(1, 4, targetedMoves);   // Will be KO'd
+        aliceTeam[2] = _createMon(1, 3, targetedMoves);   // Reserve, also weak
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 20, targetedMoves);
+        bobTeam[1] = _createMon(100, 18, targetedMoves);
+        bobTeam[2] = _createMon(100, 16, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        // ---- DOUBLES BATTLE ----
+        bytes32 doublesBattleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(doublesBattleKey);
+
+        assertEq(uint8(engine.getGameMode(doublesBattleKey)), uint8(GameMode.Doubles), "Should be doubles mode");
+
+        // Turn 1: Bob KOs only Alice slot 0 (mon 0), keeps slot 1 alive
+        // Alice does NO_OP with both slots to avoid counter-attacking Bob
+        _doublesCommitRevealExecute(
+            doublesBattleKey,
+            NO_OP_MOVE_INDEX, 0, NO_OP_MOVE_INDEX, 0,  // Alice: both no-op
+            0, 0, NO_OP_MOVE_INDEX, 0                   // Bob: slot 0 attacks Alice slot 0 (default target), slot 1 no-op
+        );
+
+        // Alice slot 0 KO'd, needs to switch
+        assertEq(engine.getMonStateForBattle(doublesBattleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice mon 0 KO'd");
+
+        // Alice single-player switch turn: switch slot 0 to reserve (mon 2)
+        vm.startPrank(ALICE);
+        commitManager.revealMoves(doublesBattleKey, SWITCH_MOVE_INDEX, 2, NO_OP_MOVE_INDEX, 0, bytes32("as"), true);
+        vm.stopPrank();
+
+        // Verify switch happened
+        assertEq(engine.getActiveMonIndexForSlot(doublesBattleKey, 0, 0), 2, "Alice slot 0 now has mon 2");
+
+        // Turn 2: Bob KOs both remaining Alice mons (slot 0 has mon 2, slot 1 has mon 1)
+        _doublesCommitRevealExecute(
+            doublesBattleKey,
+            0, 0, 0, 0,
+            0, 0, 0, 1  // Bob: slot 0 attacks default (Alice slot 0), slot 1 attacks Alice slot 1
+        );
+
+        // All Alice mons KO'd, Bob wins
+        assertEq(engine.getWinner(doublesBattleKey), BOB, "Bob should win doubles");
+
+        // Record free keys
+        bytes32[] memory freeKeysBefore = engine.getFreeStorageKeys();
+        assertGt(freeKeysBefore.length, 0, "Should have free storage key");
+
+        // ---- SINGLES BATTLE (reuses storage) ----
+        vm.warp(block.timestamp + 2);
+
+        // Fresh teams for singles - HP 300 to survive one hit (attack does ~200 damage)
+        Mon[] memory aliceSingles = new Mon[](3);
+        aliceSingles[0] = _createMon(300, 15, targetedMoves);
+        aliceSingles[1] = _createMon(300, 12, targetedMoves);
+        aliceSingles[2] = _createMon(300, 10, targetedMoves);
+
+        Mon[] memory bobSingles = new Mon[](3);
+        bobSingles[0] = _createMon(300, 14, targetedMoves);
+        bobSingles[1] = _createMon(300, 11, targetedMoves);
+        bobSingles[2] = _createMon(300, 9, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceSingles);
+        defaultRegistry.setTeam(BOB, bobSingles);
+
+        bytes32 singlesBattleKey = _startSinglesBattle(singlesCommitManager);
+        vm.warp(block.timestamp + 1);
+
+        assertEq(uint8(engine.getGameMode(singlesBattleKey)), uint8(GameMode.Singles), "Should be singles mode");
+
+        // Verify storage reused
+        bytes32[] memory freeKeysAfter = engine.getFreeStorageKeys();
+        assertEq(freeKeysAfter.length, freeKeysBefore.length - 1, "Should have used free storage key");
+
+        // Turn 0: Initial switch (P0 commits, P1 reveals first, P0 reveals second)
+        _singlesInitialSwitch(singlesBattleKey, singlesCommitManager);
+
+        // Verify active mons
+        uint256[] memory activeIndices = engine.getActiveMonIndexForBattleState(singlesBattleKey);
+        assertEq(activeIndices[0], 0, "Alice active mon 0");
+        assertEq(activeIndices[1], 0, "Bob active mon 0");
+
+        // Turn 1: Both attack (P1 commits, P0 reveals first, P1 reveals second)
+        _singlesCommitRevealExecute(singlesBattleKey, singlesCommitManager, 0, 0, 0, 0);
+
+        // Verify damage dealt
+        int256 aliceHp = engine.getMonStateForBattle(singlesBattleKey, 0, 0, MonStateIndexName.Hp);
+        int256 bobHp = engine.getMonStateForBattle(singlesBattleKey, 1, 0, MonStateIndexName.Hp);
+        assertTrue(aliceHp < 0, "Alice took damage");
+        assertTrue(bobHp < 0, "Bob took damage");
+
+        assertEq(engine.getWinner(singlesBattleKey), address(0), "Singles battle ongoing");
+    }
+
+    /**
+     * @notice Test: Singles battle completes, then doubles battle reuses storage correctly
+     * @dev Verifies storage reuse from singles to doubles with actual damage/effects
+     */
+    function test_singlesThenDoubles_storageReuse() public {
+        DefaultCommitManager singlesCommitManager = new DefaultCommitManager(engine);
+
+        IMoveSet[] memory targetedMoves = new IMoveSet[](4);
+        targetedMoves[0] = targetedStrongAttack;
+        targetedMoves[1] = targetedStrongAttack;
+        targetedMoves[2] = targetedStrongAttack;
+        targetedMoves[3] = targetedStrongAttack;
+
+        // Weak Alice for quick singles defeat
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(1, 5, targetedMoves);
+        aliceTeam[1] = _createMon(1, 4, targetedMoves);
+        aliceTeam[2] = _createMon(1, 3, targetedMoves);
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 20, targetedMoves);
+        bobTeam[1] = _createMon(100, 18, targetedMoves);
+        bobTeam[2] = _createMon(100, 16, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        // ---- SINGLES BATTLE ----
+        bytes32 singlesBattleKey = _startSinglesBattle(singlesCommitManager);
+        vm.warp(block.timestamp + 1);
+
+        assertEq(uint8(engine.getGameMode(singlesBattleKey)), uint8(GameMode.Singles), "Should be singles mode");
+
+        // Turn 0: Initial switch
+        _singlesInitialSwitch(singlesBattleKey, singlesCommitManager);
+
+        // Turn 1: Bob KOs Alice mon 0
+        _singlesCommitRevealExecute(singlesBattleKey, singlesCommitManager, 0, 0, 0, 0);
+
+        // Alice switch turn (playerSwitchForTurnFlag = 0)
+        _singlesSwitchTurn(singlesBattleKey, singlesCommitManager, 1);
+
+        // Turn 2: Bob KOs Alice mon 1
+        _singlesCommitRevealExecute(singlesBattleKey, singlesCommitManager, 0, 0, 0, 0);
+
+        // Alice switch turn
+        _singlesSwitchTurn(singlesBattleKey, singlesCommitManager, 2);
+
+        // Turn 3: Bob KOs Alice's last mon
+        _singlesCommitRevealExecute(singlesBattleKey, singlesCommitManager, 0, 0, 0, 0);
+
+        assertEq(engine.getWinner(singlesBattleKey), BOB, "Bob should win singles");
+
+        // Record free keys
+        bytes32[] memory freeKeysBefore = engine.getFreeStorageKeys();
+        assertGt(freeKeysBefore.length, 0, "Should have free storage key");
+
+        // ---- DOUBLES BATTLE (reuses storage) ----
+        vm.warp(block.timestamp + 2);
+
+        // Fresh teams for doubles - HP 300 to survive attacks (~200 damage each)
+        Mon[] memory aliceDoubles = new Mon[](3);
+        aliceDoubles[0] = _createMon(300, 15, targetedMoves);
+        aliceDoubles[1] = _createMon(300, 12, targetedMoves);
+        aliceDoubles[2] = _createMon(300, 10, targetedMoves);
+
+        Mon[] memory bobDoubles = new Mon[](3);
+        bobDoubles[0] = _createMon(300, 14, targetedMoves);
+        bobDoubles[1] = _createMon(300, 11, targetedMoves);
+        bobDoubles[2] = _createMon(300, 9, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceDoubles);
+        defaultRegistry.setTeam(BOB, bobDoubles);
+
+        bytes32 doublesBattleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+
+        assertEq(uint8(engine.getGameMode(doublesBattleKey)), uint8(GameMode.Doubles), "Should be doubles mode");
+
+        // Verify storage reused
+        bytes32[] memory freeKeysAfter = engine.getFreeStorageKeys();
+        assertEq(freeKeysAfter.length, freeKeysBefore.length - 1, "Should have used free storage key");
+
+        // Initial switch for doubles
+        _doInitialSwitch(doublesBattleKey);
+
+        // Verify all 4 slots set correctly
+        assertEq(engine.getActiveMonIndexForSlot(doublesBattleKey, 0, 0), 0, "Alice slot 0 = mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(doublesBattleKey, 0, 1), 1, "Alice slot 1 = mon 1");
+        assertEq(engine.getActiveMonIndexForSlot(doublesBattleKey, 1, 0), 0, "Bob slot 0 = mon 0");
+        assertEq(engine.getActiveMonIndexForSlot(doublesBattleKey, 1, 1), 1, "Bob slot 1 = mon 1");
+
+        // Turn 1: Both sides attack (dealing real damage)
+        _doublesCommitRevealExecute(doublesBattleKey, 0, 0, 0, 0, 0, 0, 0, 1);
+
+        // Verify damage to correct targets
+        int256 alice0Hp = engine.getMonStateForBattle(doublesBattleKey, 0, 0, MonStateIndexName.Hp);
+        int256 alice1Hp = engine.getMonStateForBattle(doublesBattleKey, 0, 1, MonStateIndexName.Hp);
+        assertTrue(alice0Hp < 0, "Alice mon 0 took damage");
+        assertTrue(alice1Hp < 0, "Alice mon 1 took damage");
+
+        assertEq(engine.getWinner(doublesBattleKey), address(0), "Doubles battle ongoing");
+    }
+
+    // =========================================
+    // Singles Helper Functions
+    // =========================================
+
+    function _startSinglesBattle(DefaultCommitManager scm) internal returns (bytes32 battleKey) {
+        bytes32 salt = "";
+        uint96 p0TeamIndex = 0;
+        uint256[] memory p0TeamIndices = defaultRegistry.getMonRegistryIndicesForTeam(ALICE, p0TeamIndex);
+        bytes32 p0TeamHash = keccak256(abi.encodePacked(salt, p0TeamIndex, p0TeamIndices));
+
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: p0TeamHash,
+            p1: BOB,
+            p1TeamIndex: 0,
+            teamRegistry: defaultRegistry,
+            validator: validator,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            engineHooks: new IEngineHook[](0),
+            moveManager: address(scm),
+            matchmaker: matchmaker,
+            gameMode: GameMode.Singles
+        });
+
+        vm.startPrank(ALICE);
+        battleKey = matchmaker.proposeBattle(proposal);
+
+        bytes32 integrityHash = matchmaker.getBattleProposalIntegrityHash(proposal);
+        vm.startPrank(BOB);
+        matchmaker.acceptBattle(battleKey, 0, integrityHash);
+
+        vm.startPrank(ALICE);
+        matchmaker.confirmBattle(battleKey, salt, p0TeamIndex);
+        vm.stopPrank();
+    }
+
+    // Turn 0 initial switch for singles: P0 commits, P1 reveals, P0 reveals
+    function _singlesInitialSwitch(bytes32 battleKey, DefaultCommitManager scm) internal {
+        bytes32 aliceSalt = bytes32("alice_init");
+        bytes32 bobSalt = bytes32("bob_init");
+
+        // P0 (Alice) commits on even turn
+        bytes32 aliceHash = keccak256(abi.encodePacked(uint8(SWITCH_MOVE_INDEX), aliceSalt, uint240(0)));
+        vm.prank(ALICE);
+        scm.commitMove(battleKey, aliceHash);
+
+        // P1 (Bob) reveals first (no commit needed on even turn)
+        vm.prank(BOB);
+        scm.revealMove(battleKey, SWITCH_MOVE_INDEX, bobSalt, 0, false);
+
+        // P0 (Alice) reveals second
+        vm.prank(ALICE);
+        scm.revealMove(battleKey, SWITCH_MOVE_INDEX, aliceSalt, 0, true);
+    }
+
+    // Normal turn commit/reveal for singles
+    function _singlesCommitRevealExecute(
+        bytes32 battleKey,
+        DefaultCommitManager scm,
+        uint8 aliceMove, uint240 aliceExtra,
+        uint8 bobMove, uint240 bobExtra
+    ) internal {
+        uint256 turnId = engine.getTurnIdForBattleState(battleKey);
+        bytes32 aliceSalt = keccak256(abi.encodePacked("alice", turnId));
+        bytes32 bobSalt = keccak256(abi.encodePacked("bob", turnId));
+
+        if (turnId % 2 == 0) {
+            // Even turn: P0 commits, P1 reveals first, P0 reveals second
+            bytes32 aliceHash = keccak256(abi.encodePacked(aliceMove, aliceSalt, aliceExtra));
+            vm.prank(ALICE);
+            scm.commitMove(battleKey, aliceHash);
+
+            vm.prank(BOB);
+            scm.revealMove(battleKey, bobMove, bobSalt, bobExtra, false);
+
+            vm.prank(ALICE);
+            scm.revealMove(battleKey, aliceMove, aliceSalt, aliceExtra, true);
+        } else {
+            // Odd turn: P1 commits, P0 reveals first, P1 reveals second
+            bytes32 bobHash = keccak256(abi.encodePacked(bobMove, bobSalt, bobExtra));
+            vm.prank(BOB);
+            scm.commitMove(battleKey, bobHash);
+
+            vm.prank(ALICE);
+            scm.revealMove(battleKey, aliceMove, aliceSalt, aliceExtra, false);
+
+            vm.prank(BOB);
+            scm.revealMove(battleKey, bobMove, bobSalt, bobExtra, true);
+        }
+    }
+
+    // Switch turn for singles (only switching player acts)
+    function _singlesSwitchTurn(bytes32 battleKey, DefaultCommitManager scm, uint256 monIndex) internal {
+        bytes32 salt = keccak256(abi.encodePacked("switch", engine.getTurnIdForBattleState(battleKey)));
+        vm.prank(ALICE);
+        scm.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, uint240(monIndex), true);
     }
 }
 
