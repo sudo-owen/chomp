@@ -197,3 +197,64 @@ When a target slot is KO'd mid-turn, moves targeting that slot should redirect o
 - Clients need to track 4 active mons instead of 2
 - Move selection UI needs slot-based targeting
 - Battle log should indicate which slot acted
+
+---
+
+### Code Quality Refactoring
+
+#### `src/BaseCommitManager.sol` (New File)
+Extracted shared commit/reveal logic from DefaultCommitManager and DoublesCommitManager:
+- Common errors: `NotP0OrP1`, `AlreadyCommited`, `AlreadyRevealed`, `NotYetRevealed`, `RevealBeforeOtherCommit`, `RevealBeforeSelfCommit`, `WrongPreimage`, `PlayerNotAllowed`, `BattleNotYetStarted`, `BattleAlreadyComplete`
+- Common event: `MoveCommit`
+- Shared storage: `playerData` mapping
+- Shared validation functions:
+  - `_validateCommit` - Common commit precondition checks
+  - `_validateRevealPreconditions` - Common reveal setup
+  - `_validateRevealTiming` - Commitment order and preimage verification
+  - `_updateAfterReveal` - Post-reveal state updates
+  - `_shouldAutoExecute` - Auto-execute decision logic
+- Shared view functions: `getCommitment`, `getMoveCountForBattleState`, `getLastMoveTimestampForPlayer`
+
+#### `src/DefaultCommitManager.sol`
+- Now extends `BaseCommitManager` and `ICommitManager`
+- Only contains singles-specific logic: `InvalidMove` error, `MoveReveal` event, `revealMove`
+
+#### `src/DoublesCommitManager.sol`
+- Now extends `BaseCommitManager` and `ICommitManager`
+- Only contains doubles-specific logic: `InvalidMove(player, slotIndex)`, `BothSlotsSwitchToSameMon`, `NotDoublesMode` errors
+- Implements `revealMove` as stub that reverts with `NotDoublesMode`
+
+#### `src/DefaultValidator.sol`
+- Unified `_hasValidSwitchTargetForSlot` to use optional `claimedByOtherSlot` parameter (sentinel value `type(uint256).max` when none)
+- Removed duplicate `_hasValidSwitchTargetForSlotWithClaimed` function
+- Created `_validatePlayerMoveForSlotImpl` internal function to share logic between `validatePlayerMoveForSlot` and `validatePlayerMoveForSlotWithClaimed`
+- Updated `_validateSwitchForSlot` to handle `claimedByOtherSlot` internally
+- Added `_getActiveMonIndexFromContext` helper to extract active mon indices from `BattleContext` (reduces external ENGINE calls)
+
+#### `src/Engine.sol`
+- Added `setMoveForSlot(battleKey, playerIndex, slotIndex, moveIndex, salt, extraData)` function
+- Provides clean API for setting moves for specific slots (replaces `playerIndex+2` workaround in DoublesCommitManager)
+
+#### `src/IEngine.sol`
+- Added `setMoveForSlot` interface definition
+
+#### `src/moves/AttackCalculator.sol`
+- Fixed bug: `_calculateDamageFromContext` now returns `MOVE_MISS_EVENT_TYPE` instead of `bytes32(0)` when attack misses
+
+---
+
+### Known Inconsistencies (Future Work)
+
+#### Singles vs Doubles Execution Patterns
+- **Singles**: `DefaultCommitManager.revealMove` calls `ENGINE.execute(battleKey)` directly
+- **Doubles**: `DoublesCommitManager.revealMoves` calls `ENGINE.setMoveForSlot` for each slot, then `ENGINE.execute(battleKey)`
+- Consider unifying the pattern if performance permits
+
+#### NO_OP Handling During Single-Player Switch Turns
+- In doubles, when only one player needs to switch (one slot KO'd), the other slot can attack
+- The non-switching slot should technically be able to submit `NO_OP`, but current validation only strictly requires `NO_OP` when no valid switch targets exist
+- This is working correctly but the semantics could be clearer
+
+#### Error Naming
+- `DefaultCommitManager.InvalidMove(address player)` vs `DoublesCommitManager.InvalidMove(address player, uint256 slotIndex)`
+- Different signatures for same conceptual error - could be unified with optional slot parameter

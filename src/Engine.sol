@@ -918,6 +918,57 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
+    /**
+     * @notice Set a move for a specific slot in doubles battles
+     * @param battleKey The battle identifier
+     * @param playerIndex 0 or 1
+     * @param slotIndex 0 or 1
+     * @param moveIndex The move index
+     * @param salt Salt for RNG
+     * @param extraData Extra data for the move (e.g., target)
+     */
+    function setMoveForSlot(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 slotIndex,
+        uint8 moveIndex,
+        bytes32 salt,
+        uint240 extraData
+    ) external {
+        // Use cached key if called during execute(), otherwise lookup
+        bool isForCurrentBattle = battleKeyForWrite == battleKey;
+        bytes32 storageKey = isForCurrentBattle ? storageKeyForWrite : _getStorageKey(battleKey);
+
+        BattleConfig storage config = battleConfig[storageKey];
+
+        bool isMoveManager = msg.sender == address(config.moveManager);
+        if (!isMoveManager && !isForCurrentBattle) {
+            revert NoWriteAllowed();
+        }
+
+        // Pack moveIndex with isRealTurn bit and apply +1 offset for regular moves
+        uint8 storedMoveIndex = moveIndex < SWITCH_MOVE_INDEX ? moveIndex + MOVE_INDEX_OFFSET : moveIndex;
+        uint8 packedMoveIndex = storedMoveIndex | IS_REAL_TURN_BIT;
+
+        MoveDecision memory newMove = MoveDecision({packedMoveIndex: packedMoveIndex, extraData: extraData});
+
+        if (playerIndex == 0) {
+            if (slotIndex == 0) {
+                config.p0Move = newMove;
+                config.p0Salt = salt;
+            } else {
+                config.p0Move2 = newMove;
+            }
+        } else {
+            if (slotIndex == 0) {
+                config.p1Move = newMove;
+                config.p1Salt = salt;
+            } else {
+                config.p1Move2 = newMove;
+            }
+        }
+    }
+
     function emitEngineEvent(bytes32 eventType, bytes memory eventData) external {
         bytes32 battleKey = battleKeyForWrite;
         emit EngineEvent(battleKey, eventType, eventData, _getUpstreamCallerAndResetValue(), currentStep);

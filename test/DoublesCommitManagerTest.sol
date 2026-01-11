@@ -7,6 +7,7 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
+import {BaseCommitManager} from "../src/BaseCommitManager.sol";
 import {DoublesCommitManager} from "../src/DoublesCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
 import {DefaultValidator} from "../src/DefaultValidator.sol";
@@ -339,7 +340,7 @@ contract DoublesCommitManagerTest is Test {
 
         // Alice tries to reveal with wrong moves - should fail
         vm.startPrank(ALICE);
-        vm.expectRevert(DoublesCommitManager.WrongPreimage.selector);
+        vm.expectRevert(BaseCommitManager.WrongPreimage.selector);
         commitManager.revealMoves(battleKey, SWITCH_MOVE_INDEX, 1, SWITCH_MOVE_INDEX, 0, salt, false); // Wrong extraData values
         vm.stopPrank();
     }

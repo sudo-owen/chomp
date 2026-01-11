@@ -7,6 +7,7 @@ import "../src/Constants.sol";
 import "../src/Enums.sol";
 import "../src/Structs.sol";
 
+import {BaseCommitManager} from "../src/BaseCommitManager.sol";
 import {DoublesCommitManager} from "../src/DoublesCommitManager.sol";
 import {DefaultCommitManager} from "../src/DefaultCommitManager.sol";
 import {Engine} from "../src/Engine.sol";
@@ -774,7 +775,7 @@ contract DoublesValidationTest is Test {
         // Bob should NOT be able to commit (it's not his turn)
         vm.startPrank(BOB);
         bytes32 bobHash = keccak256(abi.encodePacked(uint8(0), uint240(0), uint8(0), uint240(0), bytes32("bobsalt")));
-        vm.expectRevert(DoublesCommitManager.PlayerNotAllowed.selector);
+        vm.expectRevert(BaseCommitManager.PlayerNotAllowed.selector);
         commitManager.commitMoves(battleKey, bobHash);
         vm.stopPrank();
 
@@ -914,7 +915,7 @@ contract DoublesValidationTest is Test {
         // Alice should NOT be able to commit (it's not her turn)
         vm.startPrank(ALICE);
         bytes32 aliceHash = keccak256(abi.encodePacked(uint8(0), uint240(0), uint8(0), uint240(0), bytes32("alicesalt")));
-        vm.expectRevert(DoublesCommitManager.PlayerNotAllowed.selector);
+        vm.expectRevert(BaseCommitManager.PlayerNotAllowed.selector);
         commitManager.commitMoves(battleKey, aliceHash);
         vm.stopPrank();
 
