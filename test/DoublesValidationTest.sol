@@ -21,6 +21,7 @@ import {TestTypeCalculator} from "./mocks/TestTypeCalculator.sol";
 import {CustomAttack} from "./mocks/CustomAttack.sol";
 import {DoublesTargetedAttack} from "./mocks/DoublesTargetedAttack.sol";
 import {ForceSwitchMove} from "./mocks/ForceSwitchMove.sol";
+import {DoublesForceSwitchMove} from "./mocks/DoublesForceSwitchMove.sol";
 
 /**
  * @title DoublesValidationTest

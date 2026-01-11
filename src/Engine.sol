@@ -839,6 +839,47 @@ contract Engine is IEngine, MappingAllocator {
         // If the switch is invalid, we simply do nothing and continue execution
     }
 
+    /// @notice Force switch a mon in a specific slot (for doubles mode)
+    /// @dev Used by moves that force switches (e.g., Roar, Whirlwind) in doubles battles
+    /// @param playerIndex The player whose mon will be switched (0 or 1)
+    /// @param slotIndex The slot to switch (0 or 1)
+    /// @param monToSwitchIndex The index of the mon to switch to
+    function switchActiveMonForSlot(uint256 playerIndex, uint256 slotIndex, uint256 monToSwitchIndex) external {
+        bytes32 battleKey = battleKeyForWrite;
+        if (battleKey == bytes32(0)) {
+            revert NoWriteAllowed();
+        }
+
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
+        BattleData storage battle = battleData[battleKey];
+
+        // Use the validator to check if the switch is valid
+        if (config.validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex))
+        {
+            // Use the slot-aware switch handler for doubles
+            _handleSwitchForSlot(battleKey, playerIndex, slotIndex, monToSwitchIndex, msg.sender);
+
+            // Check for game over using doubles logic
+            bool isGameOver = _checkForGameOverOrKO_Doubles(config, battle);
+            if (isGameOver) return;
+
+            // Determine player switch flag based on slot switch flags
+            uint8 slotFlags = battle.slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+            bool p0NeedsSwitch = (slotFlags & 0x03) != 0; // bits 0-1 for P0
+            bool p1NeedsSwitch = (slotFlags & 0x0C) != 0; // bits 2-3 for P1
+            if (p0NeedsSwitch && p1NeedsSwitch) {
+                battle.playerSwitchForTurnFlag = 2;
+            } else if (p0NeedsSwitch) {
+                battle.playerSwitchForTurnFlag = 0;
+            } else if (p1NeedsSwitch) {
+                battle.playerSwitchForTurnFlag = 1;
+            } else {
+                battle.playerSwitchForTurnFlag = 2;
+            }
+        }
+        // If the switch is invalid, we simply do nothing and continue execution
+    }
+
     function setMove(bytes32 battleKey, uint256 playerIndex, uint8 moveIndex, bytes32 salt, uint240 extraData)
         external
     {
