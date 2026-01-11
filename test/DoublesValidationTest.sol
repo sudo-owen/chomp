@@ -1253,21 +1253,21 @@ contract DoublesValidationTest is Test {
         BattleContext memory ctx = engine.getBattleContext(battleKey);
         assertEq(ctx.playerSwitchForTurnFlag, 0, "Should be Alice-only switch turn");
 
-        // Both slots see mon 2 as a valid switch target at validation time
+        // Both slots see mon 2 as a valid switch target at validation time (individually)
         assertTrue(validator.validatePlayerMoveForSlot(battleKey, SWITCH_MOVE_INDEX, 0, 0, 2), "Alice slot 0 can switch to reserve");
         assertTrue(validator.validatePlayerMoveForSlot(battleKey, SWITCH_MOVE_INDEX, 0, 1, 2), "Alice slot 1 can switch to reserve");
 
-        // Alice reveals: both slots try to switch to mon 2
+        // But both slots CANNOT switch to the same mon in the same reveal
+        // Alice reveals: slot 0 switches to mon 2, slot 1 NO_OPs (no other valid target)
         vm.startPrank(ALICE);
-        commitManager.revealMoves(battleKey, SWITCH_MOVE_INDEX, 2, SWITCH_MOVE_INDEX, 2, bytes32("alicesalt"), true);
+        commitManager.revealMoves(battleKey, SWITCH_MOVE_INDEX, 2, NO_OP_MOVE_INDEX, 0, bytes32("alicesalt"), true);
         vm.stopPrank();
 
-        // Slot 0 switches to mon 2 (executed first)
+        // Slot 0 switches to mon 2
         assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 0), 2, "Alice slot 0 should have mon 2");
 
-        // Slot 1's switch becomes NO_OP because mon 2 is already in slot 0
-        // Slot 1 keeps its KO'd mon (mon 1)
-        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 1), 1, "Alice slot 1 should keep mon 1 (switch became NO_OP)");
+        // Slot 1 keeps its KO'd mon (mon 1) - no valid switch target after slot 0 takes the reserve
+        assertEq(engine.getActiveMonIndexForSlot(battleKey, 0, 1), 1, "Alice slot 1 should keep mon 1 (NO_OP)");
         assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1, "Alice slot 1 mon is still KO'd");
 
         // Game continues - Alice plays with just one mon in slot 0
@@ -1912,6 +1912,234 @@ contract DoublesValidationTest is Test {
         // Bob slot 1 should now be mon 2, slot 0 should still be mon 0
         assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 0), 0, "Bob slot 0 should still be mon 0");
         assertEq(engine.getActiveMonIndexForSlot(battleKey, 1, 1), 2, "Bob slot 1 should now be mon 2");
+    }
+
+    // =========================================
+    // Simultaneous Switch Validation Tests
+    // =========================================
+
+    /**
+     * @notice Test: Both slots cannot switch to the same reserve mon during reveal
+     * @dev When both slots are KO'd and try to switch to the same reserve, validation should fail
+     */
+    function test_bothSlotsSwitchToSameMon_reverts() public {
+        // Need 4-mon validator (2 active + 2 reserves)
+        DefaultValidator validator4Mon = new DefaultValidator(
+            engine, DefaultValidator.Args({MONS_PER_TEAM: 4, MOVES_PER_MON: 4, TIMEOUT_DURATION: TIMEOUT_DURATION})
+        );
+        DoublesCommitManager commitManager4 = new DoublesCommitManager(engine);
+        TestTeamRegistry registry4 = new TestTeamRegistry();
+
+        IMoveSet[] memory targetedMoves = new IMoveSet[](4);
+        targetedMoves[0] = targetedStrongAttack;
+        targetedMoves[1] = targetedStrongAttack;
+        targetedMoves[2] = targetedStrongAttack;
+        targetedMoves[3] = targetedStrongAttack;
+
+        IMoveSet[] memory regularMoves = new IMoveSet[](4);
+        regularMoves[0] = strongAttack;
+        regularMoves[1] = strongAttack;
+        regularMoves[2] = strongAttack;
+        regularMoves[3] = strongAttack;
+
+        Mon[] memory aliceTeam = new Mon[](4);
+        aliceTeam[0] = _createMon(1, 5, regularMoves);      // Weak - will be KO'd
+        aliceTeam[1] = _createMon(1, 4, regularMoves);      // Weak - will be KO'd
+        aliceTeam[2] = _createMon(100, 6, regularMoves);    // Reserve 1
+        aliceTeam[3] = _createMon(100, 7, regularMoves);    // Reserve 2
+
+        Mon[] memory bobTeam = new Mon[](4);
+        bobTeam[0] = _createMon(100, 20, targetedMoves);
+        bobTeam[1] = _createMon(100, 25, targetedMoves);
+        bobTeam[2] = _createMon(100, 16, targetedMoves);
+        bobTeam[3] = _createMon(100, 15, targetedMoves);
+
+        registry4.setTeam(ALICE, aliceTeam);
+        registry4.setTeam(BOB, bobTeam);
+
+        // Start battle with 4-mon validator
+        bytes32 salt = "";
+        uint96 p0TeamIndex = 0;
+        uint256[] memory p0TeamIndices = registry4.getMonRegistryIndicesForTeam(ALICE, p0TeamIndex);
+        bytes32 p0TeamHash = keccak256(abi.encodePacked(salt, p0TeamIndex, p0TeamIndices));
+
+        ProposedBattle memory proposal = ProposedBattle({
+            p0: ALICE,
+            p0TeamIndex: 0,
+            p0TeamHash: p0TeamHash,
+            p1: BOB,
+            p1TeamIndex: 0,
+            teamRegistry: registry4,
+            validator: validator4Mon,
+            rngOracle: defaultOracle,
+            ruleset: IRuleset(address(0)),
+            engineHooks: new IEngineHook[](0),
+            moveManager: address(commitManager4),
+            matchmaker: matchmaker,
+            gameMode: GameMode.Doubles
+        });
+
+        vm.startPrank(ALICE);
+        bytes32 battleKey = matchmaker.proposeBattle(proposal);
+        bytes32 battleIntegrityHash = matchmaker.getBattleProposalIntegrityHash(proposal);
+        vm.startPrank(BOB);
+        matchmaker.acceptBattle(battleKey, 0, battleIntegrityHash);
+        vm.startPrank(ALICE);
+        matchmaker.confirmBattle(battleKey, salt, p0TeamIndex);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 1);
+
+        // Turn 0: Initial switch
+        {
+            bytes32 aliceSalt = bytes32("as");
+            bytes32 bobSalt = bytes32("bs");
+            bytes32 aliceHash = keccak256(abi.encodePacked(SWITCH_MOVE_INDEX, uint240(0), SWITCH_MOVE_INDEX, uint240(1), aliceSalt));
+            vm.startPrank(ALICE);
+            commitManager4.commitMoves(battleKey, aliceHash);
+            vm.stopPrank();
+            vm.startPrank(BOB);
+            commitManager4.revealMoves(battleKey, SWITCH_MOVE_INDEX, 0, SWITCH_MOVE_INDEX, 1, bobSalt, false);
+            vm.stopPrank();
+            vm.startPrank(ALICE);
+            commitManager4.revealMoves(battleKey, SWITCH_MOVE_INDEX, 0, SWITCH_MOVE_INDEX, 1, aliceSalt, false);
+            vm.stopPrank();
+            engine.execute(battleKey);
+        }
+
+        // Turn 1: Bob KOs both of Alice's active mons
+        {
+            bytes32 aliceSalt = bytes32("as2");
+            bytes32 bobSalt = bytes32("bs2");
+            bytes32 bobHash = keccak256(abi.encodePacked(uint8(0), uint240(0), uint8(0), uint240(1), bobSalt));
+            vm.startPrank(BOB);
+            commitManager4.commitMoves(battleKey, bobHash);
+            vm.stopPrank();
+            vm.startPrank(ALICE);
+            commitManager4.revealMoves(battleKey, uint8(NO_OP_MOVE_INDEX), 0, uint8(NO_OP_MOVE_INDEX), 0, aliceSalt, false);
+            vm.stopPrank();
+            vm.startPrank(BOB);
+            commitManager4.revealMoves(battleKey, uint8(0), 0, uint8(0), 1, bobSalt, false);
+            vm.stopPrank();
+            engine.execute(battleKey);
+        }
+
+        // Both Alice mons should be KO'd
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice mon 0 KO'd");
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.IsKnockedOut), 1, "Alice mon 1 KO'd");
+
+        // Alice tries to switch BOTH slots to the SAME reserve (mon 2) - should revert
+        vm.startPrank(ALICE);
+        vm.expectRevert(); // Should revert because both slots can't switch to same mon
+        commitManager4.revealMoves(battleKey, SWITCH_MOVE_INDEX, 2, SWITCH_MOVE_INDEX, 2, bytes32("alicesalt3"), true);
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Move Execution Order Tests
+    // =========================================
+
+    /**
+     * @notice Test: A KO'd mon's move doesn't execute in doubles
+     * @dev Verifies that if a mon is KO'd before its turn, its attack doesn't deal damage
+     */
+    function test_KOdMonMoveDoesNotExecute() public {
+        IMoveSet[] memory targetedMoves = new IMoveSet[](4);
+        targetedMoves[0] = targetedStrongAttack;
+        targetedMoves[1] = targetedStrongAttack;
+        targetedMoves[2] = targetedStrongAttack;
+        targetedMoves[3] = targetedStrongAttack;
+
+        // Alice: slot 0 is slow and weak (will be KO'd before attacking)
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(1, 1, targetedMoves);    // Very slow, 1 HP - will be KO'd
+        aliceTeam[1] = _createMon(300, 20, targetedMoves); // Fast, strong
+        aliceTeam[2] = _createMon(100, 10, targetedMoves);
+
+        // Bob: slot 0 is fast and will KO Alice slot 0 before it can attack
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(300, 30, targetedMoves);  // Fastest - will KO Alice slot 0
+        bobTeam[1] = _createMon(300, 5, targetedMoves);   // Slow
+        bobTeam[2] = _createMon(100, 3, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Record Bob's HP before the turn
+        int256 bobSlot0HpBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+
+        // Turn 1:
+        // - Alice slot 0 (speed 1) targets Bob slot 0
+        // - Alice slot 1 (speed 20) does NO_OP to avoid complications
+        // - Bob slot 0 (speed 30) targets Alice slot 0 - will KO it first
+        // - Bob slot 1 (speed 5) does NO_OP
+        // Order: Bob slot 0 (30) > Alice slot 1 (NO_OP) > Bob slot 1 (NO_OP) > Alice slot 0 (1, but KO'd)
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, 0, NO_OP_MOVE_INDEX, 0,  // Alice: slot 0 attacks Bob slot 0, slot 1 no-op
+            0, 0, NO_OP_MOVE_INDEX, 0   // Bob: slot 0 attacks Alice slot 0 (default), slot 1 no-op
+        );
+
+        // Verify Alice slot 0 is KO'd
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.IsKnockedOut), 1, "Alice slot 0 should be KO'd");
+
+        // Bob slot 0 should NOT have taken damage from Alice slot 0 (move didn't execute)
+        int256 bobSlot0HpAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        assertEq(bobSlot0HpAfter, bobSlot0HpBefore, "Bob slot 0 should not have taken damage from KO'd Alice");
+    }
+
+    /**
+     * @notice Test: Both opponent slots KO'd mid-turn, remaining moves don't target them
+     * @dev If both opponent mons are KO'd, remaining moves that targeted them shouldn't crash
+     */
+    function test_bothOpponentSlotsKOd_remainingMovesHandled() public {
+        IMoveSet[] memory targetedMoves = new IMoveSet[](4);
+        targetedMoves[0] = targetedStrongAttack;
+        targetedMoves[1] = targetedStrongAttack;
+        targetedMoves[2] = targetedStrongAttack;
+        targetedMoves[3] = targetedStrongAttack;
+
+        // Alice: Both slots are very fast and strong
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(300, 50, targetedMoves);  // Fastest
+        aliceTeam[1] = _createMon(300, 45, targetedMoves);  // Second fastest
+        aliceTeam[2] = _createMon(100, 10, targetedMoves);
+
+        // Bob: Both slots are slow and weak (will be KO'd)
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(1, 5, targetedMoves);   // Slow, weak - will be KO'd
+        bobTeam[1] = _createMon(1, 4, targetedMoves);   // Slower, weak - will be KO'd
+        bobTeam[2] = _createMon(100, 3, targetedMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Turn 1:
+        // Alice slot 0 (speed 50) attacks Bob slot 0 -> KO
+        // Alice slot 1 (speed 45) attacks Bob slot 1 -> KO
+        // Bob slot 0 (speed 5) - KO'd, shouldn't execute
+        // Bob slot 1 (speed 4) - KO'd, shouldn't execute
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, 0, 0, 1,  // Alice: slot 0 attacks Bob slot 0, slot 1 attacks Bob slot 1
+            0, 0, 0, 1   // Bob: both attack (won't execute - they'll be KO'd)
+        );
+
+        // Both Bob slots should be KO'd
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.IsKnockedOut), 1, "Bob slot 0 should be KO'd");
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.IsKnockedOut), 1, "Bob slot 1 should be KO'd");
+
+        // Alice should NOT have taken any damage (Bob's moves didn't execute)
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 0, MonStateIndexName.Hp), 0, "Alice slot 0 should have no damage");
+        assertEq(engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Hp), 0, "Alice slot 1 should have no damage");
     }
 
     // =========================================

@@ -31,6 +31,7 @@ contract DoublesCommitManager {
     error WrongPreimage();
     error PlayerNotAllowed();
     error InvalidMove(address player, uint256 slotIndex);
+    error BothSlotsSwitchToSameMon();
     error BattleNotYetStarted();
     error BattleAlreadyComplete();
     error NotDoublesMode();
@@ -198,8 +199,25 @@ contract DoublesCommitManager {
         if (!validator.validatePlayerMoveForSlot(battleKey, moveIndex0, currentPlayerIndex, 0, extraData0)) {
             revert InvalidMove(msg.sender, 0);
         }
-        if (!validator.validatePlayerMoveForSlot(battleKey, moveIndex1, currentPlayerIndex, 1, extraData1)) {
-            revert InvalidMove(msg.sender, 1);
+        // For slot 1, if slot 0 is switching, we need to account for the mon being claimed
+        // This allows slot 1 to NO_OP if slot 0 is taking the last available reserve
+        if (moveIndex0 == SWITCH_MOVE_INDEX) {
+            if (!validator.validatePlayerMoveForSlotWithClaimed(
+                battleKey, moveIndex1, currentPlayerIndex, 1, extraData1, uint256(extraData0)
+            )) {
+                revert InvalidMove(msg.sender, 1);
+            }
+        } else {
+            if (!validator.validatePlayerMoveForSlot(battleKey, moveIndex1, currentPlayerIndex, 1, extraData1)) {
+                revert InvalidMove(msg.sender, 1);
+            }
+        }
+
+        // Prevent both slots from switching to the same mon
+        if (moveIndex0 == SWITCH_MOVE_INDEX && moveIndex1 == SWITCH_MOVE_INDEX) {
+            if (extraData0 == extraData1) {
+                revert BothSlotsSwitchToSameMon();
+            }
         }
 
         // Store both revealed moves

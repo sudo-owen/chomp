@@ -362,6 +362,98 @@ contract DefaultValidator is IValidator {
         return true;
     }
 
+    /**
+     * @notice Validates a move for a specific slot, accounting for what the other slot is switching to
+     * @dev Use this when slot 0 is switching and you need to validate slot 1's move while
+     *      accounting for the mon that slot 0 is claiming
+     * @param claimedByOtherSlot The mon index that the other slot is switching to (type(uint256).max if not applicable)
+     */
+    function validatePlayerMoveForSlotWithClaimed(
+        bytes32 battleKey,
+        uint256 moveIndex,
+        uint256 playerIndex,
+        uint256 slotIndex,
+        uint240 extraData,
+        uint256 claimedByOtherSlot
+    ) external view returns (bool) {
+        // Get the active mon index for this slot
+        uint256 activeMonIndex = ENGINE.getActiveMonIndexForSlot(battleKey, playerIndex, slotIndex);
+        uint256 otherSlotActiveMonIndex = ENGINE.getActiveMonIndexForSlot(battleKey, playerIndex, 1 - slotIndex);
+
+        BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
+
+        // Check if this slot's mon is KO'd
+        bool isActiveMonKnockedOut = ENGINE.getMonStateForBattle(
+            battleKey, playerIndex, activeMonIndex, MonStateIndexName.IsKnockedOut
+        ) == 1;
+
+        // Turn 0: must switch to set initial mon
+        // KO'd mon: must switch (unless no valid targets)
+        if (ctx.turnId == 0 || isActiveMonKnockedOut) {
+            if (moveIndex != SWITCH_MOVE_INDEX) {
+                // Check if NO_OP is allowed (no valid switch targets, accounting for claimed mon)
+                if (moveIndex == NO_OP_MOVE_INDEX && !_hasValidSwitchTargetForSlotWithClaimed(
+                    battleKey, playerIndex, otherSlotActiveMonIndex, claimedByOtherSlot
+                )) {
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        // Validate move index range
+        if (moveIndex != NO_OP_MOVE_INDEX && moveIndex != SWITCH_MOVE_INDEX) {
+            if (moveIndex >= MOVES_PER_MON) {
+                return false;
+            }
+        }
+        // NO_OP is always valid (if we got past the KO check)
+        else if (moveIndex == NO_OP_MOVE_INDEX) {
+            return true;
+        }
+        // Switch validation (also exclude claimed mon)
+        else if (moveIndex == SWITCH_MOVE_INDEX) {
+            uint256 monToSwitchIndex = uint256(extraData);
+            // Can't switch to the mon that the other slot is claiming
+            if (monToSwitchIndex == claimedByOtherSlot) {
+                return false;
+            }
+            return _validateSwitchForSlot(battleKey, playerIndex, monToSwitchIndex, activeMonIndex, otherSlotActiveMonIndex, ctx);
+        }
+
+        // Validate specific move selection
+        return _validateSpecificMoveSelectionInternal(battleKey, moveIndex, playerIndex, extraData, activeMonIndex);
+    }
+
+    /**
+     * @dev Checks if there's any valid switch target for a slot (excluding other slot's active mon AND claimed mon)
+     */
+    function _hasValidSwitchTargetForSlotWithClaimed(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 otherSlotActiveMonIndex,
+        uint256 claimedByOtherSlot
+    ) internal view returns (bool) {
+        for (uint256 i = 0; i < MONS_PER_TEAM; i++) {
+            // Skip if it's the other slot's active mon
+            if (i == otherSlotActiveMonIndex) {
+                continue;
+            }
+            // Skip if it's being claimed by the other slot
+            if (i == claimedByOtherSlot) {
+                continue;
+            }
+            // Check if mon is not KO'd
+            bool isKnockedOut = ENGINE.getMonStateForBattle(
+                battleKey, playerIndex, i, MonStateIndexName.IsKnockedOut
+            ) == 1;
+            if (!isKnockedOut) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /*
         Check switch for turn flag:
 
