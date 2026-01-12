@@ -177,14 +177,24 @@ contract Engine is IEngine, MappingAllocator {
         config.koBitmaps = 0;
 
         // Store the battle data with initial state
+        // For doubles: activeMonIndex packs 4 slots (p0s0=0, p0s1=1, p1s0=0, p1s1=1)
+        // For singles: only lower 8 bits used (p0=0, p1=0)
+        uint16 initialActiveMonIndex = battle.gameMode == GameMode.Doubles
+            ? uint16(0) | (uint16(1) << 4) | (uint16(0) << 8) | (uint16(1) << 12) // p0s0=0, p0s1=1, p1s0=0, p1s1=1
+            : uint16(0); // Singles: both players start with mon 0
+
+        // Pack game mode into slotSwitchFlagsAndGameMode (bit 4 = game mode)
+        uint8 slotSwitchFlagsAndGameMode = battle.gameMode == GameMode.Doubles ? GAME_MODE_BIT : 0;
+
         battleData[battleKey] = BattleData({
             p0: battle.p0,
             p1: battle.p1,
             winnerIndex: 2, // Initialize to 2 (uninitialized/no winner)
             prevPlayerSwitchForTurnFlag: 0,
             playerSwitchForTurnFlag: 2, // Set flag to be 2 which means both players act
-            activeMonIndex: 0, // Defaults to 0 (both players start with mon index 0)
-            turnId: 0
+            activeMonIndex: initialActiveMonIndex,
+            turnId: 0,
+            slotSwitchFlagsAndGameMode: slotSwitchFlagsAndGameMode
         });
 
         // Set the team for p0 and p1 in the reusable config storage
@@ -290,6 +300,12 @@ contract Engine is IEngine, MappingAllocator {
         uint256 numHooks = config.engineHooksLength;
         for (uint256 i = 0; i < numHooks; ++i) {
             config.engineHooks[i].onRoundStart(battleKey);
+        }
+
+        // Branch for doubles mode
+        if (_isDoublesMode(battle)) {
+            _executeDoubles(battleKey, config, battle, turnId, numHooks);
+            return;
         }
 
         // If only a single player has a move to submit, then we don't trigger any effects
@@ -823,6 +839,47 @@ contract Engine is IEngine, MappingAllocator {
         // If the switch is invalid, we simply do nothing and continue execution
     }
 
+    /// @notice Force switch a mon in a specific slot (for doubles mode)
+    /// @dev Used by moves that force switches (e.g., Roar, Whirlwind) in doubles battles
+    /// @param playerIndex The player whose mon will be switched (0 or 1)
+    /// @param slotIndex The slot to switch (0 or 1)
+    /// @param monToSwitchIndex The index of the mon to switch to
+    function switchActiveMonForSlot(uint256 playerIndex, uint256 slotIndex, uint256 monToSwitchIndex) external {
+        bytes32 battleKey = battleKeyForWrite;
+        if (battleKey == bytes32(0)) {
+            revert NoWriteAllowed();
+        }
+
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
+        BattleData storage battle = battleData[battleKey];
+
+        // Use the validator to check if the switch is valid
+        if (config.validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex))
+        {
+            // Use the slot-aware switch handler for doubles
+            _handleSwitchForSlot(battleKey, playerIndex, slotIndex, monToSwitchIndex, msg.sender);
+
+            // Check for game over using doubles logic
+            bool isGameOver = _checkForGameOverOrKO_Doubles(config, battle);
+            if (isGameOver) return;
+
+            // Determine player switch flag based on slot switch flags
+            uint8 slotFlags = battle.slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+            bool p0NeedsSwitch = (slotFlags & 0x03) != 0; // bits 0-1 for P0
+            bool p1NeedsSwitch = (slotFlags & 0x0C) != 0; // bits 2-3 for P1
+            if (p0NeedsSwitch && p1NeedsSwitch) {
+                battle.playerSwitchForTurnFlag = 2;
+            } else if (p0NeedsSwitch) {
+                battle.playerSwitchForTurnFlag = 0;
+            } else if (p1NeedsSwitch) {
+                battle.playerSwitchForTurnFlag = 1;
+            } else {
+                battle.playerSwitchForTurnFlag = 2;
+            }
+        }
+        // If the switch is invalid, we simply do nothing and continue execution
+    }
+
     function setMove(bytes32 battleKey, uint256 playerIndex, uint8 moveIndex, bytes32 salt, uint240 extraData)
         external
     {
@@ -845,12 +902,70 @@ contract Engine is IEngine, MappingAllocator {
 
         MoveDecision memory newMove = MoveDecision({packedMoveIndex: packedMoveIndex, extraData: extraData});
 
+        // playerIndex 0-1: slot 0 moves, playerIndex 2-3: slot 1 moves (for doubles)
         if (playerIndex == 0) {
             config.p0Move = newMove;
             config.p0Salt = salt;
-        } else {
+        } else if (playerIndex == 1) {
             config.p1Move = newMove;
             config.p1Salt = salt;
+        } else if (playerIndex == 2) {
+            // p0 slot 1 move (doubles)
+            config.p0Move2 = newMove;
+        } else if (playerIndex == 3) {
+            // p1 slot 1 move (doubles)
+            config.p1Move2 = newMove;
+        }
+    }
+
+    /**
+     * @notice Set a move for a specific slot in doubles battles
+     * @param battleKey The battle identifier
+     * @param playerIndex 0 or 1
+     * @param slotIndex 0 or 1
+     * @param moveIndex The move index
+     * @param salt Salt for RNG
+     * @param extraData Extra data for the move (e.g., target)
+     */
+    function setMoveForSlot(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 slotIndex,
+        uint8 moveIndex,
+        bytes32 salt,
+        uint240 extraData
+    ) external {
+        // Use cached key if called during execute(), otherwise lookup
+        bool isForCurrentBattle = battleKeyForWrite == battleKey;
+        bytes32 storageKey = isForCurrentBattle ? storageKeyForWrite : _getStorageKey(battleKey);
+
+        BattleConfig storage config = battleConfig[storageKey];
+
+        bool isMoveManager = msg.sender == address(config.moveManager);
+        if (!isMoveManager && !isForCurrentBattle) {
+            revert NoWriteAllowed();
+        }
+
+        // Pack moveIndex with isRealTurn bit and apply +1 offset for regular moves
+        uint8 storedMoveIndex = moveIndex < SWITCH_MOVE_INDEX ? moveIndex + MOVE_INDEX_OFFSET : moveIndex;
+        uint8 packedMoveIndex = storedMoveIndex | IS_REAL_TURN_BIT;
+
+        MoveDecision memory newMove = MoveDecision({packedMoveIndex: packedMoveIndex, extraData: extraData});
+
+        if (playerIndex == 0) {
+            if (slotIndex == 0) {
+                config.p0Move = newMove;
+                config.p0Salt = salt;
+            } else {
+                config.p0Move2 = newMove;
+            }
+        } else {
+            if (slotIndex == 0) {
+                config.p1Move = newMove;
+                config.p1Salt = salt;
+            } else {
+                config.p1Move2 = newMove;
+            }
         }
     }
 
@@ -872,91 +987,118 @@ contract Engine is IEngine, MappingAllocator {
         battleKey = keccak256(abi.encode(pairHash, pairHashNonce));
     }
 
+    // Shared game over check - returns winner index (0, 1, or 2 if no winner)
+    function _checkForGameOver(BattleConfig storage config, BattleData storage battle)
+        internal
+        view
+        returns (uint256 winnerIndex, uint256 p0KOBitmap, uint256 p1KOBitmap)
+    {
+        // First check if we already calculated a winner
+        if (battle.winnerIndex != 2) {
+            return (battle.winnerIndex, 0, 0);
+        }
+
+        // Load KO bitmaps and team sizes
+        uint256 p0TeamSize = config.teamSizes & 0x0F;
+        uint256 p1TeamSize = config.teamSizes >> 4;
+        p0KOBitmap = _getKOBitmap(config, 0);
+        p1KOBitmap = _getKOBitmap(config, 1);
+
+        // Full team mask: (1 << teamSize) - 1, e.g. teamSize=3 -> 0b111
+        uint256 p0FullMask = (1 << p0TeamSize) - 1;
+        uint256 p1FullMask = (1 << p1TeamSize) - 1;
+
+        // Check if all mons are KO'd for either player
+        if (p0KOBitmap == p0FullMask) {
+            winnerIndex = 1; // p1 wins
+        } else if (p1KOBitmap == p1FullMask) {
+            winnerIndex = 0; // p0 wins
+        } else {
+            winnerIndex = 2; // No winner yet
+        }
+    }
+
     function _checkForGameOverOrKO(
         BattleConfig storage config,
         BattleData storage battle,
         uint256 priorityPlayerIndex
     ) internal returns (uint256 playerSwitchForTurnFlag, bool isGameOver) {
         uint256 otherPlayerIndex = (priorityPlayerIndex + 1) % 2;
-        uint8 existingWinnerIndex = battle.winnerIndex;
 
-        // First check if we already calculated a winner
-        if (existingWinnerIndex != 2) {
+        // Use shared game over check
+        (uint256 winnerIndex, uint256 p0KOBitmap, uint256 p1KOBitmap) = _checkForGameOver(config, battle);
+
+        if (winnerIndex != 2) {
+            battle.winnerIndex = uint8(winnerIndex);
             return (playerSwitchForTurnFlag, true);
         }
 
-        // Check for game over using KO bitmaps (O(1) instead of O(n) loop)
-        // A game is over if all of a player's mons are KOed (all bits set up to teamSize)
-        uint256 newWinnerIndex = 2;
-        uint256 p0TeamSize = config.teamSizes & 0x0F;
-        uint256 p1TeamSize = config.teamSizes >> 4;
-        uint256 p0KOBitmap = _getKOBitmap(config, 0);
-        uint256 p1KOBitmap = _getKOBitmap(config, 1);
-        // Full team mask: (1 << teamSize) - 1, e.g. teamSize=3 -> 0b111
-        uint256 p0FullMask = (1 << p0TeamSize) - 1;
-        uint256 p1FullMask = (1 << p1TeamSize) - 1;
+        // No game over - check for KOs and set player switch for turn flag
+        playerSwitchForTurnFlag = 2;
 
-        if (p0KOBitmap == p0FullMask) {
-            newWinnerIndex = 1; // p1 wins
-        } else if (p1KOBitmap == p1FullMask) {
-            newWinnerIndex = 0; // p0 wins
+        // Use already-loaded KO bitmaps to check active mon KO status
+        uint256 priorityActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
+        uint256 otherActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
+        uint256 priorityKOBitmap = priorityPlayerIndex == 0 ? p0KOBitmap : p1KOBitmap;
+        uint256 otherKOBitmap = priorityPlayerIndex == 0 ? p1KOBitmap : p0KOBitmap;
+        bool isPriorityPlayerActiveMonKnockedOut = (priorityKOBitmap & (1 << priorityActiveMonIndex)) != 0;
+        bool isNonPriorityPlayerActiveMonKnockedOut = (otherKOBitmap & (1 << otherActiveMonIndex)) != 0;
+
+        // If the priority player mon is KO'ed (and the other player isn't), next turn only other player acts
+        if (isPriorityPlayerActiveMonKnockedOut && !isNonPriorityPlayerActiveMonKnockedOut) {
+            playerSwitchForTurnFlag = priorityPlayerIndex;
         }
-        // If we found a winner, set it on the battle data and return
-        if (newWinnerIndex != 2) {
-            battle.winnerIndex = uint8(newWinnerIndex);
-            return (playerSwitchForTurnFlag, true);
-        }
-        // Otherwise if it isn't a game over, we check for KOs and set the player switch for turn flag
-        else {
-            // Always set default switch to be 2 (allow both players to make a move)
-            playerSwitchForTurnFlag = 2;
 
-            // Use already-loaded KO bitmaps to check active mon KO status (avoids SLOAD)
-            uint256 priorityActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
-            uint256 otherActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
-            uint256 priorityKOBitmap = priorityPlayerIndex == 0 ? p0KOBitmap : p1KOBitmap;
-            uint256 otherKOBitmap = priorityPlayerIndex == 0 ? p1KOBitmap : p0KOBitmap;
-            bool isPriorityPlayerActiveMonKnockedOut = (priorityKOBitmap & (1 << priorityActiveMonIndex)) != 0;
-            bool isNonPriorityPlayerActiveMonKnockedOut = (otherKOBitmap & (1 << otherActiveMonIndex)) != 0;
-
-            // If the priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the other player
-            if (isPriorityPlayerActiveMonKnockedOut && !isNonPriorityPlayerActiveMonKnockedOut) {
-                playerSwitchForTurnFlag = priorityPlayerIndex;
-            }
-
-            // If the non priority player mon is KO'ed (and the other player isn't), then next turn we tenatively set it to be just the priority player
-            if (!isPriorityPlayerActiveMonKnockedOut && isNonPriorityPlayerActiveMonKnockedOut) {
-                playerSwitchForTurnFlag = otherPlayerIndex;
-            }
+        // If the non priority player mon is KO'ed (and the other player isn't), next turn only priority player acts
+        if (!isPriorityPlayerActiveMonKnockedOut && isNonPriorityPlayerActiveMonKnockedOut) {
+            playerSwitchForTurnFlag = otherPlayerIndex;
         }
     }
 
     function _handleSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex, address source) internal {
-        // NOTE: We will check for game over after the switch in the engine for two player turns, so we don't do it here
-        // But this also means that the current flow of OnMonSwitchOut effects -> OnMonSwitchIn effects -> ability activateOnSwitch
-        // will all resolve before checking for KOs or winners
-        // (could break this up even more, but that's for a later version / PR)
+        BattleData storage battle = battleData[battleKey];
+        uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
 
+        // Run switch-out effects
+        _handleSwitchCore(battleKey, playerIndex, currentActiveMonIndex, monToSwitchIndex, source);
+
+        // Update active mon index (singles packing)
+        battle.activeMonIndex = _setActiveMonIndex(battle.activeMonIndex, playerIndex, monToSwitchIndex);
+
+        // Run switch-in effects
+        _completeSwitchIn(battleKey, playerIndex, monToSwitchIndex);
+    }
+
+    // Core switch logic shared between singles and doubles
+    function _handleSwitchCore(
+        bytes32 battleKey,
+        uint256 playerIndex,
+        uint256 currentActiveMonIndex,
+        uint256 monToSwitchIndex,
+        address source
+    ) internal {
         BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKeyForWrite];
-        uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         MonState storage currentMonState = _getMonState(config, playerIndex, currentActiveMonIndex);
 
         // Emit event first, then run effects
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
 
-        // If the current mon is not KO'ed
-        // Go through each effect to see if it should be cleared after a switch,
-        // If so, remove the effect and the extra data
+        // If the current mon is not KO'ed, run switch-out effects
         if (!currentMonState.isKnockedOut) {
             _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
-
-            // Then run the global on mon switch out hook as well
             _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
         }
 
-        // Update to new active mon (we assume validateSwitch already resolved and gives us a valid target)
-        battle.activeMonIndex = _setActiveMonIndex(battle.activeMonIndex, playerIndex, monToSwitchIndex);
+        // Note: Caller is responsible for updating activeMonIndex with appropriate packing
+
+        // Run onMonSwitchIn hooks (these run after the index is updated by the caller)
+    }
+
+    // Complete switch-in effects (called after activeMonIndex is updated)
+    function _completeSwitchIn(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex) internal {
+        BattleData storage battle = battleData[battleKey];
+        BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         // Run onMonSwitchIn hook for local effects
         _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
@@ -964,7 +1106,7 @@ contract Engine is IEngine, MappingAllocator {
         // Run onMonSwitchIn hook for global effects
         _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
 
-        // Run ability for the newly switched in mon as long as it's not KO'ed and as long as it's not turn 0, (execute() has a special case to run activateOnSwitch after both moves are handled)
+        // Run ability for the newly switched in mon
         Mon memory mon = _getTeamMon(config, playerIndex, monToSwitchIndex);
         if (
             address(mon.ability) != address(0) && battle.turnId != 0
@@ -1502,6 +1644,8 @@ contract Engine is IEngine, MappingAllocator {
             p1Salt: config.p1Salt,
             p0Move: config.p0Move,
             p1Move: config.p1Move,
+            p0Move2: config.p0Move2,
+            p1Move2: config.p1Move2,
             globalEffects: globalEffects,
             p0Effects: p0Effects,
             p1Effects: p1Effects,
@@ -1696,11 +1840,47 @@ contract Engine is IEngine, MappingAllocator {
     }
 
     function getActiveMonIndexForBattleState(bytes32 battleKey) external view returns (uint256[] memory) {
-        uint16 packed = battleData[battleKey].activeMonIndex;
+        BattleData storage data = battleData[battleKey];
+        uint16 packed = data.activeMonIndex;
+        bool isDoubles = (data.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+
         uint256[] memory result = new uint256[](2);
-        result[0] = _unpackActiveMonIndex(packed, 0);
-        result[1] = _unpackActiveMonIndex(packed, 1);
+        if (isDoubles) {
+            // For doubles, return slot 0 active mon for each player
+            result[0] = _unpackActiveMonIndexForSlot(packed, 0, 0);
+            result[1] = _unpackActiveMonIndexForSlot(packed, 1, 0);
+        } else {
+            // For singles, use original unpacking
+            result[0] = _unpackActiveMonIndex(packed, 0);
+            result[1] = _unpackActiveMonIndex(packed, 1);
+        }
         return result;
+    }
+
+    function getGameMode(bytes32 battleKey) external view returns (GameMode) {
+        uint8 slotSwitchFlagsAndGameMode = battleData[battleKey].slotSwitchFlagsAndGameMode;
+        return (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
+    }
+
+    function getActiveMonIndexForSlot(bytes32 battleKey, uint256 playerIndex, uint256 slotIndex)
+        external
+        view
+        returns (uint256)
+    {
+        BattleData storage data = battleData[battleKey];
+        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
+        bool isDoubles = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+
+        if (isDoubles) {
+            // Doubles: 4 bits per slot
+            // Bits 0-3: p0 slot 0, Bits 4-7: p0 slot 1, Bits 8-11: p1 slot 0, Bits 12-15: p1 slot 1
+            uint256 shift = (playerIndex * 2 + slotIndex) * ACTIVE_MON_INDEX_BITS;
+            return (data.activeMonIndex >> shift) & ACTIVE_MON_INDEX_MASK;
+        } else {
+            // Singles: only slot 0 is valid, 8 bits per player
+            if (slotIndex != 0) return 0;
+            return _unpackActiveMonIndex(data.activeMonIndex, playerIndex);
+        }
     }
 
     function getPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
@@ -1761,8 +1941,26 @@ contract Engine is IEngine, MappingAllocator {
         ctx.turnId = data.turnId;
         ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
         ctx.prevPlayerSwitchForTurnFlag = data.prevPlayerSwitchForTurnFlag;
-        ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & 0xFF);
-        ctx.p1ActiveMonIndex = uint8(data.activeMonIndex >> 8);
+
+        // Extract game mode and active mon indices based on mode
+        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
+        ctx.gameMode = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
+        ctx.slotSwitchFlags = slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+
+        if (ctx.gameMode == GameMode.Doubles) {
+            // Doubles: 4 bits per slot
+            ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & ACTIVE_MON_INDEX_MASK);
+            ctx.p0ActiveMonIndex2 = uint8((data.activeMonIndex >> 4) & ACTIVE_MON_INDEX_MASK);
+            ctx.p1ActiveMonIndex = uint8((data.activeMonIndex >> 8) & ACTIVE_MON_INDEX_MASK);
+            ctx.p1ActiveMonIndex2 = uint8((data.activeMonIndex >> 12) & ACTIVE_MON_INDEX_MASK);
+        } else {
+            // Singles: 8 bits per player (backwards compatible)
+            ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & 0xFF);
+            ctx.p1ActiveMonIndex = uint8(data.activeMonIndex >> 8);
+            ctx.p0ActiveMonIndex2 = 0;
+            ctx.p1ActiveMonIndex2 = 0;
+        }
+
         ctx.validator = address(config.validator);
         ctx.moveManager = config.moveManager;
     }
@@ -1778,6 +1976,12 @@ contract Engine is IEngine, MappingAllocator {
         ctx.winnerIndex = data.winnerIndex;
         ctx.turnId = data.turnId;
         ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
+
+        // Extract game mode and slot switch flags
+        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
+        ctx.gameMode = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
+        ctx.slotSwitchFlags = slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+
         ctx.validator = address(config.validator);
     }
 
@@ -1790,9 +1994,18 @@ contract Engine is IEngine, MappingAllocator {
         BattleData storage data = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
 
-        // Get active mon indices
-        uint256 attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
-        uint256 defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
+        // Get active mon indices (doubles-aware)
+        bool isDoubles = (data.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+        uint256 attackerMonIndex;
+        uint256 defenderMonIndex;
+        if (isDoubles) {
+            // For doubles, use slot 0 as default (targeting via extraData handled elsewhere)
+            attackerMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, attackerPlayerIndex, 0);
+            defenderMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, defenderPlayerIndex, 0);
+        } else {
+            attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
+            defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
+        }
 
         ctx.attackerMonIndex = uint8(attackerMonIndex);
         ctx.defenderMonIndex = uint8(defenderMonIndex);
@@ -1814,5 +2027,445 @@ contract Engine is IEngine, MappingAllocator {
         ctx.defenderSpDefDelta = defenderState.specialDefenceDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : defenderState.specialDefenceDelta;
         ctx.defenderType1 = defenderMon.stats.type1;
         ctx.defenderType2 = defenderMon.stats.type2;
+    }
+
+    /**
+     * - Doubles helper functions
+     */
+
+    // Unpack active mon index for a specific slot in doubles mode
+    // Doubles packing: bits 0-3 = p0s0, 4-7 = p0s1, 8-11 = p1s0, 12-15 = p1s1
+    function _unpackActiveMonIndexForSlot(uint16 packed, uint256 playerIndex, uint256 slotIndex) internal pure returns (uint256) {
+        uint256 shift = (playerIndex * 2 + slotIndex) * ACTIVE_MON_INDEX_BITS;
+        return (packed >> shift) & ACTIVE_MON_INDEX_MASK;
+    }
+
+    // Set active mon index for a specific slot in doubles mode
+    function _setActiveMonIndexForSlot(uint16 packed, uint256 playerIndex, uint256 slotIndex, uint256 monIndex) internal pure returns (uint16) {
+        uint256 shift = (playerIndex * 2 + slotIndex) * ACTIVE_MON_INDEX_BITS;
+        uint16 mask = uint16(uint256(ACTIVE_MON_INDEX_MASK) << shift);
+        return (packed & ~mask) | uint16((monIndex & ACTIVE_MON_INDEX_MASK) << shift);
+    }
+
+    // Get the move decision for a specific player and slot
+    function _getMoveDecisionForSlot(BattleConfig storage config, uint256 playerIndex, uint256 slotIndex) internal view returns (MoveDecision memory) {
+        if (playerIndex == 0) {
+            return slotIndex == 0 ? config.p0Move : config.p0Move2;
+        } else {
+            return slotIndex == 0 ? config.p1Move : config.p1Move2;
+        }
+    }
+
+    // Check if game mode is doubles
+    function _isDoublesMode(BattleData storage battle) internal view returns (bool) {
+        return (battle.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
+    }
+
+    // Get slot switch flags (lower 4 bits of slotSwitchFlagsAndGameMode)
+    function _getSlotSwitchFlags(BattleData storage battle) internal view returns (uint8) {
+        return battle.slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
+    }
+
+    // Set slot switch flag for a specific slot
+    function _setSlotSwitchFlag(BattleData storage battle, uint256 playerIndex, uint256 slotIndex) internal {
+        uint8 flagBit;
+        if (playerIndex == 0) {
+            flagBit = slotIndex == 0 ? SWITCH_FLAG_P0_SLOT0 : SWITCH_FLAG_P0_SLOT1;
+        } else {
+            flagBit = slotIndex == 0 ? SWITCH_FLAG_P1_SLOT0 : SWITCH_FLAG_P1_SLOT1;
+        }
+        battle.slotSwitchFlagsAndGameMode |= flagBit;
+    }
+
+    // Clear all slot switch flags (keep game mode bit)
+    function _clearSlotSwitchFlags(BattleData storage battle) internal {
+        battle.slotSwitchFlagsAndGameMode &= ~SWITCH_FLAGS_MASK;
+    }
+
+    /**
+     * @dev Check if a player has any KO'd slot that has a valid switch target
+     * @param config Battle config
+     * @param battle Battle data
+     * @param playerIndex Which player to check (0 or 1)
+     * @param koBitmap Bitmap of KO'd mons for this player
+     * @return needsSwitch True if player has a KO'd slot with valid switch target
+     */
+    function _playerNeedsSwitchTurn(
+        BattleConfig storage config,
+        BattleData storage battle,
+        uint256 playerIndex,
+        uint256 koBitmap
+    ) internal view returns (bool needsSwitch) {
+        uint256 teamSize = playerIndex == 0 ? (config.teamSizes & 0x0F) : (config.teamSizes >> 4);
+
+        // Check each slot
+        for (uint256 s = 0; s < 2; s++) {
+            uint256 activeMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, s);
+            bool isSlotKOed = (koBitmap & (1 << activeMonIndex)) != 0;
+
+            if (isSlotKOed) {
+                // This slot is KO'd - check if there's a valid switch target
+                uint256 otherSlotMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, 1 - s);
+
+                for (uint256 m = 0; m < teamSize; m++) {
+                    // Skip if mon is KO'd
+                    if ((koBitmap & (1 << m)) != 0) continue;
+                    // Skip if mon is active in other slot
+                    if (m == otherSlotMonIndex) continue;
+                    // Found a valid switch target
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Struct for tracking move order in doubles
+    struct MoveOrder {
+        uint256 playerIndex;
+        uint256 slotIndex;
+        uint256 priority;
+        uint256 speed;
+    }
+
+    // Compute move order for all 4 slots in doubles (sorted by priority desc, then speed desc, then position)
+    // Position tiebreaker: p0s0 > p0s1 > p1s0 > p1s1 (lower position index = higher priority)
+    function _computeMoveOrderForDoubles(
+        bytes32 battleKey,
+        BattleConfig storage config,
+        BattleData storage battle
+    ) internal view returns (MoveOrder[4] memory moveOrder) {
+        // Collect move info for all 4 slots
+        for (uint256 p = 0; p < 2; p++) {
+            for (uint256 s = 0; s < 2; s++) {
+                uint256 idx = p * 2 + s;
+                moveOrder[idx].playerIndex = p;
+                moveOrder[idx].slotIndex = s;
+
+                MoveDecision memory move = _getMoveDecisionForSlot(config, p, s);
+
+                // If move wasn't set (single-player turn), treat as NO_OP for ordering
+                if ((move.packedMoveIndex & IS_REAL_TURN_BIT) == 0) {
+                    moveOrder[idx].priority = 0; // Lowest priority - will be skipped anyway
+                    moveOrder[idx].speed = 0;
+                    continue;
+                }
+
+                uint8 storedMoveIndex = move.packedMoveIndex & MOVE_INDEX_MASK;
+                uint8 moveIndex = storedMoveIndex >= SWITCH_MOVE_INDEX ? storedMoveIndex : storedMoveIndex - MOVE_INDEX_OFFSET;
+
+                uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
+
+                // Get priority
+                if (moveIndex == SWITCH_MOVE_INDEX || moveIndex == NO_OP_MOVE_INDEX) {
+                    moveOrder[idx].priority = SWITCH_PRIORITY;
+                } else {
+                    IMoveSet moveSet = _getTeamMon(config, p, monIndex).moves[moveIndex];
+                    moveOrder[idx].priority = moveSet.priority(battleKey, p);
+                }
+
+                // Get speed
+                int32 speedDelta = _getMonState(config, p, monIndex).speedDelta;
+                uint32 monSpeed = uint32(
+                    int32(_getTeamMon(config, p, monIndex).stats.speed) +
+                    (speedDelta == CLEARED_MON_STATE_SENTINEL ? int32(0) : speedDelta)
+                );
+                moveOrder[idx].speed = monSpeed;
+            }
+        }
+
+        // Sort by priority (desc), then speed (desc), then position (asc, implicit from initial order)
+        // Simple bubble sort (only 4 elements)
+        for (uint256 i = 0; i < 3; i++) {
+            for (uint256 j = 0; j < 3 - i; j++) {
+                bool shouldSwap = false;
+                if (moveOrder[j].priority < moveOrder[j + 1].priority) {
+                    shouldSwap = true;
+                } else if (moveOrder[j].priority == moveOrder[j + 1].priority) {
+                    if (moveOrder[j].speed < moveOrder[j + 1].speed) {
+                        shouldSwap = true;
+                    }
+                    // If both priority and speed are equal, keep original order (position tiebreaker)
+                }
+
+                if (shouldSwap) {
+                    MoveOrder memory temp = moveOrder[j];
+                    moveOrder[j] = moveOrder[j + 1];
+                    moveOrder[j + 1] = temp;
+                }
+            }
+        }
+    }
+
+    // Handle a move for a specific slot in doubles
+    function _handleMoveForSlot(
+        bytes32 battleKey,
+        BattleConfig storage config,
+        BattleData storage battle,
+        uint256 playerIndex,
+        uint256 slotIndex
+    ) internal returns (bool monKOed) {
+        MoveDecision memory move = _getMoveDecisionForSlot(config, playerIndex, slotIndex);
+        int32 staminaCost;
+
+        // Check if move was set (isRealTurn bit)
+        if ((move.packedMoveIndex & IS_REAL_TURN_BIT) == 0) {
+            return false;
+        }
+
+        // Unpack moveIndex from packedMoveIndex
+        uint8 storedMoveIndex = move.packedMoveIndex & MOVE_INDEX_MASK;
+        uint8 moveIndex = storedMoveIndex >= SWITCH_MOVE_INDEX ? storedMoveIndex : storedMoveIndex - MOVE_INDEX_OFFSET;
+
+        // Get active mon for this slot
+        uint256 activeMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, slotIndex);
+        MonState storage currentMonState = _getMonState(config, playerIndex, activeMonIndex);
+
+        // Handle shouldSkipTurn flag
+        if (currentMonState.shouldSkipTurn) {
+            currentMonState.shouldSkipTurn = false;
+            return false;
+        }
+
+        // Skip if mon is already KO'd (unless it's a switch - switching away from KO'd mon is allowed)
+        if (currentMonState.isKnockedOut && moveIndex != SWITCH_MOVE_INDEX) {
+            return false;
+        }
+
+        // Handle switch, no-op, or regular move
+        if (moveIndex == SWITCH_MOVE_INDEX) {
+            uint256 targetMonIndex = uint256(move.extraData);
+            // Check if target mon is already active in other slot (handles case where both slots try to switch to same mon)
+            uint256 otherSlotIndex = 1 - slotIndex;
+            uint256 otherSlotActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, otherSlotIndex);
+            if (targetMonIndex == otherSlotActiveMonIndex) {
+                // Target mon is already active in other slot - treat as NO_OP
+                emit MonMove(battleKey, playerIndex, activeMonIndex, NO_OP_MOVE_INDEX, move.extraData, staminaCost);
+            } else {
+                _handleSwitchForSlot(battleKey, playerIndex, slotIndex, targetMonIndex, address(0));
+            }
+        } else if (moveIndex == NO_OP_MOVE_INDEX) {
+            emit MonMove(battleKey, playerIndex, activeMonIndex, moveIndex, move.extraData, staminaCost);
+        } else {
+            // Validate move is still valid
+            if (!config.validator.validateSpecificMoveSelection(battleKey, moveIndex, playerIndex, move.extraData)) {
+                return false;
+            }
+
+            IMoveSet moveSet = _getTeamMon(config, playerIndex, activeMonIndex).moves[moveIndex];
+
+            // Deduct stamina
+            staminaCost = int32(moveSet.stamina(battleKey, playerIndex, activeMonIndex));
+            MonState storage monState = _getMonState(config, playerIndex, activeMonIndex);
+            monState.staminaDelta = (monState.staminaDelta == CLEARED_MON_STATE_SENTINEL) ? -staminaCost : monState.staminaDelta - staminaCost;
+
+            emit MonMove(battleKey, playerIndex, activeMonIndex, moveIndex, move.extraData, staminaCost);
+
+            // Execute the move
+            moveSet.move(battleKey, playerIndex, move.extraData, tempRNG);
+        }
+
+        // Check if mon got KO'd as a result of this move
+        return currentMonState.isKnockedOut;
+    }
+
+    // Handle switch for a specific slot in doubles (uses shared core functions)
+    function _handleSwitchForSlot(bytes32 battleKey, uint256 playerIndex, uint256 slotIndex, uint256 monToSwitchIndex, address source) internal {
+        BattleData storage battle = battleData[battleKey];
+        uint256 currentActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, slotIndex);
+
+        // Run switch-out effects (shared)
+        _handleSwitchCore(battleKey, playerIndex, currentActiveMonIndex, monToSwitchIndex, source);
+
+        // Update active mon for this slot (doubles packing)
+        battle.activeMonIndex = _setActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, slotIndex, monToSwitchIndex);
+
+        // Run switch-in effects (shared)
+        _completeSwitchIn(battleKey, playerIndex, monToSwitchIndex);
+    }
+
+    // Check for game over or KO in doubles mode (uses shared game over check)
+    function _checkForGameOverOrKO_Doubles(
+        BattleConfig storage config,
+        BattleData storage battle
+    ) internal returns (bool isGameOver) {
+        // Use shared game over check
+        (uint256 winnerIndex, uint256 p0KOBitmap, uint256 p1KOBitmap) = _checkForGameOver(config, battle);
+
+        if (winnerIndex != 2) {
+            battle.winnerIndex = uint8(winnerIndex);
+            return true;
+        }
+
+        // No game over - check each slot for KO and set switch flags
+        _clearSlotSwitchFlags(battle);
+        for (uint256 p = 0; p < 2; p++) {
+            uint256 koBitmap = p == 0 ? p0KOBitmap : p1KOBitmap;
+            for (uint256 s = 0; s < 2; s++) {
+                uint256 activeMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
+                bool isKOed = (koBitmap & (1 << activeMonIndex)) != 0;
+                if (isKOed) {
+                    _setSlotSwitchFlag(battle, p, s);
+                }
+            }
+        }
+
+        // Determine if either player needs a switch turn (has KO'd slot with valid target)
+        bool p0NeedsSwitch = _playerNeedsSwitchTurn(config, battle, 0, p0KOBitmap);
+        bool p1NeedsSwitch = _playerNeedsSwitchTurn(config, battle, 1, p1KOBitmap);
+
+        // Set playerSwitchForTurnFlag based on who needs to switch
+        if (p0NeedsSwitch && p1NeedsSwitch) {
+            // Both players have KO'd mons with valid targets - both act (switch-only turn)
+            battle.playerSwitchForTurnFlag = 2;
+        } else if (p0NeedsSwitch) {
+            // Only p0 needs to switch
+            battle.playerSwitchForTurnFlag = 0;
+        } else if (p1NeedsSwitch) {
+            // Only p1 needs to switch
+            battle.playerSwitchForTurnFlag = 1;
+        } else {
+            // Neither needs switch - normal turn (both act)
+            battle.playerSwitchForTurnFlag = 2;
+        }
+
+        return false;
+    }
+
+    // Main execution function for doubles mode
+    function _executeDoubles(
+        bytes32 battleKey,
+        BattleConfig storage config,
+        BattleData storage battle,
+        uint256 turnId,
+        uint256 numHooks
+    ) internal {
+        // Update the temporary RNG
+        uint256 rng = config.rngOracle.getRNG(config.p0Salt, config.p1Salt);
+        tempRNG = rng;
+
+        // Compute move order for all 4 slots
+        MoveOrder[4] memory moveOrder = _computeMoveOrderForDoubles(battleKey, config, battle);
+
+        // Run beginning of round effects (global)
+        _runEffects(battleKey, rng, 2, 2, EffectStep.RoundStart, "");
+
+        // Run beginning of round effects for each slot's mon (if not KO'd)
+        for (uint256 i = 0; i < 4; i++) {
+            uint256 p = moveOrder[i].playerIndex;
+            uint256 s = moveOrder[i].slotIndex;
+            uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
+            if (!_getMonState(config, p, monIndex).isKnockedOut) {
+                _runEffects(battleKey, rng, p, p, EffectStep.RoundStart, "");
+            }
+        }
+
+        // Execute moves in priority order
+        for (uint256 i = 0; i < 4; i++) {
+            uint256 p = moveOrder[i].playerIndex;
+            uint256 s = moveOrder[i].slotIndex;
+
+            // Execute the move for this slot
+            _handleMoveForSlot(battleKey, config, battle, p, s);
+
+            // Check for game over after each move
+            if (_checkForGameOverOrKO_Doubles(config, battle)) {
+                // Game is over, handle cleanup and return
+                address winner = (battle.winnerIndex == 0) ? battle.p0 : battle.p1;
+                _handleGameOver(battleKey, winner);
+
+                // Run round end hooks
+                for (uint256 j = 0; j < numHooks; ++j) {
+                    config.engineHooks[j].onRoundEnd(battleKey);
+                }
+
+                emit EngineExecute(battleKey, turnId, 2, moveOrder[0].playerIndex);
+                return;
+            }
+        }
+
+        // For turn 0 only: handle ability activateOnSwitch for all 4 mons
+        if (turnId == 0) {
+            for (uint256 p = 0; p < 2; p++) {
+                for (uint256 s = 0; s < 2; s++) {
+                    uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
+                    Mon memory mon = _getTeamMon(config, p, monIndex);
+                    if (address(mon.ability) != address(0)) {
+                        mon.ability.activateOnSwitch(battleKey, p, monIndex);
+                    }
+                }
+            }
+        }
+
+        // Run afterMove effects for each slot (in move order)
+        for (uint256 i = 0; i < 4; i++) {
+            uint256 p = moveOrder[i].playerIndex;
+            uint256 s = moveOrder[i].slotIndex;
+            uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
+            if (!_getMonState(config, p, monIndex).isKnockedOut) {
+                _runEffects(battleKey, rng, p, p, EffectStep.AfterMove, "");
+            }
+        }
+
+        // Run global afterMove effects
+        _runEffects(battleKey, rng, 2, 2, EffectStep.AfterMove, "");
+
+        // Check for game over after effects
+        if (_checkForGameOverOrKO_Doubles(config, battle)) {
+            address winner = (battle.winnerIndex == 0) ? battle.p0 : battle.p1;
+            _handleGameOver(battleKey, winner);
+
+            for (uint256 j = 0; j < numHooks; ++j) {
+                config.engineHooks[j].onRoundEnd(battleKey);
+            }
+
+            emit EngineExecute(battleKey, turnId, 2, moveOrder[0].playerIndex);
+            return;
+        }
+
+        // Run global roundEnd effects
+        _runEffects(battleKey, rng, 2, 2, EffectStep.RoundEnd, "");
+
+        // Run roundEnd effects for each slot (in move order)
+        for (uint256 i = 0; i < 4; i++) {
+            uint256 p = moveOrder[i].playerIndex;
+            uint256 s = moveOrder[i].slotIndex;
+            uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
+            if (!_getMonState(config, p, monIndex).isKnockedOut) {
+                _runEffects(battleKey, rng, p, p, EffectStep.RoundEnd, "");
+            }
+        }
+
+        // Final game over check after round end effects
+        if (_checkForGameOverOrKO_Doubles(config, battle)) {
+            address winner = (battle.winnerIndex == 0) ? battle.p0 : battle.p1;
+            _handleGameOver(battleKey, winner);
+
+            for (uint256 j = 0; j < numHooks; ++j) {
+                config.engineHooks[j].onRoundEnd(battleKey);
+            }
+
+            emit EngineExecute(battleKey, turnId, 2, moveOrder[0].playerIndex);
+            return;
+        }
+
+        // Run round end hooks
+        for (uint256 i = 0; i < numHooks; ++i) {
+            config.engineHooks[i].onRoundEnd(battleKey);
+        }
+
+        // End of turn cleanup
+        battle.turnId += 1;
+
+        // playerSwitchForTurnFlag was already set by _checkForGameOverOrKO_Doubles
+        // based on whether players need to switch (have KO'd slots with valid targets)
+
+        // Clear move flags for next turn
+        config.p0Move.packedMoveIndex = 0;
+        config.p1Move.packedMoveIndex = 0;
+        config.p0Move2.packedMoveIndex = 0;
+        config.p1Move2.packedMoveIndex = 0;
+
+        emit EngineExecute(battleKey, turnId, 2, moveOrder[0].playerIndex);
     }
 }

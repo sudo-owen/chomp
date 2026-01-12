@@ -91,7 +91,7 @@ library AttackCalculator {
         // [0... accuracy] [accuracy + 1, ..., 100]
         // [succeeds     ] [fails                 ]
         if ((rng % 100) >= accuracy) {
-            return (0, bytes32(0));
+            return (0, MOVE_MISS_EVENT_TYPE);
         }
 
         int32 damage;

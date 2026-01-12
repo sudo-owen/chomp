@@ -15,6 +15,26 @@ interface IValidator {
         external
         returns (bool);
 
+    // Validates a move for a specific slot in doubles mode
+    function validatePlayerMoveForSlot(
+        bytes32 battleKey,
+        uint256 moveIndex,
+        uint256 playerIndex,
+        uint256 slotIndex,
+        uint240 extraData
+    ) external returns (bool);
+
+    // Validates a move for a specific slot, accounting for what the other slot is switching to
+    // claimedByOtherSlot is the mon index the other slot is switching to (type(uint256).max if not applicable)
+    function validatePlayerMoveForSlotWithClaimed(
+        bytes32 battleKey,
+        uint256 moveIndex,
+        uint256 playerIndex,
+        uint256 slotIndex,
+        uint240 extraData,
+        uint256 claimedByOtherSlot
+    ) external returns (bool);
+
     // Validates that a move selection is valid (specifically wrt stamina)
     function validateSpecificMoveSelection(
         bytes32 battleKey,
