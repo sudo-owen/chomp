@@ -23,6 +23,9 @@ import {CustomAttack} from "./mocks/CustomAttack.sol";
 import {DoublesTargetedAttack} from "./mocks/DoublesTargetedAttack.sol";
 import {ForceSwitchMove} from "./mocks/ForceSwitchMove.sol";
 import {DoublesForceSwitchMove} from "./mocks/DoublesForceSwitchMove.sol";
+import {DoublesEffectAttack} from "./mocks/DoublesEffectAttack.sol";
+import {InstantDeathEffect} from "./mocks/InstantDeathEffect.sol";
+import {IEffect} from "../src/effects/IEffect.sol";
 
 /**
  * @title DoublesValidationTest
@@ -2536,6 +2539,88 @@ contract DoublesValidationTest is Test {
         bytes32 salt = keccak256(abi.encodePacked("switch", engine.getTurnIdForBattleState(battleKey)));
         vm.prank(ALICE);
         scm.revealMove(battleKey, SWITCH_MOVE_INDEX, salt, uint240(monIndex), true);
+    }
+
+    /**
+     * @notice Test that effects run correctly for BOTH slots in doubles
+     * @dev This test validates the fix for the _runEffectsForMon bug where
+     *      effects on slot 1's mon would incorrectly be looked up for slot 0's mon.
+     *
+     *      Test setup:
+     *      - Alice uses DoublesEffectAttack on both slots to apply InstantDeathEffect
+     *        to Bob's slot 0 (mon 0) and slot 1 (mon 1)
+     *      - At RoundEnd, both effects should run and KO both of Bob's mons
+     *      - If the bug existed, only slot 0's mon would be KO'd
+     */
+    function test_effectsRunOnBothSlots() public {
+        // Create InstantDeathEffect that KOs mon at RoundEnd
+        InstantDeathEffect deathEffect = new InstantDeathEffect(engine);
+
+        // Create DoublesEffectAttack that applies the effect to a target slot
+        DoublesEffectAttack effectAttack = new DoublesEffectAttack(
+            engine,
+            IEffect(address(deathEffect)),
+            DoublesEffectAttack.Args({TYPE: Type.Fire, STAMINA_COST: 1, PRIORITY: 0})
+        );
+
+        // Create teams where Alice has the effect attack
+        IMoveSet[] memory aliceMoves = new IMoveSet[](4);
+        aliceMoves[0] = effectAttack;  // Apply effect to target slot
+        aliceMoves[1] = customAttack;
+        aliceMoves[2] = customAttack;
+        aliceMoves[3] = customAttack;
+
+        IMoveSet[] memory bobMoves = new IMoveSet[](4);
+        bobMoves[0] = customAttack;
+        bobMoves[1] = customAttack;
+        bobMoves[2] = customAttack;
+        bobMoves[3] = customAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 20, aliceMoves);  // Fast, will act first
+        aliceTeam[1] = _createMon(100, 18, aliceMoves);
+        aliceTeam[2] = _createMon(100, 16, aliceMoves);
+
+        Mon[] memory bobTeam = new Mon[](3);
+        bobTeam[0] = _createMon(100, 5, bobMoves);   // Slot 0 - will receive death effect
+        bobTeam[1] = _createMon(100, 4, bobMoves);   // Slot 1 - will receive death effect
+        bobTeam[2] = _createMon(100, 3, bobMoves);   // Reserve
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+        defaultRegistry.setTeam(BOB, bobTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Verify initial state: both of Bob's mons are alive
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.IsKnockedOut), 0, "Bob mon 0 should be alive");
+        assertEq(engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.IsKnockedOut), 0, "Bob mon 1 should be alive");
+
+        // Turn 1: Alice's slot 0 uses effectAttack targeting Bob's slot 0
+        //         Alice's slot 1 uses effectAttack targeting Bob's slot 1
+        // Both of Bob's mons will have InstantDeathEffect applied
+        // At RoundEnd, both effects should run and KO both mons
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, 0,                      // Alice slot 0: move 0, target slot 0
+            0, 1,                      // Alice slot 1: move 0, target slot 1
+            NO_OP_MOVE_INDEX, 0,       // Bob slot 0: no-op
+            NO_OP_MOVE_INDEX, 0        // Bob slot 1: no-op
+        );
+
+        // After the turn, both of Bob's mons should be KO'd by the InstantDeathEffect
+        // If the bug existed (slot 1's effect running for slot 0's mon), only mon 0 would be KO'd
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.IsKnockedOut),
+            1,
+            "Bob mon 0 should be KO'd by InstantDeathEffect"
+        );
+        assertEq(
+            engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.IsKnockedOut),
+            1,
+            "Bob mon 1 should be KO'd by InstantDeathEffect (validates slot 1 effect runs correctly)"
+        );
     }
 }
 

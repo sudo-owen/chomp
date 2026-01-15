@@ -1196,31 +1196,40 @@ contract Engine is IEngine, MappingAllocator {
         EffectStep round,
         bytes memory extraEffectsData
     ) internal {
+        // Default: calculate monIndex from active mon (singles behavior)
+        _runEffectsForMon(battleKey, rng, effectIndex, playerIndex, round, extraEffectsData, type(uint256).max);
+    }
+
+    function _runEffectsForMon(
+        bytes32 battleKey,
+        uint256 rng,
+        uint256 effectIndex,
+        uint256 playerIndex,
+        EffectStep round,
+        bytes memory extraEffectsData,
+        uint256 explicitMonIndex
+    ) internal {
         BattleData storage battle = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         uint256 monIndex;
-        // Determine the mon index for the target
-        if (effectIndex == 2) {
-            // Global effects - monIndex doesn't matter for filtering
+        // Use explicit monIndex if provided, otherwise calculate from active mon
+        if (explicitMonIndex != type(uint256).max) {
+            monIndex = explicitMonIndex;
+        } else if (playerIndex != 2) {
+            // Specific player - get their active mon (this takes priority over effectIndex)
+            monIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
+        } else if (effectIndex == 2) {
+            // Global effects with global playerIndex - monIndex doesn't matter for filtering
             monIndex = 0;
         } else {
+            // effectIndex is player-specific but playerIndex is global - use effectIndex
             monIndex = _unpackActiveMonIndex(battle.activeMonIndex, effectIndex);
-        }
-
-        // Grab the active mon (global effect won't know which player index to get, so we set it here)
-        if (playerIndex != 2) {
-            monIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
         }
 
         // Iterate directly over storage, skipping tombstones
         // With tombstones, indices are stable so no snapshot needed
-        uint256 baseSlot;
-        if (effectIndex == 0) {
-            baseSlot = _getEffectSlotIndex(monIndex, 0);
-        } else if (effectIndex == 1) {
-            baseSlot = _getEffectSlotIndex(monIndex, 0);
-        }
+        uint256 baseSlot = (effectIndex != 2) ? _getEffectSlotIndex(monIndex, 0) : 0;
 
         // Use a loop index that reads current length each iteration (allows processing newly added effects)
         uint256 i = 0;
@@ -2356,7 +2365,7 @@ contract Engine is IEngine, MappingAllocator {
             uint256 s = moveOrder[i].slotIndex;
             uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
             if (!_getMonState(config, p, monIndex).isKnockedOut) {
-                _runEffects(battleKey, rng, p, p, EffectStep.RoundStart, "");
+                _runEffectsForMon(battleKey, rng, p, p, EffectStep.RoundStart, "", monIndex);
             }
         }
 
@@ -2403,7 +2412,7 @@ contract Engine is IEngine, MappingAllocator {
             uint256 s = moveOrder[i].slotIndex;
             uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
             if (!_getMonState(config, p, monIndex).isKnockedOut) {
-                _runEffects(battleKey, rng, p, p, EffectStep.AfterMove, "");
+                _runEffectsForMon(battleKey, rng, p, p, EffectStep.AfterMove, "", monIndex);
             }
         }
 
@@ -2432,7 +2441,7 @@ contract Engine is IEngine, MappingAllocator {
             uint256 s = moveOrder[i].slotIndex;
             uint256 monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, p, s);
             if (!_getMonState(config, p, monIndex).isKnockedOut) {
-                _runEffects(battleKey, rng, p, p, EffectStep.RoundEnd, "");
+                _runEffectsForMon(battleKey, rng, p, p, EffectStep.RoundEnd, "", monIndex);
             }
         }
 
