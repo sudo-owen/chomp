@@ -85,7 +85,7 @@ contract DefaultValidator is IValidator {
         returns (bool)
     {
         BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
-        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex0 : ctx.p1ActiveMonIndex0;
 
         if (monToSwitchIndex >= MONS_PER_TEAM) {
             return false;
@@ -103,7 +103,7 @@ contract DefaultValidator is IValidator {
             }
             // For doubles, also check the second slot
             if (ctx.gameMode == GameMode.Doubles) {
-                uint256 activeMonIndex2 = (playerIndex == 0) ? ctx.p0ActiveMonIndex2 : ctx.p1ActiveMonIndex2;
+                uint256 activeMonIndex2 = (playerIndex == 0) ? ctx.p0ActiveMonIndex1 : ctx.p1ActiveMonIndex1;
                 if (monToSwitchIndex == activeMonIndex2) {
                     return false;
                 }
@@ -148,7 +148,7 @@ contract DefaultValidator is IValidator {
         returns (bool)
     {
         BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
-        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex0 : ctx.p1ActiveMonIndex0;
 
         // Enforce a switch IF:
         // - if it is the zeroth turn
@@ -199,7 +199,7 @@ contract DefaultValidator is IValidator {
         uint256 monToSwitchIndex,
         BattleContext memory ctx
     ) internal view returns (bool) {
-        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
+        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex0 : ctx.p1ActiveMonIndex0;
 
         if (monToSwitchIndex >= MONS_PER_TEAM) {
             return false;
@@ -326,9 +326,9 @@ contract DefaultValidator is IValidator {
         returns (uint256)
     {
         if (playerIndex == 0) {
-            return slotIndex == 0 ? ctx.p0ActiveMonIndex : ctx.p0ActiveMonIndex2;
+            return slotIndex == 0 ? ctx.p0ActiveMonIndex0 : ctx.p0ActiveMonIndex1;
         } else {
-            return slotIndex == 0 ? ctx.p1ActiveMonIndex : ctx.p1ActiveMonIndex2;
+            return slotIndex == 0 ? ctx.p1ActiveMonIndex0 : ctx.p1ActiveMonIndex1;
         }
     }
 

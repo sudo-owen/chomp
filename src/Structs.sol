@@ -210,10 +210,10 @@ struct BattleContext {
     uint64 turnId;
     uint8 playerSwitchForTurnFlag;
     uint8 prevPlayerSwitchForTurnFlag;
-    uint8 p0ActiveMonIndex; // Slot 0 active mon for p0
-    uint8 p1ActiveMonIndex; // Slot 0 active mon for p1
-    uint8 p0ActiveMonIndex2; // Slot 1 active mon for p0 (doubles only)
-    uint8 p1ActiveMonIndex2; // Slot 1 active mon for p1 (doubles only)
+    uint8 p0ActiveMonIndex0; // Slot 0 active mon for p0
+    uint8 p1ActiveMonIndex0; // Slot 0 active mon for p1
+    uint8 p0ActiveMonIndex1; // Slot 1 active mon for p0 (doubles only)
+    uint8 p1ActiveMonIndex1; // Slot 1 active mon for p1 (doubles only)
     uint8 slotSwitchFlags; // Per-slot switch flags (doubles)
     GameMode gameMode;
     address validator;

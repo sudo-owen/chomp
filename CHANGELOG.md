@@ -14,7 +14,7 @@ This document summarizes all changes made to implement double battles support.
 #### `src/Structs.sol`
 - **`BattleArgs`** and **`Battle`**: Added `GameMode gameMode` field
 - **`BattleData`**: Added `slotSwitchFlagsAndGameMode` (packed field: lower 4 bits = per-slot switch flags, bit 4 = game mode)
-- **`BattleContext`** / **`BattleConfigView`**: Added `p0ActiveMonIndex2`, `p1ActiveMonIndex2`, `slotSwitchFlags`, `gameMode`
+- **`BattleContext`** / **`BattleConfigView`**: Added `p0ActiveMonIndex0`, `p0ActiveMonIndex1`, `p1ActiveMonIndex0`, `p1ActiveMonIndex1`, `slotSwitchFlags`, `gameMode`
 
 #### `src/Constants.sol`
 - Added `GAME_MODE_BIT`, `SWITCH_FLAGS_MASK`, `ACTIVE_MON_INDEX_MASK` for packed storage

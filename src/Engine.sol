@@ -1924,10 +1924,10 @@ contract Engine is IEngine, MappingAllocator {
         ctx.slotSwitchFlags = slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
 
         // Unified packing: 4 bits per slot (for singles, slot 1 values are 0/unused)
-        ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & ACTIVE_MON_INDEX_MASK);
-        ctx.p0ActiveMonIndex2 = uint8((data.activeMonIndex >> 4) & ACTIVE_MON_INDEX_MASK);
-        ctx.p1ActiveMonIndex = uint8((data.activeMonIndex >> 8) & ACTIVE_MON_INDEX_MASK);
-        ctx.p1ActiveMonIndex2 = uint8((data.activeMonIndex >> 12) & ACTIVE_MON_INDEX_MASK);
+        ctx.p0ActiveMonIndex0 = uint8(data.activeMonIndex & ACTIVE_MON_INDEX_MASK);
+        ctx.p0ActiveMonIndex1 = uint8((data.activeMonIndex >> 4) & ACTIVE_MON_INDEX_MASK);
+        ctx.p1ActiveMonIndex0 = uint8((data.activeMonIndex >> 8) & ACTIVE_MON_INDEX_MASK);
+        ctx.p1ActiveMonIndex1 = uint8((data.activeMonIndex >> 12) & ACTIVE_MON_INDEX_MASK);
 
         ctx.validator = address(config.validator);
         ctx.moveManager = config.moveManager;
