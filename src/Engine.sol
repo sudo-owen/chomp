@@ -826,7 +826,7 @@ contract Engine is IEngine, MappingAllocator {
         if (config.validator.validateSwitch(battleKey, playerIndex, monToSwitchIndex))
         {
             // Only call the internal switch function if the switch is valid
-            _handleSwitch(battleKey, playerIndex, monToSwitchIndex, msg.sender);
+            _handleSwitchForSlot(battleKey, playerIndex, 0, monToSwitchIndex, msg.sender);
 
             // Check for game over and/or KOs
             (uint256 playerSwitchForTurnFlag, bool isGameOver) = _checkForGameOverOrKO(config, battle, playerIndex);
@@ -1057,11 +1057,6 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
-    // Singles switch: delegate to slot-based version with slot 0
-    function _handleSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex, address source) internal {
-        _handleSwitchForSlot(battleKey, playerIndex, 0, monToSwitchIndex, source);
-    }
-
     // Core switch logic shared between singles and doubles
     function _handleSwitchCore(
         bytes32 battleKey,
@@ -1142,7 +1137,7 @@ contract Engine is IEngine, MappingAllocator {
         // otherwise, execute the moveset
         if (moveIndex == SWITCH_MOVE_INDEX) {
             // Handle the switch (extraData contains the mon index to switch to as raw uint240)
-            _handleSwitch(battleKey, playerIndex, uint256(move.extraData), address(0));
+            _handleSwitchForSlot(battleKey, playerIndex, 0, uint256(move.extraData), address(0));
         } else if (moveIndex == NO_OP_MOVE_INDEX) {
             // Emit event and do nothing (e.g. just recover stamina)
             emit MonMove(battleKey, playerIndex, activeMonIndex, moveIndex, move.extraData, staminaCost);
