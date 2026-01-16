@@ -177,11 +177,13 @@ contract Engine is IEngine, MappingAllocator {
         config.koBitmaps = 0;
 
         // Store the battle data with initial state
-        // For doubles: activeMonIndex packs 4 slots (p0s0=0, p0s1=1, p1s0=0, p1s1=1)
-        // For singles: only lower 8 bits used (p0=0, p1=0)
+        // activeMonIndex always uses 4-bit-per-slot packing (unified for singles and doubles):
+        // Bits 0-3: p0 slot 0, Bits 4-7: p0 slot 1, Bits 8-11: p1 slot 0, Bits 12-15: p1 slot 1
+        // For doubles: all 4 slots are active (p0s0=0, p0s1=1, p1s0=0, p1s1=1)
+        // For singles: only slot 0 is used for each player, slot 1 stays 0
         uint16 initialActiveMonIndex = battle.gameMode == GameMode.Doubles
             ? uint16(0) | (uint16(1) << 4) | (uint16(0) << 8) | (uint16(1) << 12) // p0s0=0, p0s1=1, p1s0=0, p1s1=1
-            : uint16(0); // Singles: both players start with mon 0
+            : uint16(0); // Singles: p0s0=0, p1s0=0 (slot 1 unused)
 
         // Pack game mode into slotSwitchFlagsAndGameMode (bit 4 = game mode)
         uint8 slotSwitchFlagsAndGameMode = battle.gameMode == GameMode.Doubles ? GAME_MODE_BIT : 0;
@@ -419,12 +421,12 @@ contract Engine is IEngine, MappingAllocator {
             // For turn 0 only: wait for both mons to be sent in, then handle the ability activateOnSwitch
             // Happens immediately after both mons are sent in, before any other effects
             if (turnId == 0) {
-                uint256 priorityMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
+                uint256 priorityMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, priorityPlayerIndex, 0);
                 Mon memory priorityMon = _getTeamMon(config, priorityPlayerIndex, priorityMonIndex);
                 if (address(priorityMon.ability) != address(0)) {
                     priorityMon.ability.activateOnSwitch(battleKey, priorityPlayerIndex, priorityMonIndex);
                 }
-                uint256 otherMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
+                uint256 otherMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, otherPlayerIndex, 0);
                 Mon memory otherMon = _getTeamMon(config, otherPlayerIndex, otherMonIndex);
                 if (address(otherMon.ability) != address(0)) {
                     otherMon.ability.activateOnSwitch(battleKey, otherPlayerIndex, otherMonIndex);
@@ -1036,9 +1038,9 @@ contract Engine is IEngine, MappingAllocator {
         // No game over - check for KOs and set player switch for turn flag
         playerSwitchForTurnFlag = 2;
 
-        // Use already-loaded KO bitmaps to check active mon KO status
-        uint256 priorityActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, priorityPlayerIndex);
-        uint256 otherActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, otherPlayerIndex);
+        // Use already-loaded KO bitmaps to check active mon KO status (slot 0 for singles)
+        uint256 priorityActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, priorityPlayerIndex, 0);
+        uint256 otherActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, otherPlayerIndex, 0);
         uint256 priorityKOBitmap = priorityPlayerIndex == 0 ? p0KOBitmap : p1KOBitmap;
         uint256 otherKOBitmap = priorityPlayerIndex == 0 ? p1KOBitmap : p0KOBitmap;
         bool isPriorityPlayerActiveMonKnockedOut = (priorityKOBitmap & (1 << priorityActiveMonIndex)) != 0;
@@ -1055,18 +1057,9 @@ contract Engine is IEngine, MappingAllocator {
         }
     }
 
+    // Singles switch: delegate to slot-based version with slot 0
     function _handleSwitch(bytes32 battleKey, uint256 playerIndex, uint256 monToSwitchIndex, address source) internal {
-        BattleData storage battle = battleData[battleKey];
-        uint256 currentActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
-
-        // Run switch-out effects
-        _handleSwitchCore(battleKey, playerIndex, currentActiveMonIndex, monToSwitchIndex, source);
-
-        // Update active mon index (singles packing)
-        battle.activeMonIndex = _setActiveMonIndex(battle.activeMonIndex, playerIndex, monToSwitchIndex);
-
-        // Run switch-in effects
-        _completeSwitchIn(battleKey, playerIndex, monToSwitchIndex);
+        _handleSwitchForSlot(battleKey, playerIndex, 0, monToSwitchIndex, source);
     }
 
     // Core switch logic shared between singles and doubles
@@ -1131,8 +1124,8 @@ contract Engine is IEngine, MappingAllocator {
         uint8 storedMoveIndex = move.packedMoveIndex & MOVE_INDEX_MASK;
         uint8 moveIndex = storedMoveIndex >= SWITCH_MOVE_INDEX ? storedMoveIndex : storedMoveIndex - MOVE_INDEX_OFFSET;
 
-        // Handle shouldSkipTurn flag first and toggle it off if set
-        uint256 activeMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
+        // Handle shouldSkipTurn flag first and toggle it off if set (slot 0 for singles)
+        uint256 activeMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, 0);
         MonState storage currentMonState = _getMonState(config, playerIndex, activeMonIndex);
         if (currentMonState.shouldSkipTurn) {
             currentMonState.shouldSkipTurn = false;
@@ -1213,18 +1206,18 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         uint256 monIndex;
-        // Use explicit monIndex if provided, otherwise calculate from active mon
+        // Use explicit monIndex if provided, otherwise calculate from active mon (slot 0 for singles)
         if (explicitMonIndex != type(uint256).max) {
             monIndex = explicitMonIndex;
         } else if (playerIndex != 2) {
             // Specific player - get their active mon (this takes priority over effectIndex)
-            monIndex = _unpackActiveMonIndex(battle.activeMonIndex, playerIndex);
+            monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, 0);
         } else if (effectIndex == 2) {
             // Global effects with global playerIndex - monIndex doesn't matter for filtering
             monIndex = 0;
         } else {
             // effectIndex is player-specific but playerIndex is global - use effectIndex
-            monIndex = _unpackActiveMonIndex(battle.activeMonIndex, effectIndex);
+            monIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, effectIndex, 0);
         }
 
         // Iterate directly over storage, skipping tombstones
@@ -1375,10 +1368,10 @@ contract Engine is IEngine, MappingAllocator {
         if (battle.winnerIndex != 2) {
             return playerSwitchForTurnFlag;
         }
-        // If non-global effect, check if we should still run if mon is KOed
+        // If non-global effect, check if we should still run if mon is KOed (slot 0 for singles)
         if (effectIndex != 2) {
             bool isMonKOed =
-                _getMonState(config, playerIndex, _unpackActiveMonIndex(battle.activeMonIndex, playerIndex)).isKnockedOut;
+                _getMonState(config, playerIndex, _unpackActiveMonIndexForSlot(battle.activeMonIndex, playerIndex, 0)).isKnockedOut;
             if (isMonKOed && condition == EffectRunCondition.SkipIfGameOverOrMonKO) {
                 return playerSwitchForTurnFlag;
             }
@@ -1402,8 +1395,8 @@ contract Engine is IEngine, MappingAllocator {
         uint8 p0MoveIndex = p0StoredIndex >= SWITCH_MOVE_INDEX ? p0StoredIndex : p0StoredIndex - MOVE_INDEX_OFFSET;
         uint8 p1MoveIndex = p1StoredIndex >= SWITCH_MOVE_INDEX ? p1StoredIndex : p1StoredIndex - MOVE_INDEX_OFFSET;
 
-        uint256 p0ActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, 0);
-        uint256 p1ActiveMonIndex = _unpackActiveMonIndex(battle.activeMonIndex, 1);
+        uint256 p0ActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, 0, 0);
+        uint256 p1ActiveMonIndex = _unpackActiveMonIndexForSlot(battle.activeMonIndex, 1, 0);
         uint256 p0Priority;
         uint256 p1Priority;
 
@@ -1459,29 +1452,6 @@ contract Engine is IEngine, MappingAllocator {
             source = msg.sender;
         }
         return source;
-    }
-
-    /**
-     * - Helper functions for packing/unpacking activeMonIndex
-     */
-    function _packActiveMonIndices(uint8 player0Index, uint8 player1Index) internal pure returns (uint16) {
-        return uint16(player0Index) | (uint16(player1Index) << 8);
-    }
-
-    function _unpackActiveMonIndex(uint16 packed, uint256 playerIndex) internal pure returns (uint256) {
-        if (playerIndex == 0) {
-            return uint256(uint8(packed));
-        } else {
-            return uint256(uint8(packed >> 8));
-        }
-    }
-
-    function _setActiveMonIndex(uint16 packed, uint256 playerIndex, uint256 monIndex) internal pure returns (uint16) {
-        if (playerIndex == 0) {
-            return (packed & 0xFF00) | uint16(uint8(monIndex));
-        } else {
-            return (packed & 0x00FF) | (uint16(uint8(monIndex)) << 8);
-        }
     }
 
     // Helper functions for per-mon effect count packing
@@ -1851,18 +1821,11 @@ contract Engine is IEngine, MappingAllocator {
     function getActiveMonIndexForBattleState(bytes32 battleKey) external view returns (uint256[] memory) {
         BattleData storage data = battleData[battleKey];
         uint16 packed = data.activeMonIndex;
-        bool isDoubles = (data.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
 
+        // Unified packing: always use slot 0 for each player (works for both singles and doubles)
         uint256[] memory result = new uint256[](2);
-        if (isDoubles) {
-            // For doubles, return slot 0 active mon for each player
-            result[0] = _unpackActiveMonIndexForSlot(packed, 0, 0);
-            result[1] = _unpackActiveMonIndexForSlot(packed, 1, 0);
-        } else {
-            // For singles, use original unpacking
-            result[0] = _unpackActiveMonIndex(packed, 0);
-            result[1] = _unpackActiveMonIndex(packed, 1);
-        }
+        result[0] = _unpackActiveMonIndexForSlot(packed, 0, 0);
+        result[1] = _unpackActiveMonIndexForSlot(packed, 1, 0);
         return result;
     }
 
@@ -1877,19 +1840,9 @@ contract Engine is IEngine, MappingAllocator {
         returns (uint256)
     {
         BattleData storage data = battleData[battleKey];
-        uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
-        bool isDoubles = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
-
-        if (isDoubles) {
-            // Doubles: 4 bits per slot
-            // Bits 0-3: p0 slot 0, Bits 4-7: p0 slot 1, Bits 8-11: p1 slot 0, Bits 12-15: p1 slot 1
-            uint256 shift = (playerIndex * 2 + slotIndex) * ACTIVE_MON_INDEX_BITS;
-            return (data.activeMonIndex >> shift) & ACTIVE_MON_INDEX_MASK;
-        } else {
-            // Singles: only slot 0 is valid, 8 bits per player
-            if (slotIndex != 0) return 0;
-            return _unpackActiveMonIndex(data.activeMonIndex, playerIndex);
-        }
+        // Unified packing: 4 bits per slot for both singles and doubles
+        // For singles, slot 1 returns 0 (unused)
+        return _unpackActiveMonIndexForSlot(data.activeMonIndex, playerIndex, slotIndex);
     }
 
     function getPlayerSwitchForTurnFlagForBattleState(bytes32 battleKey) external view returns (uint256) {
@@ -1951,24 +1904,16 @@ contract Engine is IEngine, MappingAllocator {
         ctx.playerSwitchForTurnFlag = data.playerSwitchForTurnFlag;
         ctx.prevPlayerSwitchForTurnFlag = data.prevPlayerSwitchForTurnFlag;
 
-        // Extract game mode and active mon indices based on mode
+        // Extract game mode and active mon indices (unified 4-bit packing for both modes)
         uint8 slotSwitchFlagsAndGameMode = data.slotSwitchFlagsAndGameMode;
         ctx.gameMode = (slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0 ? GameMode.Doubles : GameMode.Singles;
         ctx.slotSwitchFlags = slotSwitchFlagsAndGameMode & SWITCH_FLAGS_MASK;
 
-        if (ctx.gameMode == GameMode.Doubles) {
-            // Doubles: 4 bits per slot
-            ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & ACTIVE_MON_INDEX_MASK);
-            ctx.p0ActiveMonIndex2 = uint8((data.activeMonIndex >> 4) & ACTIVE_MON_INDEX_MASK);
-            ctx.p1ActiveMonIndex = uint8((data.activeMonIndex >> 8) & ACTIVE_MON_INDEX_MASK);
-            ctx.p1ActiveMonIndex2 = uint8((data.activeMonIndex >> 12) & ACTIVE_MON_INDEX_MASK);
-        } else {
-            // Singles: 8 bits per player (backwards compatible)
-            ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & 0xFF);
-            ctx.p1ActiveMonIndex = uint8(data.activeMonIndex >> 8);
-            ctx.p0ActiveMonIndex2 = 0;
-            ctx.p1ActiveMonIndex2 = 0;
-        }
+        // Unified packing: 4 bits per slot (for singles, slot 1 values are 0/unused)
+        ctx.p0ActiveMonIndex = uint8(data.activeMonIndex & ACTIVE_MON_INDEX_MASK);
+        ctx.p0ActiveMonIndex2 = uint8((data.activeMonIndex >> 4) & ACTIVE_MON_INDEX_MASK);
+        ctx.p1ActiveMonIndex = uint8((data.activeMonIndex >> 8) & ACTIVE_MON_INDEX_MASK);
+        ctx.p1ActiveMonIndex2 = uint8((data.activeMonIndex >> 12) & ACTIVE_MON_INDEX_MASK);
 
         ctx.validator = address(config.validator);
         ctx.moveManager = config.moveManager;
@@ -2003,18 +1948,9 @@ contract Engine is IEngine, MappingAllocator {
         BattleData storage data = battleData[battleKey];
         BattleConfig storage config = battleConfig[storageKey];
 
-        // Get active mon indices (doubles-aware)
-        bool isDoubles = (data.slotSwitchFlagsAndGameMode & GAME_MODE_BIT) != 0;
-        uint256 attackerMonIndex;
-        uint256 defenderMonIndex;
-        if (isDoubles) {
-            // For doubles, use slot 0 as default (targeting via extraData handled elsewhere)
-            attackerMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, attackerPlayerIndex, 0);
-            defenderMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, defenderPlayerIndex, 0);
-        } else {
-            attackerMonIndex = _unpackActiveMonIndex(data.activeMonIndex, attackerPlayerIndex);
-            defenderMonIndex = _unpackActiveMonIndex(data.activeMonIndex, defenderPlayerIndex);
-        }
+        // Get active mon indices (unified packing, use slot 0)
+        uint256 attackerMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, attackerPlayerIndex, 0);
+        uint256 defenderMonIndex = _unpackActiveMonIndexForSlot(data.activeMonIndex, defenderPlayerIndex, 0);
 
         ctx.attackerMonIndex = uint8(attackerMonIndex);
         ctx.defenderMonIndex = uint8(defenderMonIndex);
