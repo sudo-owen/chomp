@@ -25,6 +25,9 @@ import {ForceSwitchMove} from "./mocks/ForceSwitchMove.sol";
 import {DoublesForceSwitchMove} from "./mocks/DoublesForceSwitchMove.sol";
 import {DoublesEffectAttack} from "./mocks/DoublesEffectAttack.sol";
 import {InstantDeathEffect} from "./mocks/InstantDeathEffect.sol";
+import {MonIndexTrackingEffect} from "./mocks/MonIndexTrackingEffect.sol";
+import {AfterDamageReboundEffect} from "./mocks/AfterDamageReboundEffect.sol";
+import {EffectApplyingAttack} from "./mocks/EffectApplyingAttack.sol";
 import {IEffect} from "../src/effects/IEffect.sol";
 
 /**
@@ -2621,6 +2624,143 @@ contract DoublesValidationTest is Test {
             1,
             "Bob mon 1 should be KO'd by InstantDeathEffect (validates slot 1 effect runs correctly)"
         );
+    }
+
+    /**
+     * @notice Test that AfterDamage effects run on the correct mon in doubles
+     * @dev Validates fix for issue #3: AfterDamage effects running on wrong mon
+     * This test uses an attack that applies an AfterDamage rebound effect to the target,
+     * then another attack that triggers the effect. If the fix works correctly,
+     * only the mon that has the effect (slot 1) should be healed.
+     */
+    function test_afterDamageEffectsRunOnCorrectMon() public {
+        // Create the rebound effect that heals damage
+        AfterDamageReboundEffect reboundEffect = new AfterDamageReboundEffect(engine);
+
+        // Create an attack that applies the rebound effect to a target slot
+        EffectApplyingAttack effectApplyAttack = new EffectApplyingAttack(
+            engine,
+            IEffect(address(reboundEffect)),
+            EffectApplyingAttack.Args({STAMINA_COST: 1, PRIORITY: 10})  // High priority to apply effect first
+        );
+
+        // Create a targeted attack for dealing damage
+        DoublesTargetedAttack targetedAttack = new DoublesTargetedAttack(
+            engine, typeCalc, DoublesTargetedAttack.Args({TYPE: Type.Fire, BASE_POWER: 30, ACCURACY: 100, STAMINA_COST: 1, PRIORITY: 0})
+        );
+
+        // Create teams where Alice has both attacks
+        IMoveSet[] memory aliceMoves = new IMoveSet[](4);
+        aliceMoves[0] = effectApplyAttack;  // Apply rebound effect
+        aliceMoves[1] = targetedAttack;      // Deal damage
+        aliceMoves[2] = customAttack;
+        aliceMoves[3] = customAttack;
+
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 20, aliceMoves);  // Fast
+        aliceTeam[1] = _createMon(100, 18, aliceMoves);
+        aliceTeam[2] = _createMon(100, 16, aliceMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Turn 1: Alice's slot 0 applies rebound effect to Bob's slot 1 (mon index 1)
+        // Alice's slot 1 does nothing
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, 1,                      // Alice slot 0: apply effect to Bob's slot 1
+            NO_OP_MOVE_INDEX, 0,       // Alice slot 1: no-op
+            NO_OP_MOVE_INDEX, 0,       // Bob slot 0: no-op
+            NO_OP_MOVE_INDEX, 0        // Bob slot 1: no-op
+        );
+
+        // Get HP deltas for both of Bob's mons after effect is applied
+        int256 bobMon0HpBefore = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        int256 bobMon1HpBefore = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Hp);
+
+        // Turn 2: Alice attacks Bob's slot 1 (which has the rebound effect)
+        // The rebound effect should heal the damage, but ONLY for mon 1
+        _doublesCommitRevealExecute(
+            battleKey,
+            1, 1,                      // Alice slot 0: attack Bob's slot 1
+            NO_OP_MOVE_INDEX, 0,       // Alice slot 1: no-op
+            NO_OP_MOVE_INDEX, 0,       // Bob slot 0: no-op
+            NO_OP_MOVE_INDEX, 0        // Bob slot 1: no-op
+        );
+
+        // Get HP deltas after attack
+        int256 bobMon0HpAfter = engine.getMonStateForBattle(battleKey, 1, 0, MonStateIndexName.Hp);
+        int256 bobMon1HpAfter = engine.getMonStateForBattle(battleKey, 1, 1, MonStateIndexName.Hp);
+
+        // Bob's mon 0 (slot 0) should NOT have been affected by the rebound effect
+        assertEq(bobMon0HpAfter, bobMon0HpBefore, "Bob mon 0 HP should be unchanged");
+
+        // Bob's mon 1 (slot 1) should have taken damage and then healed it back
+        // With the rebound effect, the net HP delta should be 0 (or close to it)
+        assertEq(bobMon1HpAfter, bobMon1HpBefore, "Bob mon 1 should be fully healed by rebound effect");
+    }
+
+    /**
+     * @notice Test that move validation uses the correct slot's mon
+     * @dev Validates fix for issue #2: move validation checking wrong mon's stamina
+     * This test sets up a situation where slot 0 has low stamina and slot 1 has full stamina.
+     * If the bug existed, slot 1's move would be incorrectly rejected due to slot 0's low stamina.
+     */
+    function test_moveValidationUsesCorrectSlotMon() public {
+        // Create a high stamina cost attack
+        CustomAttack highStaminaAttack = new CustomAttack(
+            engine, typeCalc, CustomAttack.Args({TYPE: Type.Fire, BASE_POWER: 10, ACCURACY: 100, STAMINA_COST: 8, PRIORITY: 0})
+        );
+
+        // Create teams where Alice has the high stamina attack
+        IMoveSet[] memory aliceMoves = new IMoveSet[](4);
+        aliceMoves[0] = highStaminaAttack;  // 8 stamina cost
+        aliceMoves[1] = customAttack;        // 1 stamina cost
+        aliceMoves[2] = customAttack;
+        aliceMoves[3] = customAttack;
+
+        // Create mons with 10 stamina
+        Mon[] memory aliceTeam = new Mon[](3);
+        aliceTeam[0] = _createMon(100, 20, aliceMoves);  // This mon will use high stamina attack first
+        aliceTeam[1] = _createMon(100, 18, aliceMoves);  // This mon still has full stamina
+        aliceTeam[2] = _createMon(100, 16, aliceMoves);
+
+        defaultRegistry.setTeam(ALICE, aliceTeam);
+
+        bytes32 battleKey = _startDoublesBattle();
+        vm.warp(block.timestamp + 1);
+        _doInitialSwitch(battleKey);
+
+        // Turn 1: Alice's slot 0 uses the high stamina attack (costs 8)
+        // Alice's slot 1 does nothing (saves stamina)
+        _doublesCommitRevealExecute(
+            battleKey,
+            0, 0,                      // Alice slot 0: high stamina attack
+            NO_OP_MOVE_INDEX, 0,       // Alice slot 1: no-op
+            NO_OP_MOVE_INDEX, 0,       // Bob slot 0: no-op
+            NO_OP_MOVE_INDEX, 0        // Bob slot 1: no-op
+        );
+
+        // Now Alice's slot 0 has ~2 stamina (10 - 8), slot 1 has ~10 stamina
+        // Turn 2: Alice's slot 1 should be able to use the high stamina attack
+        // even though slot 0 doesn't have enough stamina
+        // If the bug existed, this would fail validation
+        _doublesCommitRevealExecute(
+            battleKey,
+            NO_OP_MOVE_INDEX, 0,       // Alice slot 0: no-op (not enough stamina)
+            0, 0,                      // Alice slot 1: high stamina attack (should work!)
+            NO_OP_MOVE_INDEX, 0,       // Bob slot 0: no-op
+            NO_OP_MOVE_INDEX, 0        // Bob slot 1: no-op
+        );
+
+        // If we got here without revert, the validation correctly used slot 1's stamina
+        // Let's also verify the stamina was actually deducted from slot 1's mon
+        int256 aliceMon1Stamina = engine.getMonStateForBattle(battleKey, 0, 1, MonStateIndexName.Stamina);
+        // Mon 1 used high stamina attack (8 cost), so delta should be -8 (plus any regen)
+        assertLt(aliceMon1Stamina, 0, "Alice mon 1 should have negative stamina delta from using attack");
     }
 }
 

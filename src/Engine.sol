@@ -612,13 +612,15 @@ contract Engine is IEngine, MappingAllocator {
         );
 
         // Trigger OnUpdateMonState lifecycle hook
+        // Pass explicit monIndex so effects run on the correct mon (not just slot 0)
         _runEffects(
             battleKey,
             tempRNG,
             playerIndex,
             playerIndex,
             EffectStep.OnUpdateMonState,
-            abi.encode(playerIndex, monIndex, stateVarIndex, valueToAdd)
+            abi.encode(playerIndex, monIndex, stateVarIndex, valueToAdd),
+            monIndex
         );
     }
 
@@ -810,7 +812,8 @@ contract Engine is IEngine, MappingAllocator {
             _setMonKO(config, playerIndex, monIndex);
         }
         emit DamageDeal(battleKey, playerIndex, monIndex, damage, _getUpstreamCallerAndResetValue(), currentStep);
-        _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage));
+        // Pass explicit monIndex so effects run on the correct mon (not just slot 0)
+        _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.AfterDamage, abi.encode(damage), monIndex);
     }
 
     function switchActiveMon(uint256 playerIndex, uint256 monToSwitchIndex) external {
@@ -1073,9 +1076,10 @@ contract Engine is IEngine, MappingAllocator {
         emit MonSwitch(battleKey, playerIndex, monToSwitchIndex, source);
 
         // If the current mon is not KO'ed, run switch-out effects
+        // Pass explicit monIndex so effects run on the correct mon (not just slot 0)
         if (!currentMonState.isKnockedOut) {
-            _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "");
-            _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchOut, "");
+            _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchOut, "", currentActiveMonIndex);
+            _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchOut, "", currentActiveMonIndex);
         }
 
         // Note: Caller is responsible for updating activeMonIndex with appropriate packing
@@ -1089,10 +1093,11 @@ contract Engine is IEngine, MappingAllocator {
         BattleConfig storage config = battleConfig[storageKeyForWrite];
 
         // Run onMonSwitchIn hook for local effects
-        _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "");
+        // Pass explicit monIndex so effects run on the correct mon (not just slot 0)
+        _runEffects(battleKey, tempRNG, playerIndex, playerIndex, EffectStep.OnMonSwitchIn, "", monToSwitchIndex);
 
         // Run onMonSwitchIn hook for global effects
-        _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "");
+        _runEffects(battleKey, tempRNG, 2, playerIndex, EffectStep.OnMonSwitchIn, "", monToSwitchIndex);
 
         // Run ability for the newly switched in mon
         Mon memory mon = _getTeamMon(config, playerIndex, monToSwitchIndex);
@@ -1147,7 +1152,8 @@ contract Engine is IEngine, MappingAllocator {
             // Call validateSpecificMoveSelection again from the validator to ensure that it is still valid to execute
             // If not, then we just return early
             // Handles cases where e.g. some condition outside of the player's control leads to an invalid move
-            if (!config.validator.validateSpecificMoveSelection(battleKey, moveIndex, playerIndex, move.extraData))
+            // Singles always uses slot 0
+            if (!config.validator.validateSpecificMoveSelection(battleKey, moveIndex, playerIndex, 0, move.extraData))
             {
                 return playerSwitchForTurnFlag;
             }
@@ -1186,6 +1192,19 @@ contract Engine is IEngine, MappingAllocator {
     ) internal {
         // Default: calculate monIndex from active mon (singles behavior)
         _runEffectsForMon(battleKey, rng, effectIndex, playerIndex, round, extraEffectsData, type(uint256).max);
+    }
+
+    // Overload with explicit monIndex for doubles-aware effect execution
+    function _runEffects(
+        bytes32 battleKey,
+        uint256 rng,
+        uint256 effectIndex,
+        uint256 playerIndex,
+        EffectStep round,
+        bytes memory extraEffectsData,
+        uint256 monIndex
+    ) internal {
+        _runEffectsForMon(battleKey, rng, effectIndex, playerIndex, round, extraEffectsData, monIndex);
     }
 
     function _runEffectsForMon(
@@ -2187,8 +2206,8 @@ contract Engine is IEngine, MappingAllocator {
         } else if (moveIndex == NO_OP_MOVE_INDEX) {
             emit MonMove(battleKey, playerIndex, activeMonIndex, moveIndex, move.extraData, staminaCost);
         } else {
-            // Validate move is still valid
-            if (!config.validator.validateSpecificMoveSelection(battleKey, moveIndex, playerIndex, move.extraData)) {
+            // Validate move is still valid (pass slotIndex for correct mon lookup in doubles)
+            if (!config.validator.validateSpecificMoveSelection(battleKey, moveIndex, playerIndex, slotIndex, move.extraData)) {
                 return false;
             }
 

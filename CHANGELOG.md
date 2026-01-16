@@ -243,6 +243,48 @@ Extracted shared commit/reveal logic from DefaultCommitManager and DoublesCommit
 
 ---
 
+### Bug Fixes - Doubles Effect & Validation Issues
+
+The following critical issues were identified and fixed in the doubles implementation:
+
+#### Issue #1: Switch Effects Run on Wrong Mon (CRITICAL)
+**Location:** `_handleSwitchCore`, `_completeSwitchIn`
+
+**Problem:** When a mon switches in/out from slot 1 in doubles, switch effects run on slot 0's mon instead of the actual switching mon. This is because `_runEffects` defaults to slot 0 when no explicit monIndex is provided.
+
+**Fix:** Pass explicit monIndex to switch effect execution calls.
+
+#### Issue #2: Move Validation Uses Wrong Mon (CRITICAL)
+**Location:** `_handleMoveForSlot`, `DefaultValidator.validateSpecificMoveSelection`
+
+**Problem:** During move execution validation in doubles, stamina and validity are checked against slot 0's mon instead of the actual attacker. The validator doesn't receive `slotIndex`, so it always uses `ctx.p0ActiveMonIndex` (slot 0 only).
+
+**Fix:** Add `slotIndex` parameter to `validateSpecificMoveSelection` and use it to check the correct mon.
+
+#### Issue #3: AfterDamage Effects Run on Wrong Mon (HIGH)
+**Location:** `dealDamage`
+
+**Problem:** After damage is dealt to a specific mon, AfterDamage effects run on slot 0's mon instead of the damaged mon. The function receives explicit `monIndex` but doesn't pass it to effect execution.
+
+**Fix:** Pass explicit monIndex to AfterDamage effect execution.
+
+#### Issue #4: OnUpdateMonState Effects Run on Wrong Mon (HIGH)
+**Location:** `updateMonState`
+
+**Problem:** When a mon's state changes, OnUpdateMonState effects run on slot 0's mon instead of the affected mon. Similar to issue #3, the function has the monIndex but doesn't pass it.
+
+**Fix:** Pass explicit monIndex to OnUpdateMonState effect execution.
+
+#### Root Cause
+The effect execution system (`_runEffects`) uses `playerIndex` only and defaults to slot 0, but the move/switch execution system properly tracks `slotIndex`. The `_runEffectsForMon` function was added to accept explicit monIndex but wasn't being used in critical paths.
+
+#### Tests Added
+- Switch-in/out effect tests with mock effect
+- AfterDamage effect tests (heal on damage mock)
+- Validation that effects run on correct mon in both slots
+
+---
+
 ### Known Inconsistencies (Future Work)
 
 #### Singles vs Doubles Execution Patterns

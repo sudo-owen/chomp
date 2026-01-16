@@ -36,10 +36,12 @@ interface IValidator {
     ) external returns (bool);
 
     // Validates that a move selection is valid (specifically wrt stamina)
+    // slotIndex is the slot (0 or 1) of the mon making the move in doubles
     function validateSpecificMoveSelection(
         bytes32 battleKey,
         uint256 moveIndex,
         uint256 playerIndex,
+        uint256 slotIndex,
         uint240 extraData
     ) external returns (bool);
 

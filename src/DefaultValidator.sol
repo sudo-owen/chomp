@@ -116,10 +116,12 @@ contract DefaultValidator is IValidator {
         bytes32 battleKey,
         uint256 moveIndex,
         uint256 playerIndex,
+        uint256 slotIndex,
         uint240 extraData
     ) public view returns (bool) {
         BattleContext memory ctx = ENGINE.getBattleContext(battleKey);
-        uint256 activeMonIndex = (playerIndex == 0) ? ctx.p0ActiveMonIndex : ctx.p1ActiveMonIndex;
+        // Use slot-aware active mon index lookup for doubles support
+        uint256 activeMonIndex = _getActiveMonIndexFromContext(ctx, playerIndex, slotIndex);
 
         // A move cannot be selected if its stamina costs more than the mon's current stamina
         IMoveSet moveSet = ENGINE.getMoveForMonForBattle(battleKey, playerIndex, activeMonIndex, moveIndex);
